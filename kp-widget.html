@@ -12,15 +12,8 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v15';
-
-  /*
-   * Открываем новый автоматический вход,
-   * а не старый kp.html напрямую.
-   */
-  var CONSTRUCTOR =
-    'https://alenik9024-cell.github.io/kp/kp-auto.html';
-
+  var VERSION = 'v16';
+  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html';
   var STORAGE_KEY = 'kp_current_deal_context';
 
   var w = window.EnvyCrmWidget;
@@ -43,29 +36,101 @@
       return String(value).trim();
     }
 
+    if (Array.isArray(value)) {
+      for (var i = 0; i < value.length; i++) {
+        var item = scalar(value[i]);
+
+        if (item) {
+          return item;
+        }
+      }
+
+      return '';
+    }
+
     if (typeof value === 'object') {
-      if (value.value !== undefined && value.value !== null) {
-        return scalar(value.value);
+      var keys = [
+        'value',
+        'phone',
+        'client_phone',
+        'mobile_phone',
+        'client_name',
+        'customer_name',
+        'name',
+        'result'
+      ];
+
+      for (var j = 0; j < keys.length; j++) {
+        if (value[keys[j]] !== undefined && value[keys[j]] !== null) {
+          var result = scalar(value[keys[j]]);
+
+          if (result) {
+            return result;
+          }
+        }
+      }
+    }
+
+    return '';
+  }
+
+  function findByInputId(data, inputId, visited) {
+    if (!data || typeof data !== 'object') {
+      return '';
+    }
+
+    visited = visited || [];
+
+    if (visited.indexOf(data) !== -1) {
+      return '';
+    }
+
+    visited.push(data);
+
+    if (
+      data.input_id !== undefined &&
+      String(data.input_id) === String(inputId)
+    ) {
+      return scalar(data.value);
+    }
+
+    if (
+      data.id !== undefined &&
+      String(data.id) === String(inputId) &&
+      data.value !== undefined
+    ) {
+      return scalar(data.value);
+    }
+
+    if (Array.isArray(data)) {
+      for (var i = 0; i < data.length; i++) {
+        var arrayResult = findByInputId(
+          data[i],
+          inputId,
+          visited
+        );
+
+        if (arrayResult) {
+          return arrayResult;
+        }
       }
 
-      if (value.phone !== undefined && value.phone !== null) {
-        return scalar(value.phone);
+      return '';
+    }
+
+    for (var key in data) {
+      if (!Object.prototype.hasOwnProperty.call(data, key)) {
+        continue;
       }
 
-      if (value.client_name !== undefined && value.client_name !== null) {
-        return scalar(value.client_name);
-      }
+      var nestedResult = findByInputId(
+        data[key],
+        inputId,
+        visited
+      );
 
-      if (value.name !== undefined && value.name !== null) {
-        return scalar(value.name);
-      }
-
-      if (value.data !== undefined && value.data !== null) {
-        return scalar(value.data);
-      }
-
-      if (value.result !== undefined && value.result !== null) {
-        return scalar(value.result);
+      if (nestedResult) {
+        return nestedResult;
       }
     }
 
@@ -73,7 +138,19 @@
   }
 
   function getDealObject(deal) {
-    return deal && deal.result ? deal.result : (deal || {});
+    if (!deal || typeof deal !== 'object') {
+      return {};
+    }
+
+    if (deal.result && typeof deal.result === 'object') {
+      return deal.result;
+    }
+
+    if (deal.deal && typeof deal.deal === 'object') {
+      return deal.deal;
+    }
+
+    return deal;
   }
 
   function getDealId(deal) {
@@ -82,11 +159,12 @@
     return String(
       d.id ||
       d.deal_id ||
+      (d.deal && d.deal.id) ||
       ''
     );
   }
 
-  function getClientNameFromDeal(deal) {
+  function getNameFromDeal(deal) {
     var d = getDealObject(deal);
 
     var name = scalar(
@@ -127,13 +205,7 @@
     var contacts = d.contacts || [];
 
     for (var i = 0; i < contacts.length; i++) {
-      var contact = contacts[i] || {};
-
-      phone = scalar(
-        contact.phone ||
-        contact.mobile_phone ||
-        contact.value
-      );
+      phone = scalar(contacts[i]);
 
       if (phone && /\d{5,}/.test(phone)) {
         return phone;
@@ -143,29 +215,35 @@
     return '';
   }
 
-  function getClientValue(inputId) {
-    if (!w.getClientValue) {
-      return Promise.resolve('');
-    }
-
-    return w.getClientValue({
-      input_id: inputId,
-      type: 'service'
-    })
-      .then(function (result) {
-        return scalar(result);
-      })
-      .catch(function () {
+  function clientValue(inputId) {
+    if (w.getClientValue) {
+      return w.getClientValue({
+        input_id: inputId,
+        type: 'service'
+      }).then(function (data) {
+        return scalar(data);
+      }).catch(function () {
         return '';
       });
+    }
+
+    if (w.getClientValues) {
+      return w.getClientValues().then(function (data) {
+        return findByInputId(data, inputId);
+      }).catch(function () {
+        return '';
+      });
+    }
+
+    return Promise.resolve('');
   }
 
-  function getProposalNumber(dealId) {
-    var now = new Date();
+  function proposalNumber(dealId) {
+    var d = new Date();
 
-    var day = String(now.getDate()).padStart(2, '0');
-    var month = String(now.getMonth() + 1).padStart(2, '0');
-    var year = now.getFullYear();
+    var day = String(d.getDate()).padStart(2, '0');
+    var month = String(d.getMonth() + 1).padStart(2, '0');
+    var year = d.getFullYear();
 
     return 'КП-' + dealId + '/' + day + '.' + month + '.' + year;
   }
@@ -179,49 +257,47 @@
 
       log('контекст сохранён', context);
     } catch (error) {
-      log('ошибка сохранения контекста', error);
+      log('ошибка localStorage', error);
     }
   }
 
-  function getCurrentContext() {
-    return w.getDeal()
-      .then(function (deal) {
-        deal = deal || {};
+  function getContext() {
+    if (!w.getDeal) {
+      return Promise.reject(new Error('getDeal недоступен'));
+    }
 
-        var dealId = getDealId(deal);
-        var clientName = getClientNameFromDeal(deal);
-        var phone = getPhoneFromDeal(deal);
+    return w.getDeal().then(function (deal) {
+      var dealId = getDealId(deal);
+      var name = getNameFromDeal(deal);
+      var phone = getPhoneFromDeal(deal);
 
-        var namePromise = clientName
-          ? Promise.resolve(clientName)
-          : getClientValue(1001);
+      var namePromise = name
+        ? Promise.resolve(name)
+        : clientValue(1001);
 
-        var phonePromise = phone
-          ? Promise.resolve(phone)
-          : getClientValue(1002);
+      var phonePromise = phone
+        ? Promise.resolve(phone)
+        : clientValue(1002);
 
-        return Promise.all([
-          namePromise,
-          phonePromise
-        ]).then(function (values) {
-          return {
-            dealId: dealId,
-            clientName: values[0] || '',
-            phone: values[1] || '',
-            proposalNumber: getProposalNumber(dealId),
-            updatedAt: Date.now()
-          };
-        });
+      return Promise.all([
+        namePromise,
+        phonePromise
+      ]).then(function (values) {
+        return {
+          token: '',
+          dealId: dealId,
+          clientName: values[0] || '',
+          phone: values[1] || '',
+          proposalNumber: proposalNumber(dealId),
+          updatedAt: Date.now()
+        };
       });
+    });
   }
 
   function openConstructor() {
     var token = 'kp_' + Date.now();
 
-    /*
-     * Сначала сохраняем пустой контекст,
-     * затем сразу открываем окно.
-     */
     saveContext({
       token: token,
       dealId: '',
@@ -232,21 +308,17 @@
     });
 
     var url =
-      CONSTRUCTOR +
+      AUTO_URL +
       '?token=' +
       encodeURIComponent(token);
 
     var iframe =
-      '<iframe ' +
-      'src="' + url + '" ' +
+      '<iframe src="' + url + '" ' +
       'style="width:100%;height:calc(100vh - 60px);min-height:650px;border:0" ' +
-      'allowfullscreen>' +
-      '</iframe>';
-
-    log('открываю автоматический конструктор');
+      'allowfullscreen></iframe>';
 
     /*
-     * Открываем сразу, не ожидая getDeal().
+     * Открываем сразу.
      */
     try {
       if (w.openPage) {
@@ -277,21 +349,20 @@
         window.open(url, '_blank');
       }
     } catch (error) {
-      log('ошибка открытия конструктора', error);
+      log('ошибка открытия', error);
       window.open(url, '_blank');
     }
 
     /*
-     * После открытия получаем данные текущей сделки.
-     * kp-auto.html увидит обновление через localStorage.
+     * Получаем данные текущей сделки после открытия.
      */
-    getCurrentContext()
+    getContext()
       .then(function (context) {
         context.token = token;
         saveContext(context);
       })
       .catch(function (error) {
-        log('не удалось получить данные сделки', error);
+        log('данные сделки не получены', error);
       });
   }
 
@@ -302,13 +373,12 @@
       return;
     }
 
-    log('нажата кнопка «Сформировать КП»');
+    log('кнопка нажата');
     openConstructor();
   }, false);
 
   /*
-   * Убираем старые пункты бокового меню,
-   * если CRM ещё держит их в кэше.
+   * Удаляем старые пункты бокового меню.
    */
   if (w.closeWidget) {
     try {
@@ -327,7 +397,7 @@
   }
 
   /*
-   * Регистрируем только одну кнопку сделки.
+   * Регистрируем только одну кнопку в карточке сделки.
    */
   try {
     w.init({
@@ -346,9 +416,9 @@
       }
     });
 
-    log('зарегистрирована одна кнопка');
+    log('кнопка зарегистрирована');
   } catch (error) {
-    log('ошибка регистрации кнопки', error);
+    log('ошибка регистрации', error);
   }
 })();
 </script>
