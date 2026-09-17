@@ -15,7 +15,7 @@
       background: #070a10;
     }
 
-    #constructor {
+    #kp-frame {
       display: block;
       width: 100%;
       height: 100%;
@@ -27,7 +27,7 @@
 <body>
 
 <iframe
-  id="constructor"
+  id="kp-frame"
   src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1"
   title="Конструктор КП">
 </iframe>
@@ -36,17 +36,25 @@
 (function () {
   'use strict';
 
-  var params = new URLSearchParams(window.location.search);
+  var params = new URLSearchParams(
+    window.location.search
+  );
+
   var tokenFromUrl = params.get('token') || '';
   var STORAGE_KEY = 'kp_current_deal_context';
 
-  var frame = document.getElementById('constructor');
-
-  var nameWasSet = false;
-  var phoneWasSet = false;
-  var numberWasSet = false;
+  var frame = document.getElementById('kp-frame');
 
   var activeToken = '';
+  var nameField = null;
+  var phoneField = null;
+  var numberField = null;
+
+  var nameChangedByUser = false;
+  var phoneChangedByUser = false;
+  var numberChangedByUser = false;
+
+  var writing = false;
 
   function readContext() {
     try {
@@ -72,14 +80,22 @@
     }
   }
 
-  function constructorDocument() {
+  function getDocument() {
     try {
       return frame.contentDocument ||
-        (frame.contentWindow && frame.contentWindow.document) ||
+        frame.contentWindow.document ||
         null;
     } catch (error) {
       return null;
     }
+  }
+
+  function fields(doc) {
+    return Array.prototype.slice.call(
+      doc.querySelectorAll(
+        'input, textarea, [contenteditable="true"]'
+      )
+    );
   }
 
   function valueOf(element) {
@@ -91,70 +107,15 @@
       element.matches &&
       element.matches('[contenteditable="true"]')
     ) {
-      return String(element.textContent || '').trim();
+      return String(
+        element.textContent || ''
+      ).trim();
     }
 
     return String(element.value || '').trim();
   }
 
-  function fire(element) {
-    if (!element) {
-      return;
-    }
-
-    element.dispatchEvent(new Event('input', {
-      bubbles: true
-    }));
-
-    element.dispatchEvent(new Event('change', {
-      bubbles: true
-    }));
-
-    element.dispatchEvent(new Event('blur', {
-      bubbles: true
-    }));
-  }
-
-  function setValue(element, value) {
-    if (!element || !value) {
-      return;
-    }
-
-    if (
-      element.matches &&
-      element.matches('[contenteditable="true"]')
-    ) {
-      element.textContent = value;
-      fire(element);
-      return;
-    }
-
-    /*
-     * Используем настоящий setter поля.
-     * Это важно для внутренней логики конструктора.
-     */
-    var prototype = Object.getPrototypeOf(element);
-    var descriptor = prototype &&
-      Object.getOwnPropertyDescriptor(prototype, 'value');
-
-    if (descriptor && descriptor.set) {
-      descriptor.set.call(element, value);
-    } else {
-      element.value = value;
-    }
-
-    fire(element);
-  }
-
-  function allFields(doc) {
-    return Array.prototype.slice.call(
-      doc.querySelectorAll(
-        'input, textarea, [contenteditable="true"]'
-      )
-    );
-  }
-
-  function surroundingText(element) {
+  function description(element) {
     if (!element) {
       return '';
     }
@@ -175,7 +136,7 @@
 
     var parent = element.parentElement;
 
-    for (var j = 0; j < 5 && parent; j++) {
+    for (var j = 0; j < 4 && parent; j++) {
       result += ' ' + String(parent.innerText || '');
       parent = parent.parentElement;
     }
@@ -185,7 +146,7 @@
       .toLowerCase();
   }
 
-  function findFieldByLabel(doc, words, excluded) {
+  function fieldFromLabel(doc, words, excluded) {
     var labels = Array.prototype.slice.call(
       doc.querySelectorAll('label')
     );
@@ -198,11 +159,11 @@
         .trim()
         .toLowerCase();
 
-      var hasWord = words.some(function (word) {
+      var found = words.some(function (word) {
         return labelText.indexOf(word) !== -1;
       });
 
-      if (!hasWord) {
+      if (!found) {
         continue;
       }
 
@@ -263,33 +224,33 @@
       return direct;
     }
 
-    var field = findFieldByLabel(
+    var labelled = fieldFromLabel(
       doc,
       ['телефон клиента'],
       ['контакт']
     );
 
-    if (field) {
-      return field;
+    if (labelled) {
+      return labelled;
     }
 
-    var fields = allFields(doc);
+    var list = fields(doc);
 
-    for (var i = 0; i < fields.length; i++) {
-      var description = surroundingText(fields[i]);
+    for (var i = 0; i < list.length; i++) {
+      var text = description(list[i]);
 
       if (
-        description.indexOf('телефон клиента') !== -1 ||
-        description.indexOf('client_phone') !== -1
+        text.indexOf('телефон клиента') !== -1 ||
+        text.indexOf('client_phone') !== -1
       ) {
-        return fields[i];
+        return list[i];
       }
     }
 
     return null;
   }
 
-  function findClientNameField(doc) {
+  function findNameField(doc) {
     var direct =
       doc.querySelector('#clientName') ||
       doc.querySelector('#customerName') ||
@@ -301,42 +262,42 @@
       return direct;
     }
 
-    var field = findFieldByLabel(
+    var labelled = fieldFromLabel(
       doc,
       ['кому', 'заказчик'],
       ['телефон', 'контакт', 'исполнитель']
     );
 
-    if (field) {
-      return field;
+    if (labelled) {
+      return labelled;
     }
 
-    var fields = allFields(doc);
+    var list = fields(doc);
 
-    for (var i = 0; i < fields.length; i++) {
-      var description = surroundingText(fields[i]);
+    for (var i = 0; i < list.length; i++) {
+      var text = description(list[i]);
 
-      var looksLikeName =
-        description.indexOf('кому') !== -1 ||
-        description.indexOf('заказчик') !== -1 ||
-        description.indexOf('client_name') !== -1 ||
-        description.indexOf('customer_name') !== -1;
+      var isName =
+        text.indexOf('кому') !== -1 ||
+        text.indexOf('заказчик') !== -1 ||
+        text.indexOf('client_name') !== -1 ||
+        text.indexOf('customer_name') !== -1;
 
-      var looksLikeAnotherField =
-        description.indexOf('телефон') !== -1 ||
-        description.indexOf('контакт') !== -1 ||
-        description.indexOf('исполнитель') !== -1 ||
-        description.indexOf('от кого') !== -1;
+      var isOther =
+        text.indexOf('телефон') !== -1 ||
+        text.indexOf('контакт') !== -1 ||
+        text.indexOf('исполнитель') !== -1 ||
+        text.indexOf('от кого') !== -1;
 
-      if (looksLikeName && !looksLikeAnotherField) {
-        return fields[i];
+      if (isName && !isOther) {
+        return list[i];
       }
     }
 
     return null;
   }
 
-  function findProposalNumberField(doc) {
+  function findNumberField(doc) {
     var direct =
       doc.querySelector('#proposalNumber') ||
       doc.querySelector('#kpNumber') ||
@@ -347,56 +308,132 @@
       return direct;
     }
 
-    var field = findFieldByLabel(
+    var labelled = fieldFromLabel(
       doc,
       ['номер кп', '№ кп'],
       ['телефон']
     );
 
-    if (field) {
-      return field;
+    if (labelled) {
+      return labelled;
     }
 
-    var fields = allFields(doc);
+    var list = fields(doc);
 
-    for (var i = 0; i < fields.length; i++) {
-      var description = surroundingText(fields[i]);
+    for (var i = 0; i < list.length; i++) {
+      var text = description(list[i]);
 
       if (
-        description.indexOf('номер кп') !== -1 ||
-        description.indexOf('proposal_number') !== -1 ||
-        description.indexOf('kp_number') !== -1
+        text.indexOf('номер кп') !== -1 ||
+        text.indexOf('proposal_number') !== -1 ||
+        text.indexOf('kp_number') !== -1
       ) {
-        return fields[i];
+        return list[i];
       }
     }
 
     return null;
   }
 
-  function hideManualControls(doc) {
+  function trigger(element) {
+    element.dispatchEvent(new Event('input', {
+      bubbles: true
+    }));
+
+    element.dispatchEvent(new Event('change', {
+      bubbles: true
+    }));
+
+    element.dispatchEvent(new Event('blur', {
+      bubbles: true
+    }));
+  }
+
+  function setValue(element, value) {
+    if (!element || !value) {
+      return;
+    }
+
+    writing = true;
+
+    try {
+      if (
+        element.matches &&
+        element.matches('[contenteditable="true"]')
+      ) {
+        element.textContent = value;
+      } else {
+        var prototype = Object.getPrototypeOf(element);
+        var descriptor = prototype &&
+          Object.getOwnPropertyDescriptor(
+            prototype,
+            'value'
+          );
+
+        if (descriptor && descriptor.set) {
+          descriptor.set.call(element, value);
+        } else {
+          element.value = value;
+        }
+      }
+
+      trigger(element);
+    } finally {
+      setTimeout(function () {
+        writing = false;
+      }, 0);
+    }
+  }
+
+  function watchField(element, type) {
+    if (!element || element.__kpWatch === type) {
+      return;
+    }
+
+    element.__kpWatch = type;
+
+    element.addEventListener('input', function () {
+      if (writing) {
+        return;
+      }
+
+      if (type === 'name') {
+        nameChangedByUser = true;
+      }
+
+      if (type === 'phone') {
+        phoneChangedByUser = true;
+      }
+
+      if (type === 'number') {
+        numberChangedByUser = true;
+      }
+    }, false);
+  }
+
+  function hideExtraButtons(doc) {
     var buttons = Array.prototype.slice.call(
       doc.querySelectorAll('button')
     );
 
     buttons.forEach(function (button) {
-      var title = String(button.innerText || '')
+      var text = String(button.innerText || '')
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase();
 
       if (
-        title.indexOf('найти поля') !== -1 ||
-        title.indexOf('проверить api') !== -1 ||
-        title.indexOf('сохранить настройки') !== -1
+        text.indexOf('найти поля') !== -1 ||
+        text.indexOf('проверить api') !== -1 ||
+        text.indexOf('сохранить настройки') !== -1
       ) {
         button.style.display = 'none';
       }
     });
   }
 
-  function applyContext() {
-    var doc = constructorDocument();
+  function apply() {
+    var doc = getDocument();
 
     if (!doc || !doc.body) {
       return;
@@ -411,67 +448,66 @@
     if (activeToken !== context.token) {
       activeToken = context.token || String(Date.now());
 
-      nameWasSet = false;
-      phoneWasSet = false;
-      numberWasSet = false;
+      nameChangedByUser = false;
+      phoneChangedByUser = false;
+      numberChangedByUser = false;
     }
 
-    var nameField = findClientNameField(doc);
-    var phoneField = findPhoneField(doc);
-    var numberField = findProposalNumberField(doc);
+    nameField = findNameField(doc);
+    phoneField = findPhoneField(doc);
+    numberField = findNumberField(doc);
+
+    watchField(nameField, 'name');
+    watchField(phoneField, 'phone');
+    watchField(numberField, 'number');
 
     /*
-     * Имя заполняется один раз.
-     * После заполнения его можно свободно редактировать.
+     * Подставляем имя, пока пользователь сам его не изменил.
+     * Если CRM перерисовала поле и очистила его,
+     * значение будет вставлено повторно.
      */
     if (
-      !nameWasSet &&
       nameField &&
-      context.clientName
+      context.clientName &&
+      !nameChangedByUser &&
+      valueOf(nameField) !== context.clientName
     ) {
       setValue(nameField, context.clientName);
-      nameWasSet = true;
     }
 
-    /*
-     * Телефон заполняется автоматически.
-     * Его можно копировать и редактировать.
-     */
     if (
-      !phoneWasSet &&
       phoneField &&
-      context.phone
+      context.phone &&
+      !phoneChangedByUser &&
+      valueOf(phoneField) !== context.phone
     ) {
       setValue(phoneField, context.phone);
-      phoneWasSet = true;
     }
 
-    /*
-     * Номер КП формируется автоматически по ID сделки.
-     */
     if (
-      !numberWasSet &&
       numberField &&
-      context.proposalNumber
+      context.proposalNumber &&
+      !numberChangedByUser &&
+      valueOf(numberField) !== context.proposalNumber
     ) {
       setValue(numberField, context.proposalNumber);
-      numberWasSet = true;
     }
 
-    hideManualControls(doc);
+    hideExtraButtons(doc);
   }
 
   frame.addEventListener('load', function () {
-    applyContext();
+    apply();
   });
 
   /*
-   * Ждём и конструктор, и данные сделки.
+   * Повторяем заполнение 40 секунд:
+   * этого достаточно для загрузки и перерисовки конструктора.
    */
   var attempts = 0;
 
   var timer = setInterval(function () {
-    applyContext();
+    apply();
 
     attempts++;
 
@@ -480,42 +516,42 @@
     }
   }, 250);
 
-  /*
-   * Отслеживаем перерисовку полей внутри конструктора.
-   */
-  function observeConstructor() {
-    var doc = constructorDocument();
+  if (window.MutationObserver) {
+    var observerTimer = setInterval(function () {
+      var doc = getDocument();
 
-    if (
-      !doc ||
-      !doc.body ||
-      !window.MutationObserver
-    ) {
-      return;
-    }
+      if (!doc || !doc.body) {
+        return;
+      }
 
-    var observer = new MutationObserver(function () {
-      applyContext();
-    });
+      if (doc.body.__kpObserverStarted) {
+        return;
+      }
 
-    observer.observe(doc.body, {
-      childList: true,
-      subtree: true
-    });
+      doc.body.__kpObserverStarted = true;
+
+      var observer = new MutationObserver(function () {
+        apply();
+      });
+
+      observer.observe(doc.body, {
+        childList: true,
+        subtree: true
+      });
+    }, 500);
+
+    setTimeout(function () {
+      clearInterval(observerTimer);
+    }, 30000);
   }
 
-  setTimeout(observeConstructor, 1000);
-
-  /*
-   * Получаем обновление localStorage от виджета.
-   */
   window.addEventListener('storage', function (event) {
     if (event.key === STORAGE_KEY) {
-      applyContext();
+      apply();
     }
   });
 
-  applyContext();
+  apply();
 })();
 </script>
 
