@@ -5,47 +5,6 @@
 <title>КП — виджет</title>
 <script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 </head>
-  <!-- ===== Компактный режим для iframe внутри CRM ===== -->
-<script>
-(function(){
-  'use strict';
-  var q = new URLSearchParams(location.search);
-  if (q.get('embed') !== '1') return;
-
-  var st = document.createElement('style');
-  st.textContent =
-      'body.embed-mode{height:auto}'
-    + 'body.embed-mode .app{height:auto;overflow:visible}'
-    + 'body.embed-mode .main{grid-template-columns:1fr}'
-    + 'body.embed-mode .preview{display:none}'
-    + 'body.embed-mode .editor{height:auto;max-height:none;border-right:0}'
-    + 'body.embed-mode .appbar{padding:8px 10px;flex-wrap:wrap}'
-    + 'body.embed-mode .card{margin-bottom:8px}'
-    + 'body.embed-mode .card>summary{padding:9px 11px}'
-    + 'body.embed-mode .card .body{padding:10px}';
-  document.head.appendChild(st);
-  document.body.classList.add('embed-mode');
-
-  var id = q.get('deal_id');
-  if (id){
-    var f = document.getElementById('kpDealId');
-    if (f) f.value = id;
-    console.log('[KP] embed: ID сделки из адреса =', id);
-  }
-
-  /* автозаполнение «Кому» из сделки, когда всё загрузилось */
-  if (id) setTimeout(function(){
-    try {
-      var log = document.getElementById('kpLog');
-      if (log) log.innerHTML = '';
-      var W = window.EnvyCrmWidget;
-      if (W && W.getDeal){
-        W.getDeal().then(function(d){ console.log('[KP] сделка виджета:', d); }).catch(function(){});
-      }
-    } catch(e){}
-  }, 1800);
-})();
-</script>
 <body>
 <script>
 (function(){
@@ -53,67 +12,96 @@
   var W = window.EnvyCrmWidget;
   if (!W){ console.log('[KP] библиотека EnvyCrmWidget не загрузилась'); return; }
 
-  /* !!! ЗАМЕНИТЕ на адрес файла kp.html (конструктора) !!! */
+  /* !!! адрес конструктора. После переноса на другой хостинг — заменить. */
   var CTOR = 'https://alenik9024-cell.github.io/kp/kp.html';
 
-  function q(p, extra){
-    return CTOR + '?embed=1&deal_id=' + (p.dealID || '') + '&client_id=' + (p.clientID || '')
-      + (extra ? '&' + extra : '');
+  /* блок внутри карточки. Сейчас выключен: пока файлы на github.io,
+     рамка блокируется и блок остаётся пустым. После переноса — true. */
+  var SHOW_BLOCK = false;
+
+  function urlFor(dealID, extra){
+    return CTOR + '?embed=1' + (dealID ? '&deal_id=' + dealID : '') + (extra ? '&' + extra : '');
   }
 
-  var params = {
-    /* блок внутри карточки сделки — ровно как в рабочем примере */
-    'before-deal-task': function (p) {
+  var params = {};
+
+  if (SHOW_BLOCK){
+    params['before-deal-task'] = function (p) {
       return [{
         title: 'КП из сделки',
         events: ['deal::update-value', 'client::update-value'],
-        content: { type:'iframe', url: q(p), height: 500 }   /* Max height is 500 */
+        content: { type:'iframe', url: urlFor(p.dealID), height: 500 }
       }];
-    },
+    };
+  }
 
-    /* кнопка рядом с кнопками сделки */
-    'deal-btn': function () {
-      return [{
-        title: 'Сформировать КП',
-        styles: { 'color':'#fff', 'background-color':'#2F6BFF' },
-        icon: 'md-description',
-        clickEventName: 'kp-btn:click',
-        position: ['first'],
-        name: 'kp-btn-1'
-      }];
-    },
-
-    /* пункт в левом меню */
-    'sidebar-item': function () {
-      return [{
-        title: 'Конструктор КП',
-        icon: 'md-description',
-        clickEventName: 'kp-side:click',
-        position: ['after-section-2'],
-        name: 'kp-side-1'
-      }];
-    }
+  params['deal-btn'] = function () {
+    return [{
+      title: 'Сформировать КП',
+      styles: { 'color':'#fff', 'background-color':'#2F6BFF' },
+      icon: 'md-description',
+      clickEventName: 'kp-btn:click',
+      position: ['first'],
+      name: 'kp-btn-1'
+    }];
   };
 
-  /* клики по кнопке и меню — открываем конструктор на весь экран */
+  params['sidebar-item'] = function () {
+    return [{
+      title: 'Конструктор КП',
+      icon: 'md-description',
+      clickEventName: 'kp-side:click',
+      position: ['after-section-2'],
+      name: 'kp-side-1'
+    }];
+  };
+
+  /* ---------- ловим ВСЕ сообщения, чтобы понять формат клика ---------- */
   window.addEventListener('message', function (e) {
-    var t = e.data && e.data.type;
-    if (t !== 'kp-btn:click' && t !== 'kp-side:click') return;
-    console.log('[KP] клик:', t, e.data);
-    var id = e.data && (e.data.deal_id || (e.data.options && e.data.options.deal_id));
-    var step = id ? Promise.resolve(id) : (W.getDeal ? W.getDeal().then(function(d){
-      return d && (d.id || d.deal_id || (d.result && d.result.id));
-    }) : Promise.resolve(null));
-    step.then(function (dealId) {
-      var u = CTOR + '?embed=1&full=1' + (dealId ? '&deal_id=' + dealId : '');
-      var html = '<iframe src="' + u + '" style="width:100%;height:92vh;border:0;border-radius:10px"></iframe>';
-      if (W.openPage) W.openPage({ content: html }).catch(function(){ window.open(u, '_blank'); });
-      else window.open(u, '_blank');
-    }).catch(function(){ window.open(CTOR + '?embed=1&full=1', '_blank'); });
+    var d = e.data || {};
+    console.log('[KP] message:', JSON.stringify(d).slice(0, 400));
+
+    var t = String(d.type || '');
+    var mine = /kp-?(btn|side)/i.test(t) || /клик/i.test(t);
+    if (!mine) return;
+
+    console.log('[KP] КЛИК ПОЛУЧЕН:', t);
+
+    var id = d.deal_id || d.id
+          || (d.options && d.options.deal_id)
+          || (d.data && d.data.deal_id) || null;
+
+    var go = function (dealId) {
+      var u = urlFor(dealId, 'full=1');
+      console.log('[KP] открываю:', u);
+
+      /* 1) сначала пробуем открыть встроенной страницей CRM */
+      if (W.openPage){
+        W.openPage({
+          content: '<div style="padding:26px;font:15px/1.5 system-ui">'
+            + '<p style="margin:0 0 14px"><b>Конструктор КП</b> — откроется в новой вкладке.</p>'
+            + '<button onclick="window.open(\'' + u + '\',\'_blank\')" '
+            + 'style="padding:12px 20px;border:0;border-radius:9px;background:#2F6BFF;color:#fff;'
+            + 'font:600 15px system-ui;cursor:pointer">Открыть конструктор КП</button>'
+            + '<p style="margin:14px 0 0;color:#6B7893;font-size:13px">Если вкладка не открылась, '
+            + 'скопируйте адрес: <br>' + u + '</p></div>'
+        }).then(function(){ console.log('[KP] openPage ок'); })
+          .catch(function(err){ console.log('[KP] openPage ошибка:', err); window.open(u, '_blank'); });
+      } else {
+        window.open(u, '_blank');
+      }
+    };
+
+    if (id){ go(id); return; }
+    if (W.getDeal){
+      W.getDeal().then(function (d2) {
+        go(d2 && (d2.id || d2.deal_id || (d2.result && d2.result.id)));
+      }).catch(function(){ go(null); });
+    } else go(null);
   }, false);
 
   W.init(params);
-  console.log('[KP] виджет зарегистрирован, конструктор:', CTOR);
+  console.log('[KP] виджет зарегистрирован. Блок в карточке:', SHOW_BLOCK ? 'вкл' : 'выкл', '· конструктор:', CTOR);
 })();
 </script>
 </body>
