@@ -840,11 +840,12 @@ function url(p){
   if (cfg.key) b += (b.indexOf('?') === -1 ? '?' : '&') + 'api_key=' + encodeURIComponent(cfg.key);
   return b;
 }
-function api(p, m, b, form){
-  var opt = { method: m || 'POST' };
-  if (form) opt.body = b;
-  else { opt.headers = { 'Content-Type':'application/json' }; opt.body = JSON.stringify(b || {}); }
-  return fetch(url(p), opt).then(function(r){
+function api(path, method, body, form){
+  if (typeof method === 'object'){ form = body; body = method; method = 'POST'; }
+  var opt = { method: method || 'POST' };
+  if (form) opt.body = body;
+  else { opt.headers = { 'Content-Type':'application/json' }; opt.body = JSON.stringify(body || {}); }
+  return fetch(url(path), opt).then(function(r){
     return r.text().then(function(t){
       var j = null; try { j = JSON.parse(t); } catch(e){}
       if (!r.ok) throw new Error('HTTP ' + r.status + ' · ' + String(t).slice(0,300));
@@ -1111,7 +1112,7 @@ function checkUrl(){
   }
 }
 
-/* ---------- ОТКРЫТИЕ КАК ВИДЖЕТ В CRM ---------- */
+/* ---------- ОТКРЫТИЕ КАК ВИДЖЕТ В CRM (МОДАЛЬНОЕ ОКНО НА ВЕСЬ ЭКРАН) ---------- */
 function showModalPage(url){
   var w = W();
   var html = '<iframe src="' + url + '" style="width:100%;height:92vh;border:0;border-radius:8px"></iframe>';
@@ -1127,14 +1128,30 @@ function showModalPage(url){
   }
 }
 
-window.addEventListener('message', function (e) {
-  var raw = JSON.stringify(e.data || {});
-  if (!/kp-btn:click|kp-side:click/.test(raw)) return;
-  var d = e.data || {};
-  var id = d.deal_id || d.id || (d.options && d.options.deal_id) || (d.data && d.data.deal_id) || null;
-  var u = location.origin + location.pathname + '?full=1' + (id ? '&deal_id=' + id : '');
-  showModalPage(u);
-}, false);
+function initWidget(){
+  var w = W();
+  if (!w || window.parent === window) return;
+
+  window.addEventListener('message', function(e){
+    var raw = JSON.stringify(e.data || {});
+    if (!/kp-btn:click|kp-side:click/.test(raw)) return;
+    var d = e.data || {};
+    var id = d.deal_id || d.id || (d.options && d.options.deal_id) || (d.data && d.data.deal_id) || null;
+    var u = location.origin + location.pathname + '?full=1' + (id ? '&deal_id=' + id : '');
+    showModalPage(u);
+  }, false);
+
+  try {
+    w.init({
+      'deal-btn': function(){
+        return [{ title:'Сформировать КП', styles:{'color':'#fff','background-color':'#2F6BFF'}, icon:'md-description', clickEventName:'kp-btn:click', position:['first'], name:'kp-btn-1' }];
+      },
+      'sidebar-item': function(){
+        return [{ title:'Конструктор КП', icon:'md-description', clickEventName:'kp-side:click', position:['after-section-2'], name:'kp-sidebar-1' }];
+      }
+    });
+  } catch(e){}
+}
 
 function boot(){
   bindPanel();
