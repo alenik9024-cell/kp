@@ -5,6 +5,47 @@
 <title>КП — виджет</title>
 <script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 </head>
+  <!-- ===== Компактный режим для iframe внутри CRM ===== -->
+<script>
+(function(){
+  'use strict';
+  var q = new URLSearchParams(location.search);
+  if (q.get('embed') !== '1') return;
+
+  var st = document.createElement('style');
+  st.textContent =
+      'body.embed-mode{height:auto}'
+    + 'body.embed-mode .app{height:auto;overflow:visible}'
+    + 'body.embed-mode .main{grid-template-columns:1fr}'
+    + 'body.embed-mode .preview{display:none}'
+    + 'body.embed-mode .editor{height:auto;max-height:none;border-right:0}'
+    + 'body.embed-mode .appbar{padding:8px 10px;flex-wrap:wrap}'
+    + 'body.embed-mode .card{margin-bottom:8px}'
+    + 'body.embed-mode .card>summary{padding:9px 11px}'
+    + 'body.embed-mode .card .body{padding:10px}';
+  document.head.appendChild(st);
+  document.body.classList.add('embed-mode');
+
+  var id = q.get('deal_id');
+  if (id){
+    var f = document.getElementById('kpDealId');
+    if (f) f.value = id;
+    console.log('[KP] embed: ID сделки из адреса =', id);
+  }
+
+  /* автозаполнение «Кому» из сделки, когда всё загрузилось */
+  if (id) setTimeout(function(){
+    try {
+      var log = document.getElementById('kpLog');
+      if (log) log.innerHTML = '';
+      var W = window.EnvyCrmWidget;
+      if (W && W.getDeal){
+        W.getDeal().then(function(d){ console.log('[KP] сделка виджета:', d); }).catch(function(){});
+      }
+    } catch(e){}
+  }, 1800);
+})();
+</script>
 <body>
 <script>
 (function(){
