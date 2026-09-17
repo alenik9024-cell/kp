@@ -1,42 +1,65 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head><meta charset="utf-8"><title>КП v7 — расширение EnvyCRM</title></head>
-<body style="margin:0;font:13px system-ui;padding:12px">
-<div id="s" style="padding:10px;border-radius:8px;background:#f1f3f8;color:#4b5565">КП v7: запуск…</div>
+<head><meta charset="utf-8"><title>КП v8 — расширение EnvyCRM</title></head>
+<body style="margin:0;font:13px system-ui;padding:12px;background:#fff">
+<div id="s" style="padding:10px;border-radius:8px;background:#f1f3f8;color:#4b5565;font-size:12px">КП v8: запуск…</div>
 <button id="b" style="width:100%;margin-top:10px;padding:11px;border:0;border-radius:8px;background:#2F6BFF;color:#fff;font-size:14px;font-weight:600">Открыть конструктор КП</button>
+<button id="t" style="width:100%;margin-top:8px;padding:9px;border:0;border-radius:8px;background:#eef1f7;color:#1b1f27;font-size:13px">Открыть в новой вкладке</button>
+<script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 <script>
 (function(){
-var V='v7', CTOR='https://alenik9024-cell.github.io/kp/kp.html';
-/* адрес, который работал раньше — первым */
-var SRCS=[
- 'https://cdn.envycrm.com/widget/envycrmwidget.min.js',
- 'https://cdn.envycrm.com/widget/js/envycrmwidget.min.js',
- 'https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js'
-];
+var V='v8', CTOR='https://alenik9024-cell.github.io/kp/kp.html';
 var s=document.getElementById('s');
-function say(t,ok){
- s.style.background=ok===1?'#e7f6ec':ok===0?'#fdecea':'#f1f3f8';
- s.style.color=ok===1?'#0a7a3d':ok===0?'#b3261e':'#4b5565';
- s.textContent='КП '+V+' · '+t; console.log('[KP '+V+'] '+t);
+function say(t,ok){ s.style.background=ok===1?'#e7f6ec':ok===0?'#fdecea':'#f1f3f8';
+ s.style.color=ok===1?'#0a7a3d':ok===0?'#b3261e':'#4b5565'; s.textContent='КП '+V+' · '+t; console.log('[KP '+V+'] '+t); }
+function err(e){ try{ return (e&&(e.message||e.error||JSON.stringify(e)))||String(e); }catch(x){ return 'без описания'; } }
+function url(id){ return CTOR+'?full=1'+(id?'&deal_id='+encodeURIComponent(id):''); }
+function frame(u){ return '<iframe src="'+u+'" style="width:100%;height:calc(100vh - 80px);min-height:520px;border:0;border-radius:12px" allowfullscreen></iframe>'; }
+function newTab(id){ window.open(url(id),'_blank'); }
+
+function openCtor(id){
+ var w=window.EnvyCrmWidget, u=url(id);
+ say('открываю конструктор…');
+ if(!w){ newTab(id); return; }
+ if(w.openModal){
+  try{
+   var r=w.openModal({title:'Конструктор КП',content:frame(u),width:1150});
+   if(r&&r.then){ r.then(function(){say('конструктор открыт (модальное окно)',1);})
+     .catch(function(e){ say('openModal: '+err(e),0); viaPage(); }); return; }
+   say('конструктор открыт (модальное окно)',1); return;
+  }catch(e){ say('openModal бросил: '+err(e),0); }
+ }
+ viaPage();
+ function viaPage(){
+  if(w.openPage){
+   try{
+    var r2=w.openPage({content:frame(u)});
+    if(r2&&r2.then){ r2.then(function(){say('конструктор открыт (полный экран)',1);})
+      .catch(function(e){ say('openPage: '+err(e),0); say('открываю в новой вкладке',1); newTab(id); }); return; }
+    say('конструктор открыт (полный экран)',1); return;
+   }catch(e){ say('openPage бросил: '+err(e),0); }
+  }
+  say('открываю в новой вкладке',1); newTab(id);
+ }
 }
-function open(id){
- var u=CTOR+'?full=1'+(id?'&deal_id='+id:'');
- var w=window.EnvyCrmWidget;
- if(!w||!w.openPage){ window.open(u,'_blank'); return; }
- w.openPage({content:'<iframe src="'+u+'" style="width:100%;height:calc(100vh - 70px);border:0"></iframe>'})
-  .then(function(){say('конструктор открыт',1);})
-  .catch(function(){window.open(u,'_blank');});
-}
+
 document.getElementById('b').onclick=function(){
  var w=window.EnvyCrmWidget;
- if(!w||!w.getDeal) return open(null);
- w.getDeal().then(function(d){d=d||{};open(d.id||d.deal_id||null);}).catch(function(){open(null);});
+ if(!w||!w.getDeal) return openCtor(null);
+ w.getDeal().then(function(d){d=d||{};openCtor(d.id||d.deal_id||(d.result&&d.result.id)||null);})
+  .catch(function(){openCtor(null);});
 };
-function reg(){
+document.getElementById('t').onclick=function(){
  var w=window.EnvyCrmWidget;
- say('библиотека загружена · регистрирую кнопки…');
- if(w.__kp) return say('кнопки уже зарегистрированы',1);
- w.__kp=1;
+ if(!w||!w.getDeal) return newTab(null);
+ w.getDeal().then(function(d){d=d||{};newTab(d.id||d.deal_id||null);}).catch(function(){newTab(null);});
+};
+
+var w=window.EnvyCrmWidget;
+if(!w){ say('библиотека EnvyCrmWidget не загрузилась',0); return; }
+say('библиотека загружена · регистрирую кнопки…');
+if(w.__kp8){ say('кнопки уже зарегистрированы',1); } else {
+ w.__kp8=1;
  try{
   w.init({
    'deal-btn':function(){return [{
@@ -47,24 +70,17 @@ function reg(){
     clickEventName:'kp-side:click',position:['first'],name:'kp-side-1'}];}
   });
   say('кнопки зарегистрированы ✓',1);
- }catch(e){ say('ошибка init: '+(e&&e.message||e),0); }
- window.addEventListener('message',function(ev){
-  var t=ev.data&&ev.data.type;
-  if(t!=='kp-btn:click'&&t!=='kp-side:click') return;
-  var id=ev.data.deal_id||ev.data.id||null;
-  if(id) return open(id);
-  w.getDeal().then(function(d){d=d||{};open(d.id||d.deal_id||null);}).catch(function(){open(null);});
- },false);
+ }catch(e){ say('ошибка init: '+err(e),0); }
 }
-function load(i){
- if(window.EnvyCrmWidget) return reg();
- if(i>=SRCS.length) return say('библиотека виджета не загрузилась ни с одного адреса — кнопки в CRM не появятся',0);
- var sc=document.createElement('script'); sc.src=SRCS[i];
- sc.onload=function(){ window.EnvyCrmWidget?reg():load(i+1); };
- sc.onerror=function(){ load(i+1); };
- document.head.appendChild(sc);
-}
-load(0);
+window.addEventListener('message',function(ev){
+ var t=ev.data&&ev.data.type;
+ if(t!=='kp-btn:click'&&t!=='kp-side:click') return;
+ console.log('[KP '+V+'] клик:',ev.data);
+ var id=(ev.data&&(ev.data.deal_id||ev.data.id))||null;
+ if(id) return openCtor(id);
+ if(w.getDeal) w.getDeal().then(function(d){d=d||{};openCtor(d.id||d.deal_id||null);}).catch(function(){openCtor(null);});
+ else openCtor(null);
+},false);
 })();
 </script>
 </body></html>
