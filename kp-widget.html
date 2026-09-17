@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>КП — виджет EnvyCRM</title>
 </head>
 <body>
@@ -12,11 +13,18 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v21';
-  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=21';
+  var VERSION = 'v22';
+
+  var AUTO_URL =
+    'https://alenik9024-cell.github.io/kp/kp-auto.html?v=21';
+
+  var PROXY_URL =
+    'https://script.google.com/macros/s/AKfycbwAAv5-GSxfRAtGNgn0hocXpKAU3x6lEc6pSDifNUV8m7XEuVSqnKjCmKLXGGiNllZZ/exec';
+
   var STORAGE_KEY = 'kp_context_v20';
 
   var w = window.EnvyCrmWidget;
+
   var dealContext = {
     dealId: '',
     clientId: '',
@@ -24,10 +32,11 @@
     phone: ''
   };
 
-  var dataPromise = Promise.resolve();;
-
   function log(message, data) {
-    console.log('[KP ' + VERSION + '] ' + message, data || '');
+    console.log(
+      '[KP ' + VERSION + '] ' + message,
+      data || ''
+    );
   }
 
   if (!w) {
@@ -35,75 +44,37 @@
     return;
   }
 
-  function scalar(value) {
-    if (value === null || value === undefined) {
-      return '';
-    }
-
-    if (
-      typeof value === 'string' ||
-      typeof value === 'number'
-    ) {
-      return String(value).trim();
-    }
-
-    if (Array.isArray(value)) {
-      for (var i = 0; i < value.length; i++) {
-        var arrayValue = scalar(value[i]);
-
-        if (arrayValue) {
-          return arrayValue;
-        }
-      }
-
-      return '';
-    }
-
-    if (typeof value === 'object') {
-      if (value.value !== undefined) {
-        return scalar(value.value);
-      }
-
-      if (value.phone !== undefined) {
-        return scalar(value.phone);
-      }
-
-      if (value.name !== undefined) {
-        return scalar(value.name);
-      }
-
-      if (value.result !== undefined) {
-        return scalar(value.result);
-      }
-    }
-
-    return '';
-  }
-
   function getParam(params, names) {
     params = params || {};
 
     for (var i = 0; i < names.length; i++) {
+      var value = params[names[i]];
+
       if (
-        params[names[i]] !== undefined &&
-        params[names[i]] !== null &&
-        params[names[i]] !== ''
+        value !== undefined &&
+        value !== null &&
+        value !== ''
       ) {
-        return String(params[names[i]]);
+        return String(value);
       }
     }
 
     return '';
   }
 
-  function proposalNumber(dealId) {
+  function makeProposalNumber(dealId) {
     var date = new Date();
 
-    var day = String(date.getDate()).padStart(2, '0');
-    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate())
+      .padStart(2, '0');
+
+    var month = String(date.getMonth() + 1)
+      .padStart(2, '0');
+
     var year = date.getFullYear();
 
-    return 'КП-' + dealId + '/' + day + '.' + month + '.' + year;
+    return 'КП-' + dealId + '/' +
+      day + '.' + month + '.' + year;
   }
 
   function saveContext(token) {
@@ -113,7 +84,9 @@
       clientId: dealContext.clientId,
       clientName: dealContext.clientName,
       phone: dealContext.phone,
-      proposalNumber: proposalNumber(dealContext.dealId),
+      proposalNumber: makeProposalNumber(
+        dealContext.dealId
+      ),
       updatedAt: Date.now()
     };
 
@@ -130,132 +103,135 @@
   }
 
   /*
-   * Этот вызов выполняется в основном расширении,
-   * а не во вложенном kp-auto.html.
+   * Получение имени и телефона через Google Apps Script.
+   * Прямых запросов из браузера в EnvyCRM нет.
    */
- function loadClientData() {
-  var dealId = dealContext.dealId;
-  var clientId = dealContext.clientId;
+  function loadClientData() {
+    var dealId = dealContext.dealId;
+    var clientId = dealContext.clientId;
 
-  if (!dealId && !clientId) {
-    return Promise.reject(
-      new Error('CRM не передала dealID и clientID')
-    );
-  }
-
-  var apiHost = 'https://novikov.envycrm.com';
-  var apiKey = '48a7f23ebf788af44686fe0fa4c9c955c4c34d7c';
-  var apiBase = apiHost + '/openapi/v1';
-
-  function post(path, body) {
-    return fetch(
-      apiBase +
-      path +
-      '?api_key=' +
-      encodeURIComponent(apiKey),
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      }
-    ).then(function (response) {
-      return response.text().then(function (text) {
-        var data = null;
-
-        try {
-          data = JSON.parse(text);
-        } catch (error) {
-          data = { raw: text };
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            'HTTP ' +
-            response.status +
-            ': ' +
-            (data.message || text)
-          );
-        }
-
-        return data;
-      });
-    });
-  }
-
-  function extractPhone(client) {
-    var contacts = client.contacts || [];
-
-    for (var i = 0; i < contacts.length; i++) {
-      var contact = contacts[i] || {};
-
-      var value =
-        contact.value ||
-        contact.phone ||
-        contact.mobile_phone ||
-        '';
-
-      value = String(value || '');
-
-      if (/\d{5,}/.test(value)) {
-        return value;
-      }
+    if (!dealId && !clientId) {
+      return Promise.reject(
+        new Error(
+          'CRM не передала dealID и clientID'
+        )
+      );
     }
 
-    return '';
+    return new Promise(function (resolve, reject) {
+      var callbackName =
+        '__kp_proxy_callback_' +
+        Date.now() +
+        '_' +
+        Math.floor(Math.random() * 100000);
+
+      var script = document.createElement('script');
+
+      var finished = false;
+
+      var timer = setTimeout(function () {
+        finishError(
+          new Error(
+            'Google Apps Script не ответил за 15 секунд'
+          )
+        );
+      }, 15000);
+
+      function removeScript() {
+        if (
+          script &&
+          script.parentNode
+        ) {
+          script.parentNode.removeChild(script);
+        }
+      }
+
+      function cleanup() {
+        clearTimeout(timer);
+        removeScript();
+
+        try {
+          delete window[callbackName];
+        } catch (error) {
+          window[callbackName] = undefined;
+        }
+      }
+
+      function finishError(error) {
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+        cleanup();
+        reject(error);
+      }
+
+      window[callbackName] = function (data) {
+        if (finished) {
+          return;
+        }
+
+        finished = true;
+        cleanup();
+
+        if (!data || !data.ok) {
+          reject(new Error(
+            data && data.error
+              ? data.error
+              : 'Google Apps Script вернул ошибку'
+          ));
+
+          return;
+        }
+
+        dealContext.clientName =
+          String(data.clientName || '');
+
+        dealContext.phone =
+          String(data.phone || '');
+
+        log(
+          'данные получены через Google Apps Script',
+          {
+            dealId: dealId,
+            clientId: clientId,
+            clientName: dealContext.clientName,
+            phone: dealContext.phone
+          }
+        );
+
+        resolve(dealContext);
+      };
+
+      script.onerror = function () {
+        finishError(
+          new Error(
+            'Не удалось загрузить Google Apps Script'
+          )
+        );
+      };
+
+      script.src =
+        PROXY_URL +
+        '?deal_id=' +
+        encodeURIComponent(dealId) +
+        '&client_id=' +
+        encodeURIComponent(clientId) +
+        '&callback=' +
+        encodeURIComponent(callbackName);
+
+      document.head.appendChild(script);
+    });
   }
 
-  var clientPromise = clientId
-    ? post('/client/get', {
-        client_id: Number(clientId)
-      })
-    : Promise.resolve(null);
-
-  var dealPromise = dealId
-    ? post('/deal/get', {
-        deal_id: Number(dealId)
-      })
-    : Promise.resolve(null);
-
-  return Promise.all([
-    clientPromise,
-    dealPromise
-  ]).then(function (results) {
-    var clientResponse = results[0] || {};
-    var dealResponse = results[1] || {};
-
-    var client = clientResponse.result || {};
-    var deal = dealResponse.result || {};
-
-    var name =
-      client.client_name ||
-      client.name ||
-      deal.client_name ||
-      '';
-
-    var phone =
-      extractPhone(client) ||
-      deal.phone ||
-      deal.client_phone ||
-      '';
-
-    dealContext.clientName = String(name || '');
-    dealContext.phone = String(phone || '');
-
-    log('данные получены через OpenAPI', {
-      dealId: dealId,
-      clientId: clientId,
-      clientName: dealContext.clientName,
-      phone: dealContext.phone
-    });
-
-    return dealContext;
-  });
-}
-  function openConstructor() { dataPromise = loadClientData();
+  function openConstructor() {
     var token = 'kp_' + Date.now();
 
+    /*
+     * Сохраняем ID сразу, чтобы конструктор открылся
+     * даже до ответа Google Apps Script.
+     */
     saveContext(token);
 
     var url =
@@ -271,12 +247,10 @@
 
     log('открываю конструктор', {
       dealId: dealContext.dealId,
-      clientId: dealContext.clientId
+      clientId: dealContext.clientId,
+      url: url
     });
 
-    /*
-     * Открываем сразу, чтобы не блокировать окно ожиданием API.
-     */
     try {
       if (w.openPage) {
         var page = w.openPage({
@@ -309,65 +283,70 @@
         window.open(url, '_blank');
       }
     } catch (error) {
-      log('ошибка открытия', error);
+      log('ошибка открытия конструктора', error);
       window.open(url, '_blank');
     }
 
     /*
-     * После открытия обновляем localStorage.
-     * kp-auto.html увидит новые имя и телефон.
+     * После открытия получаем имя и телефон
+     * через серверный прокси.
      */
-    dataPromise
+    loadClientData()
       .then(function () {
         saveContext(token);
       })
       .catch(function (error) {
-        log('данные клиента не получены', error);
+        log(
+          'не удалось получить имя и телефон',
+          error
+        );
+
+        /*
+         * ID сделки всё равно остаётся доступен,
+         * поэтому номер КП продолжит формироваться.
+         */
         saveContext(token);
       });
   }
 
-  window.addEventListener(
-    'message',
-    function (event) {
-      if (
-        event.data &&
-        event.data.type === 'kp-btn:click'
-      ) {
-        log('кнопка нажата');
-        openConstructor();
-      }
-    },
-    false
-  );
-
+  /*
+   * CRM передаёт параметры текущей сделки
+   * именно в callback типа deal-btn.
+   */
   try {
-    w.init({
+    var initResult = w.init({
       'deal-btn': function (params) {
-        /*
-         * Это правильный способ из вашего примера.
-         */
         dealContext.dealId = getParam(
           params,
-          ['dealID', 'deal_id', 'dealId']
+          [
+            'dealID',
+            'deal_id',
+            'dealId'
+          ]
         );
 
         dealContext.clientId = getParam(
           params,
-          ['clientID', 'client_id', 'clientId']
+          [
+            'clientID',
+            'client_id',
+            'clientId'
+          ]
         );
 
-        log('параметры сделки получены из init', {
-          dealId: dealContext.dealId,
-          clientId: dealContext.clientId,
-          params: params
-        });
+        log(
+          'параметры сделки получены',
+          {
+            params: params,
+            dealId: dealContext.dealId,
+            clientId: dealContext.clientId
+          }
+        );
 
         /*
-         * Запрашиваем значения в контексте основного расширения.
+         * Здесь запрос НЕ запускаем.
+         * Он запускается только после нажатия кнопки.
          */
-        dataPromise = loadClientData();
-
         return [{
           title: 'Сформировать КП',
           styles: {
@@ -382,10 +361,39 @@
       }
     });
 
-    log('виджет v20 зарегистрирован');
+    if (
+      initResult &&
+      typeof initResult.catch === 'function'
+    ) {
+      initResult.catch(function (error) {
+        log('ошибка init', error);
+      });
+    }
+
+    log('виджет зарегистрирован');
   } catch (error) {
-    log('ошибка регистрации кнопки', error);
+    log(
+      'ошибка регистрации кнопки',
+      error
+    );
   }
+
+  /*
+   * Обработка клика по кнопке.
+   */
+  window.addEventListener(
+    'message',
+    function (event) {
+      if (
+        event.data &&
+        event.data.type === 'kp-btn:click'
+      ) {
+        log('кнопка нажата');
+        openConstructor();
+      }
+    },
+    false
+  );
 })();
 </script>
 
