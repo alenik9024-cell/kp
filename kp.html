@@ -1813,5 +1813,52 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 else window.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 700); });
 })();
 </script>
+  <script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+(function(){
+'use strict';
+var W = window.EnvyCrmWidget;
+if (!W) return;
+
+function panelHtml(url){
+  return '<div style="padding:24px;font:15px/1.6 system-ui,-apple-system,Arial,sans-serif">'
+   + '<p style="margin:0 0 8px;font-size:17px"><b>Конструктор КП</b></p>'
+   + '<p style="margin:0 0 18px;color:#6B7893;font-size:13px">Нажмите кнопку — откроется в новой вкладке.</p>'
+   + '<a href="' + url + '" target="_blank" rel="noopener" style="display:inline-block;'
+   + 'padding:12px 20px;border-radius:9px;background:#2F6BFF;color:#fff;text-decoration:none;'
+   + 'font-weight:600">Открыть конструктор КП</a>'
+   + '<p style="margin:18px 0 0;color:#9AA7BD;font-size:12px;word-break:break-all">' + url + '</p></div>';
+}
+
+function showPanel(url){
+  if (W.openPage){
+    W.openPage({ content: panelHtml(url) }).catch(function(){
+      if (W.openModal) W.openModal({ title:'Конструктор КП', content: panelHtml(url), width:640 });
+    });
+  } else if (W.openModal){
+    W.openModal({ title:'Конструктор КП', content: panelHtml(url), width:640 });
+  }
+}
+
+window.addEventListener('message', function (e) {
+  var raw = JSON.stringify(e.data || {});
+  if (!/kp-btn:click|kp-side:click/.test(raw)) return;
+  var d = e.data || {};
+  var id = d.deal_id || d.id || (d.options && d.options.deal_id) || (d.data && d.data.deal_id) || null;
+  var u = location.origin + location.pathname + '?full=1' + (id ? '&deal_id=' + id : '');
+  showPanel(u);
+}, false);
+
+W.init({
+  'deal-btn': function(){
+    return [{ title:'Сформировать КП', styles:{'color':'#fff','background-color':'#2F6BFF'}, icon:'md-description', clickEventName:'kp-btn:click', position:['first'], name:'kp-btn-1' }];
+  },
+  'sidebar-item': function(){
+    return [{ title:'Конструктор КП', icon:'md-description', clickEventName:'kp-side:click', position:['after-section-2'], name:'kp-sidebar-1' }];
+  }
+});
+})();
+</script>
 </body>
 </html>
