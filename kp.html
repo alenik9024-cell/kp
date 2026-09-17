@@ -1624,5 +1624,399 @@ else window.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 40
   applyAutomaticData();
 })();
 </script>
+  <script>
+(function () {
+  'use strict';
+
+  var params = new URLSearchParams(window.location.search);
+
+  if (params.get('auto') !== '1') {
+    return;
+  }
+
+  var token = params.get('context_token') || '';
+  var storageKey = 'kp_envycrm_context_v13';
+
+  var appliedToken = '';
+  var nameApplied = false;
+  var phoneApplied = false;
+  var numberApplied = false;
+
+  function getContext() {
+    try {
+      var raw = localStorage.getItem(storageKey);
+
+      if (!raw) {
+        return null;
+      }
+
+      var data = JSON.parse(raw);
+
+      if (token && data.token !== token) {
+        return null;
+      }
+
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getValue(element) {
+    if (!element) {
+      return '';
+    }
+
+    if (element.matches && element.matches('[contenteditable="true"]')) {
+      return String(element.textContent || '').trim();
+    }
+
+    return String(element.value || '').trim();
+  }
+
+  function setValue(element, value) {
+    if (!element || !value) {
+      return;
+    }
+
+    if (element.matches && element.matches('[contenteditable="true"]')) {
+      element.textContent = value;
+    } else {
+      /*
+       * Используем настоящий setter input,
+       * чтобы React/Vue/обычный JS увидели изменение.
+       */
+      var prototype = Object.getPrototypeOf(element);
+      var descriptor = prototype &&
+        Object.getOwnPropertyDescriptor(prototype, 'value');
+
+      if (descriptor && descriptor.set) {
+        descriptor.set.call(element, value);
+      } else {
+        element.value = value;
+      }
+    }
+
+    element.dispatchEvent(new Event('input', {
+      bubbles: true
+    }));
+
+    element.dispatchEvent(new Event('change', {
+      bubbles: true
+    }));
+
+    element.dispatchEvent(new Event('blur', {
+      bubbles: true
+    }));
+  }
+
+  function fieldText(element) {
+    if (!element) {
+      return '';
+    }
+
+    var text = '';
+
+    if (element.id) {
+      var label = document.querySelector(
+        'label[for="' + element.id + '"]'
+      );
+
+      if (label) {
+        text += ' ' + label.innerText;
+      }
+    }
+
+    var parent = element.parentElement;
+
+    for (var i = 0; i < 3 && parent; i++) {
+      text += ' ' + String(parent.innerText || '');
+      parent = parent.parentElement;
+    }
+
+    return (
+      String(element.id || '') + ' ' +
+      String(element.name || '') + ' ' +
+      String(element.placeholder || '') + ' ' +
+      String(element.getAttribute('aria-label') || '') + ' ' +
+      text
+    ).toLowerCase();
+  }
+
+  function allFields() {
+    return Array.prototype.slice.call(
+      document.querySelectorAll(
+        'input, textarea, [contenteditable="true"]'
+      )
+    );
+  }
+
+  function findBySelectors(selectors) {
+    for (var i = 0; i < selectors.length; i++) {
+      var element = document.querySelector(selectors[i]);
+
+      if (element) {
+        return element;
+      }
+    }
+
+    return null;
+  }
+
+  function findPhoneField() {
+    var direct = findBySelectors([
+      '#clientPhone',
+      '#phone',
+      '[name="client_phone"]',
+      '[name="phone"]',
+      'input[type="tel"]'
+    ]);
+
+    if (direct) {
+      return direct;
+    }
+
+    var fields = allFields();
+
+    for (var i = 0; i < fields.length; i++) {
+      var text = fieldText(fields[i]);
+
+      if (
+        text.indexOf('телефон клиента') !== -1 ||
+        text.indexOf('телефон') !== -1 ||
+        text.indexOf('phone') !== -1
+      ) {
+        return fields[i];
+      }
+    }
+
+    return null;
+  }
+
+  function findNameField() {
+    var direct = findBySelectors([
+      '#clientName',
+      '#customerName',
+      '[name="client_name"]',
+      '[name="customer_name"]',
+      '[name="customer"]'
+    ]);
+
+    if (direct) {
+      return direct;
+    }
+
+    var labels = Array.prototype.slice.call(
+      document.querySelectorAll('label')
+    );
+
+    for (var i = 0; i < labels.length; i++) {
+      var labelText = String(labels[i].innerText || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      if (
+        labelText.indexOf('кому') !== -1 ||
+        labelText.indexOf('заказчик') !== -1
+      ) {
+        if (labels[i].htmlFor) {
+          var linked = document.getElementById(
+            labels[i].htmlFor
+          );
+
+          if (linked) {
+            return linked;
+          }
+        }
+
+        var parent = labels[i].parentElement;
+
+        if (parent) {
+          var inside = parent.querySelector(
+            'input, textarea, [contenteditable="true"]'
+          );
+
+          if (inside) {
+            return inside;
+          }
+        }
+      }
+    }
+
+    var fields = allFields();
+
+    for (var j = 0; j < fields.length; j++) {
+      var text = fieldText(fields[j]);
+
+      if (
+        text.indexOf('кому') !== -1 ||
+        text.indexOf('заказчик') !== -1 ||
+        text.indexOf('client_name') !== -1 ||
+        text.indexOf('customer_name') !== -1
+      ) {
+        return fields[j];
+      }
+    }
+
+    return null;
+  }
+
+  function findNumberField() {
+    var direct = findBySelectors([
+      '#proposalNumber',
+      '#kpNumber',
+      '[name="proposal_number"]',
+      '[name="kp_number"]'
+    ]);
+
+    if (direct) {
+      return direct;
+    }
+
+    var fields = allFields();
+
+    for (var i = 0; i < fields.length; i++) {
+      var text = fieldText(fields[i]);
+
+      if (
+        text.indexOf('номер кп') !== -1 ||
+        text.indexOf('№ кп') !== -1 ||
+        text.indexOf('proposal_number') !== -1 ||
+        text.indexOf('kp_number') !== -1
+      ) {
+        return fields[i];
+      }
+    }
+
+    return null;
+  }
+
+  function hideManualButtons() {
+    var buttons = Array.prototype.slice.call(
+      document.querySelectorAll('button')
+    );
+
+    buttons.forEach(function (button) {
+      var text = String(button.innerText || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      if (
+        text.indexOf('найти поля') !== -1 ||
+        text.indexOf('проверить api') !== -1 ||
+        text.indexOf('сохранить настройки') !== -1
+      ) {
+        button.style.display = 'none';
+      }
+    });
+  }
+
+  function applyContext() {
+    var context = getContext();
+
+    if (!context) {
+      return;
+    }
+
+    if (appliedToken !== context.token) {
+      appliedToken = context.token;
+      nameApplied = false;
+      phoneApplied = false;
+      numberApplied = false;
+    }
+
+    var nameField = findNameField();
+    var phoneField = findPhoneField();
+    var numberField = findNumberField();
+
+    /*
+     * Имя заполняем только если поле пустое.
+     * После этого его можно менять вручную.
+     */
+    if (
+      !nameApplied &&
+      nameField &&
+      context.clientName &&
+      !getValue(nameField)
+    ) {
+      setValue(nameField, context.clientName);
+      nameApplied = true;
+    }
+
+    /*
+     * Телефон виден в поле и доступен для копирования.
+     */
+    if (
+      !phoneApplied &&
+      phoneField &&
+      context.phone &&
+      !getValue(phoneField)
+    ) {
+      setValue(phoneField, context.phone);
+      phoneApplied = true;
+    }
+
+    /*
+     * Номер КП подставляется автоматически.
+     */
+    if (
+      !numberApplied &&
+      numberField &&
+      context.number &&
+      !getValue(numberField)
+    ) {
+      setValue(numberField, context.number);
+      numberApplied = true;
+    }
+
+    hideManualButtons();
+  }
+
+  /*
+   * Ждём, пока конструктор отрисует поля,
+   * а виджет получит данные сделки.
+   */
+  var tries = 0;
+
+  var timer = setInterval(function () {
+    applyContext();
+
+    tries++;
+
+    if (tries > 80) {
+      clearInterval(timer);
+    }
+  }, 250);
+
+  /*
+   * Если данные сделки появились после открытия —
+   * применяем их сразу.
+   */
+  window.addEventListener('storage', function (event) {
+    if (event.key === storageKey) {
+      applyContext();
+    }
+  });
+
+  if (window.MutationObserver && document.body) {
+    var observer = new MutationObserver(function () {
+      applyContext();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    setTimeout(function () {
+      observer.disconnect();
+    }, 20000);
+  }
+
+  applyContext();
+})();
+</script>
 </body>
 </html>
