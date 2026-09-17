@@ -5,40 +5,44 @@
 var W = window.EnvyCrmWidget;
 if (!W){ console.log('[KP] EnvyCrmWidget не загрузилась'); return; }
 
-/* !!! адрес конструктора !!! */
+/* !!! адрес конструктора (при переносе на другой хостинг — заменить) !!! */
 var CTOR = 'https://alenik9024-cell.github.io/kp/kp.html';
 
 /* блок внутри карточки: включить после переноса файлов на хостинг без
-   X-Frame-Options (сейчас на github.io рамку блокирует GitHub) */
+   X-Frame-Options (сейчас github.io рамку блокирует) */
 var SHOW_BLOCK = false;
 
 function urlFor(dealID, extra){
   return CTOR + '?embed=1' + (dealID ? '&deal_id=' + dealID : '') + (extra ? '&' + extra : '');
 }
 
-/* открываем конструктор: сначала пробуем новую вкладку, но полагаться на неё нельзя */
-function showPanel(dealId){
-  var u = urlFor(dealId, 'full=1');
-  console.log('[KP] конструктор:', u);
+function panelHtml(url){
+  return '<div style="padding:24px;font:15px/1.6 system-ui,-apple-system,Arial,sans-serif">'
+   + '<p style="margin:0 0 8px;font-size:17px"><b>Конструктор КП</b></p>'
+   + '<p style="margin:0 0 18px;color:#6B7893;font-size:13px">Откроется в новой вкладке. '
+   + 'Там: впишите телефон клиента → «Найти сделку» → выберите услуги → «Сформировать КП». '
+   + 'PDF сохранится в поле «КП (файл)» этой сделки.</p>'
+   + '<a href="' + url + '" target="_blank" rel="noopener" style="display:inline-block;'
+   + 'padding:12px 20px;border-radius:9px;background:#2F6BFF;color:#fff;text-decoration:none;'
+   + 'font-weight:600">Открыть конструктор КП</a>'
+   + '<p style="margin:18px 0 0;color:#9AA7BD;font-size:12px;word-break:break-all">' + url + '</p></div>';
+}
 
-  var html = '<div style="padding:22px;font:15px/1.6 system-ui,-apple-system,Arial">'
-    + '<p style="margin:0 0 10px"><b>Конструктор КП</b>'
-    + (dealId ? ' · сделка №' + dealId : '') + '</p>'
-    + '<p style="margin:0 0 16px;color:#6B7893;font-size:13px">Нажмите кнопку — откроется в новой вкладке.</p>'
-    + '<a href="' + u + '" target="_blank" rel="noopener" '
-    + 'style="display:inline-block;padding:12px 20px;border-radius:9px;background:#2F6BFF;color:#fff;'
-    + 'text-decoration:none;font-weight:600">Открыть конструктор КП</a>'
-    + '<p style="margin:16px 0 0;color:#9AA7BD;font-size:12px;word-break:break-all">' + u + '</p>'
-    + '</div>';
-
+function showPanel(url){
+  console.log('[KP] показываю панель:', url);
   if (W.openPage){
-    W.openPage({ content: html }).catch(function(e){
-      console.log('[KP] openPage не сработал:', e);
-      try { window.open(u, '_blank'); } catch(_){}
-    });
-  } else {
-    try { window.open(u, '_blank'); } catch(_){}
+    return Promise.resolve(W.openPage({ content: panelHtml(url) }))
+      .then(function(){ console.log('[KP] openPage ок'); })
+      .catch(function(e){ console.log('[KP] openPage ошибка:', e); altPanel(url); });
   }
+  altPanel(url);
+}
+function altPanel(url){
+  if (W.openModal){
+    try { W.openModal({ title:'Конструктор КП', content: panelHtml(url), width: 640 });
+          console.log('[KP] openModal вызван'); return; } catch(e){}
+  }
+  console.log('[KP] показать панель нечем, адрес:', url);
 }
 
 /* ---------------- описание виджетов ---------------- */
@@ -75,32 +79,32 @@ params['sidebar-item'] = function () {
   }];
 };
 
-/* ---------------- клики ---------------- */
+/* ---------------- клик ---------------- */
 window.addEventListener('message', function (e) {
-  var d = e.data || {};
-  var raw = JSON.stringify(d);
-  var hit = /kp-btn:click|kp-side:click/.test(raw);
-  if (!hit) return;
+  var raw = JSON.stringify(e.data || {});
+  if (!/kp-btn:click|kp-side:click/.test(raw)) return;
 
   console.log('[KP] клик:', raw.slice(0, 300));
 
-  /* ID сделки может лежать в разных местах ответа */
-  var id = d.deal_id || d.id
-        || (d.options && d.options.deal_id)
-        || (d.data && d.data.deal_id)
-        || (d.data && d.data.options && d.data.options.deal_id)
-        || null;
+  /* ПАНЕЛЬ ПОКАЗЫВАЕМ СРАЗУ — не ждём сделку.
+     ID сделки пользователь подставит поиском по телефону. */
+  showPanel(urlFor(null, 'full=1'));
 
-  if (id) return showPanel(id);
+  /* фоном: если сделка всё-таки ответит — запишем ID в журнал, пригодится */
+  var d = e.data || {};
+  var id = d.deal_id || d.id || (d.options && d.options.deal_id)
+        || (d.data && d.data.deal_id) || null;
+  if (id){ console.log('[KP] ID сделки из события:', id); return; }
 
-  /* ID не пришёл — забираем через виджет */
   if (W.getDeal){
+    var t = setTimeout(function(){ console.log('[KP] getDeal не ответил за 3 с (в кнопке он недоступен)'); }, 3000);
     W.getDeal().then(function (deal) {
-      var x = deal && (deal.id || deal.deal_id || (deal.result && deal.result.id));
-      showPanel(x || null);
-    }).catch(function(){ showPanel(null); });
-  } else {
-    showPanel(null);
+      clearTimeout(t);
+      console.log('[KP] ID сделки через getDeal:', deal && (deal.id || deal.deal_id));
+    }).catch(function (err) {
+      clearTimeout(t);
+      console.log('[KP] getDeal ошибка:', err && err.message ? err.message : err);
+    });
   }
 }, false);
 
