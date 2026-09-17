@@ -1127,30 +1127,14 @@ function showModalPage(url){
   }
 }
 
-function initWidget(){
-  var w = W();
-  if (!w || window.parent === window) return;
-
-  window.addEventListener('message', function(e){
-    var raw = JSON.stringify(e.data || {});
-    if (!/kp-btn:click|kp-side:click/.test(raw)) return;
-    var d = e.data || {};
-    var id = d.deal_id || d.id || (d.options && d.options.deal_id) || (d.data && d.data.deal_id) || null;
-    var u = location.origin + location.pathname + '?full=1' + (id ? '&deal_id=' + id : '');
-    showModalPage(u);
-  }, false);
-
-  try {
-    w.init({
-      'deal-btn': function(){
-        return [{ title:'Сформировать КП', styles:{'color':'#fff','background-color':'#2F6BFF'}, icon:'md-description', clickEventName:'kp-btn:click', position:['first'], name:'kp-btn-1' }];
-      },
-      'sidebar-item': function(){
-        return [{ title:'Конструктор КП', icon:'md-description', clickEventName:'kp-side:click', position:['after-section-2'], name:'kp-sidebar-1' }];
-      }
-    });
-  } catch(e){}
-}
+window.addEventListener('message', function (e) {
+  var raw = JSON.stringify(e.data || {});
+  if (!/kp-btn:click|kp-side:click/.test(raw)) return;
+  var d = e.data || {};
+  var id = d.deal_id || d.id || (d.options && d.options.deal_id) || (d.data && d.data.deal_id) || null;
+  var u = location.origin + location.pathname + '?full=1' + (id ? '&deal_id=' + id : '');
+  showModalPage(u);
+}, false);
 
 function boot(){
   bindPanel();
