@@ -16,19 +16,21 @@
     }
 
     #kp-frame {
-      display: block;
       width: 100%;
       height: 100%;
       min-height: 100vh;
+      display: block;
       border: 0;
     }
   </style>
 </head>
 <body>
 
+<script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
+
 <iframe
   id="kp-frame"
-  src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=18"
+  src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=19"
   title="Конструктор КП">
 </iframe>
 
@@ -40,42 +42,135 @@
     window.location.search
   );
 
-  var token = params.get('token') || '';
-  var STORAGE_KEY = 'kp_current_deal_context_v18';
+  var dealId =
+    params.get('deal_id') ||
+    params.get('dealID') ||
+    '';
+
+  var clientId =
+    params.get('client_id') ||
+    params.get('clientID') ||
+    '';
+
   var frame = document.getElementById('kp-frame');
 
-  var activeToken = '';
+  var clientName = '';
+  var clientPhone = '';
+
+  var nameWasChanged = false;
+  var phoneWasChanged = false;
+  var numberWasChanged = false;
+
   var writing = false;
 
-  var nameUserChanged = false;
-  var phoneUserChanged = false;
-  var numberUserChanged = false;
-
-  function readContext() {
-    try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-
-      if (!raw) {
-        return null;
-      }
-
-      var context = JSON.parse(raw);
-
-      if (
-        token &&
-        context.token &&
-        context.token !== token
-      ) {
-        return null;
-      }
-
-      return context;
-    } catch (error) {
-      return null;
-    }
+  function log(message, data) {
+    console.log(
+      '[KP AUTO v19] ' + message,
+      data || ''
+    );
   }
 
-  function getFrameDocument() {
+  function valueOf(data) {
+    if (
+      data === null ||
+      data === undefined
+    ) {
+      return '';
+    }
+
+    if (
+      typeof data === 'string' ||
+      typeof data === 'number'
+    ) {
+      return String(data).trim();
+    }
+
+    if (Array.isArray(data)) {
+      for (var i = 0; i < data.length; i++) {
+        var arrayValue = valueOf(data[i]);
+
+        if (arrayValue) {
+          return arrayValue;
+        }
+      }
+
+      return '';
+    }
+
+    if (typeof data === 'object') {
+      if (
+        data.value !== undefined &&
+        data.value !== null
+      ) {
+        return valueOf(data.value);
+      }
+
+      if (
+        data.phone !== undefined &&
+        data.phone !== null
+      ) {
+        return valueOf(data.phone);
+      }
+
+      if (
+        data.name !== undefined &&
+        data.name !== null
+      ) {
+        return valueOf(data.name);
+      }
+
+      if (
+        data.result !== undefined &&
+        data.result !== null
+      ) {
+        return valueOf(data.result);
+      }
+    }
+
+    return '';
+  }
+
+  function loadClientData() {
+    var w = window.EnvyCrmWidget;
+
+    if (!w) {
+      log('EnvyCrmWidget не загрузилась');
+      return Promise.reject(
+        new Error('EnvyCrmWidget не загрузилась')
+      );
+    }
+
+    /*
+     * Это точно тот способ, который используется
+     * в присланном примере расширения.
+     */
+    var namePromise = w.getClientValue({
+      input_id: 1001,
+      type: 'service'
+    });
+
+    var phonePromise = w.getClientValue({
+      input_id: 1002,
+      type: 'service'
+    });
+
+    return Promise.all([
+      namePromise,
+      phonePromise
+    ]).then(function (values) {
+      clientName = valueOf(values[0]);
+      clientPhone = valueOf(values[1]);
+
+      log('данные клиента получены', {
+        dealID: dealId,
+        clientID: clientId,
+        clientName: clientName,
+        clientPhone: clientPhone
+      });
+    });
+  }
+
+  function getInnerDocument() {
     try {
       return frame.contentDocument ||
         frame.contentWindow.document ||
@@ -85,7 +180,7 @@
     }
   }
 
-  function allEditableFields(doc) {
+  function allFields(doc) {
     return Array.prototype.slice.call(
       doc.querySelectorAll(
         'input, textarea, [contenteditable="true"]'
@@ -110,12 +205,12 @@
     return String(element.value || '').trim();
   }
 
-  function fieldText(element) {
+  function fieldDescription(element) {
     if (!element) {
       return '';
     }
 
-    var result =
+    var text =
       String(element.id || '') + ' ' +
       String(element.name || '') + ' ' +
       String(element.placeholder || '') + ' ' +
@@ -125,7 +220,7 @@
 
     if (element.labels) {
       for (var i = 0; i < element.labels.length; i++) {
-        result += ' ' + String(
+        text += ' ' + String(
           element.labels[i].innerText || ''
         );
       }
@@ -134,25 +229,25 @@
     var parent = element.parentElement;
 
     for (var j = 0; j < 5 && parent; j++) {
-      result += ' ' + String(
+      text += ' ' + String(
         parent.innerText || ''
       );
 
       parent = parent.parentElement;
     }
 
-    return result
+    return text
       .replace(/\s+/g, ' ')
       .toLowerCase();
   }
 
-  function findByCaption(doc, caption) {
-    var fields = allEditableFields(doc);
+  function findByText(doc, text) {
+    var fields = allFields(doc);
 
     for (var i = 0; i < fields.length; i++) {
-      var text = fieldText(fields[i]);
-
-      if (text.indexOf(caption) !== -1) {
+      if (
+        fieldDescription(fields[i]).indexOf(text) !== -1
+      ) {
         return fields[i];
       }
     }
@@ -160,29 +255,29 @@
     return null;
   }
 
-  function findConfigPhone(doc) {
-    return doc.querySelector('#kpPhone');
-  }
-
-  function findDocumentPhone(doc) {
-    return findByCaption(
-      doc,
-      'контакт (телефон)'
-    );
-  }
-
-  function findClientName(doc) {
-    return findByCaption(
+  function findNameField(doc) {
+    return findByText(
       doc,
       'кому (заказчик)'
     );
   }
 
-  function findProposalNumber(doc) {
-    return findByCaption(
+  function findDocumentPhoneField(doc) {
+    return findByText(
+      doc,
+      'контакт (телефон)'
+    );
+  }
+
+  function findProposalNumberField(doc) {
+    return findByText(
       doc,
       'номер кп'
     );
+  }
+
+  function findMainPhoneField(doc) {
+    return doc.querySelector('#kpPhone');
   }
 
   function fire(element) {
@@ -199,7 +294,7 @@
     }));
   }
 
-  function write(element, value) {
+  function writeValue(element, value) {
     if (!element || !value) {
       return;
     }
@@ -234,6 +329,7 @@
       }
 
       fire(element);
+
     } finally {
       setTimeout(function () {
         writing = false;
@@ -241,12 +337,27 @@
     }
   }
 
+  function proposalNumber() {
+    var date = new Date();
+
+    var day = String(date.getDate())
+      .padStart(2, '0');
+
+    var month = String(date.getMonth() + 1)
+      .padStart(2, '0');
+
+    var year = date.getFullYear();
+
+    return 'КП-' + dealId + '/' +
+      day + '.' + month + '.' + year;
+  }
+
   function watch(element, type) {
-    if (!element || element.__kpWatch18) {
+    if (!element || element.__kpWatch19) {
       return;
     }
 
-    element.__kpWatch18 = type;
+    element.__kpWatch19 = type;
 
     element.addEventListener(
       'input',
@@ -256,15 +367,15 @@
         }
 
         if (type === 'name') {
-          nameUserChanged = true;
+          nameWasChanged = true;
         }
 
         if (type === 'phone') {
-          phoneUserChanged = true;
+          phoneWasChanged = true;
         }
 
         if (type === 'number') {
-          numberUserChanged = true;
+          numberWasChanged = true;
         }
       },
       false
@@ -294,96 +405,77 @@
     });
   }
 
-  function apply(context) {
-    var doc = getFrameDocument();
+  function applyToConstructor() {
+    var doc = getInnerDocument();
 
     if (!doc || !doc.body) {
       return;
     }
 
-    if (!context) {
-      context = readContext();
-    }
+    var nameField = findNameField(doc);
+    var documentPhoneField =
+      findDocumentPhoneField(doc);
+    var mainPhoneField =
+      findMainPhoneField(doc);
+    var numberField =
+      findProposalNumberField(doc);
 
-    if (!context) {
-      return;
-    }
-
-    if (activeToken !== context.token) {
-      activeToken =
-        context.token || String(Date.now());
-
-      nameUserChanged = false;
-      phoneUserChanged = false;
-      numberUserChanged = false;
-    }
+    watch(nameField, 'name');
+    watch(documentPhoneField, 'phone');
+    watch(mainPhoneField, 'phone');
+    watch(numberField, 'number');
 
     /*
-     * Поля, подтверждённые вашей диагностикой:
-     * #kpPhone — телефон клиента в настройках;
-     * «Кому (заказчик)» — имя;
-     * «Контакт (телефон)» — телефон в документе;
-     * «Номер КП» — номер документа.
-     */
-    var configPhone = findConfigPhone(doc);
-    var documentPhone = findDocumentPhone(doc);
-    var clientName = findClientName(doc);
-    var proposalNumber = findProposalNumber(doc);
-
-    watch(configPhone, 'phone');
-    watch(documentPhone, 'phone');
-    watch(clientName, 'name');
-    watch(proposalNumber, 'number');
-
-    /*
-     * Заполняем телефон клиента в верхнее поле
-     * и в поле документа.
+     * Заполняем имя клиента.
+     * После ручного изменения не перезаписываем.
      */
     if (
-      context.phone &&
-      !phoneUserChanged
-    ) {
-      if (
-        configPhone &&
-        fieldValue(configPhone) !== context.phone
-      ) {
-        write(configPhone, context.phone);
-      }
-
-      if (
-        documentPhone &&
-        fieldValue(documentPhone) !== context.phone
-      ) {
-        write(documentPhone, context.phone);
-      }
-    }
-
-    /*
-     * Заполняем «Кому (заказчик)».
-     * После ручного изменения имя не перезаписывается.
-     */
-    if (
-      context.clientName &&
       clientName &&
-      !nameUserChanged &&
-      fieldValue(clientName) !== context.clientName
+      nameField &&
+      !nameWasChanged &&
+      fieldValue(nameField) !== clientName
     ) {
-      write(clientName, context.clientName);
+      writeValue(nameField, clientName);
     }
 
     /*
-     * Заполняем номер КП.
+     * Заполняем телефон в двух местах:
+     * в поле поиска и в документе.
      */
     if (
-      context.proposalNumber &&
-      proposalNumber &&
-      !numberUserChanged &&
-      fieldValue(proposalNumber) !== context.proposalNumber
+      clientPhone &&
+      !phoneWasChanged
     ) {
-      write(
-        proposalNumber,
-        context.proposalNumber
-      );
+      if (
+        mainPhoneField &&
+        fieldValue(mainPhoneField) !== clientPhone
+      ) {
+        writeValue(mainPhoneField, clientPhone);
+      }
+
+      if (
+        documentPhoneField &&
+        fieldValue(documentPhoneField) !== clientPhone
+      ) {
+        writeValue(
+          documentPhoneField,
+          clientPhone
+        );
+      }
+    }
+
+    /*
+     * Номер КП: КП-ID сделки/DD.MM.YYYY.
+     */
+    var number = proposalNumber();
+
+    if (
+      dealId &&
+      numberField &&
+      !numberWasChanged &&
+      fieldValue(numberField) !== number
+    ) {
+      writeValue(numberField, number);
     }
 
     hideManualButtons(doc);
@@ -392,57 +484,56 @@
   frame.addEventListener(
     'load',
     function () {
-      apply(readContext());
-    },
-    false
-  );
-
-  window.addEventListener(
-    'storage',
-    function (event) {
-      if (event.key === STORAGE_KEY) {
-        apply(readContext());
-      }
+      applyToConstructor();
     },
     false
   );
 
   /*
-   * Повторная проверка нужна потому,
-   * что kp.html дорисовывает поля после загрузки.
+   * Сначала получаем имя и телефон,
+   * затем постоянно проверяем отрисовку полей.
    */
+  loadClientData()
+    .then(function () {
+      applyToConstructor();
+    })
+    .catch(function (error) {
+      log('ошибка получения данных клиента', error);
+    });
+
   var attempts = 0;
 
-  var timer = setInterval(function () {
-    apply(readContext());
+  var timer = setInterval(
+    function () {
+      applyToConstructor();
 
-    attempts++;
+      attempts++;
 
-    if (attempts > 180) {
-      clearInterval(timer);
-    }
-  }, 250);
+      if (attempts > 180) {
+        clearInterval(timer);
+      }
+    },
+    250
+  );
 
-  if (
-    window.MutationObserver
-  ) {
+  if (window.MutationObserver) {
     var observerTimer = setInterval(
       function () {
-        var doc = getFrameDocument();
+        var doc = getInnerDocument();
 
         if (
           !doc ||
           !doc.body ||
-          doc.body.__kpObserver18
+          doc.body.__kpObserver19
         ) {
           return;
         }
 
-        doc.body.__kpObserver18 = true;
+        doc.body.__kpObserver19 = true;
 
         var observer = new MutationObserver(
           function () {
-            apply(readContext());
+            applyToConstructor();
           }
         );
 
@@ -458,8 +549,6 @@
       clearInterval(observerTimer);
     }, 45000);
   }
-
-  apply(readContext());
 })();
 </script>
 
