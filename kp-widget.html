@@ -6,80 +6,84 @@
 <title>КП — виджет EnvyCRM</title>
 </head>
 <body>
-<script src="https://cdn.envycrm.com/widget/envycrmwidget.min.js"></script>
+<!-- библиотека виджета: только этот адрес -->
+<script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 <script>
-/* Виджет КП для EnvyCRM. Версия 2 */
-(function(){
+/* ===== Виджет КП для EnvyCRM. Версия 3 ===== */
+(function () {
   'use strict';
 
-  var VERSION = 'v2';
-  var CTOR = 'https://alenik9024-cell.github.io/kp/kp.html'; /* ВАЖНО: без .io.io */
+  var VERSION = 'v3';
+  var CTOR = 'https://alenik9024-cell.github.io/kp/kp.html';
 
-  /* ---------- ожидание библиотеки EnvyCrmWidget ---------- */
-  function waitForWidget(cb, tries){
-    tries = tries || 0;
-    if (window.EnvyCrmWidget) return cb(window.EnvyCrmWidget);
-    if (tries > 80) { console.log('[KP ' + VERSION + '] EnvyCrmWidget так и не загрузилась'); return; }
-    setTimeout(function(){ waitForWidget(cb, tries + 1); }, 100);
+  function log() {
+    var a = ['[KP ' + VERSION + ']'].concat([].slice.call(arguments));
+    console.log.apply(console, a);
   }
 
-  waitForWidget(function(W){
-    if (W.__kpRegistered) { console.log('[KP ' + VERSION + '] уже зарегистрирован'); return; }
-    W.__kpRegistered = true;
+  /* ждём библиотеку (она могла подключиться с задержкой) */
+  function waitW(cb, n) {
+    n = n || 0;
+    if (window.EnvyCrmWidget) return cb(window.EnvyCrmWidget);
+    if (n > 100) { log('EnvyCrmWidget не загрузилась — проверьте адрес скрипта'); return; }
+    setTimeout(function () { waitW(cb, n + 1); }, 100);
+  }
 
-    /* ---------- открытие конструктора ---------- */
-    function openCtor(dealId){
-      var u = CTOR + '?embed=1&full=1' + (dealId ? '&deal_id=' + encodeURIComponent(dealId) : '');
-      console.log('[KP ' + VERSION + '] открываю конструктор:', u);
+  waitW(function (w) {
+    if (w.__kpDone) { log('уже зарегистрирован'); return; }
+    w.__kpDone = true;
+    log('библиотека найдена');
 
-      var html = '<div style="height:86vh;display:flex;flex-direction:column">'
-        + '<iframe src="' + u + '" style="flex:1;width:100%;border:0;border-radius:10px"></iframe>'
-        + '<div style="padding:6px 2px;font:12px system-ui;color:#6B7893">'
-        + 'Не открылось? <a href="' + u + '" target="_blank" rel="noopener">Открыть конструктор в новой вкладке</a>'
-        + '</div></div>';
+    /* ---------- ID текущей сделки ---------- */
+    function dealId() {
+      return w.getDeal()
+        .then(function (d) {
+          d = d || {};
+          return d.id || d.deal_id || (d.result && (d.result.id || d.result.deal_id)) || null;
+        })
+        .catch(function (e) { log('getDeal:', e && e.message); return null; });
+    }
 
-      if (W.openPage){
-        W.openPage({ content: html }).catch(function(e){
-          console.log('[KP ' + VERSION + '] openPage не сработал:', e);
-          if (W.openModal) W.openModal({ title: 'Конструктор КП', content: html, width: 1100 });
-        });
-      } else if (W.openModal){
-        W.openModal({ title: 'Конструктор КП', content: html, width: 1100 });
+    /* ---------- открыть конструктор ---------- */
+    function openCtor(id) {
+      var u = CTOR + '?embed=1&full=1' + (id ? '&deal_id=' + encodeURIComponent(id) : '');
+      log('открываю:', u);
+
+      var html = '<iframe src="' + u + '" '
+        + 'style="width:100%;height:calc(100vh - 90px);min-height:520px;border:0;border-radius:12px" '
+        + 'allowfullscreen></iframe>';
+
+      /* openPage — полноэкранный режим (по документации предпочтителен для больших форм) */
+      if (w.openPage) {
+        w.openPage({ content: html })
+          .then(function () { log('конструктор открыт (openPage)'); })
+          .catch(function (e) {
+            log('openPage не сработал:', e && e.message, '— пробую modal');
+            if (w.openModal) w.openModal({ title: 'Конструктор КП', content: html, width: 1150 });
+          });
+      } else if (w.openModal) {
+        w.openModal({ title: 'Конструктор КП', content: html, width: 1150 });
       } else {
-        console.log('[KP ' + VERSION + '] открыть нечем, адрес: ' + u);
+        log('открыть нечем. Адрес: ' + u);
       }
     }
 
-    /* ---------- клики по кнопкам из CRM ---------- */
-    window.addEventListener('message', function(e){
-      var raw = '';
-      try { raw = JSON.stringify(e.data || {}); } catch (err) { return; }
-      if (!/kp-btn:click|kp-side:click/.test(raw)) return;
-      console.log('[KP ' + VERSION + '] клик:', raw.slice(0, 200));
+    /* ---------- клики по кнопкам CRM ---------- */
+    window.addEventListener('message', function (event) {
+      var t = event.data && event.data.type;
+      if (!t) return;
 
-      var d = e.data || {};
-      var id = d.deal_id || d.id || d.dealId
-            || (d.options && (d.options.deal_id || d.options.id))
-            || (d.data && (d.data.deal_id || d.data.id))
-            || (d.result && d.result.id)
-            || null;
-
-      if (id) return openCtor(id);
-
-      /* ID не пришёл — спрашиваем у виджета */
-      if (W.getDeal){
-        W.getDeal().then(function(deal){
-          var x = deal && (deal.id || deal.deal_id || (deal.result && deal.result.id));
-          openCtor(x || null);
-        }).catch(function(){ openCtor(null); });
-      } else {
-        openCtor(null);
+      if (t === 'kp-btn:click' || t === 'kp-side:click') {
+        log('клик: ' + t, event.data);
+        var id = event.data.deal_id || event.data.id || event.data.dealId || null;
+        if (id) return openCtor(id);
+        dealId().then(function (x) { openCtor(x); });
       }
     }, false);
 
     /* ---------- регистрация кнопок ---------- */
-    W.init({
-      'deal-btn': function(){
+    w.init({
+      'deal-btn': function () {
         return [{
           title: 'Сформировать КП',
           styles: { 'color': '#fff', 'background-color': '#2F6BFF' },
@@ -89,7 +93,7 @@
           name: 'kp-btn-1'
         }];
       },
-      'sidebar-item': function(){
+      'sidebar-item': function () {
         return [{
           title: 'Конструктор КП',
           icon: 'md-description',
@@ -100,7 +104,17 @@
       }
     });
 
-    console.log('[KP ' + VERSION + '] виджет зарегистрирован');
+    /* ---------- проверка прав (в журнал) ---------- */
+    if (w.checkPermissions) {
+      w.checkPermissions([
+        { permission: 'allow_change_deal_fields_value' },
+        { permission: 'allow_change_client_fields_value' },
+        { permission: 'allow_show_full_client_phone' }
+      ]).then(function (p) { log('права:', p); })
+       .catch(function (e) { log('права не получены:', e && e.message); });
+    }
+
+    log('виджет зарегистрирован');
   });
 })();
 </script>
