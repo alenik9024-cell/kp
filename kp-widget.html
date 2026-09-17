@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>КП — расширение EnvyCRM</title>
+  <title>КП — виджет EnvyCRM</title>
 </head>
 <body>
 
@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v10';
+  var VERSION = 'v11';
   var CTOR = 'https://alenik9024-cell.github.io/kp/kp.html';
 
   function log(message, data) {
@@ -26,13 +26,187 @@
     return;
   }
 
-  /*
-   * Открываем конструктор сразу.
-   * Не вызываем getDeal до openPage:
-   * иначе CRM теряет контекст клика.
-   */
-  function openConstructor() {
-    var url = CTOR + '?embed=1&full=1';
+  function valueFromObject(value) {
+    if (value === null || value === undefined) return '';
+
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number'
+    ) {
+      return String(value);
+    }
+
+    if (typeof value === 'object') {
+      if (value.value !== undefined && value.value !== null) {
+        return valueFromObject(value.value);
+      }
+
+      if (value.phone !== undefined) {
+        return valueFromObject(value.phone);
+      }
+
+      if (value.result !== undefined) {
+        return valueFromObject(value.result);
+      }
+    }
+
+    return '';
+  }
+
+  function findDealId(deal) {
+    if (!deal) return '';
+
+    return String(
+      deal.id ||
+      deal.deal_id ||
+      (deal.result && (deal.result.id || deal.result.deal_id)) ||
+      ''
+    );
+  }
+
+  function findPhone(data, visited) {
+    if (!data || typeof data !== 'object') return '';
+
+    visited = visited || [];
+
+    if (visited.indexOf(data) !== -1) return '';
+    visited.push(data);
+
+    if (Array.isArray(data)) {
+      for (var i = 0; i < data.length; i++) {
+        var fromArray = findPhone(data[i], visited);
+        if (fromArray) return fromArray;
+      }
+
+      return '';
+    }
+
+    var preferredKeys = [
+      'phone',
+      'mobile_phone',
+      'mobilePhone',
+      'main_phone',
+      'contact_phone',
+      'client_phone',
+      'value'
+    ];
+
+    for (var p = 0; p < preferredKeys.length; p++) {
+      var key = preferredKeys[p];
+
+      if (data[key] !== undefined && data[key] !== null) {
+        var phone = valueFromObject(data[key]);
+
+        if (phone && /\d{5,}/.test(phone)) {
+          return phone;
+        }
+      }
+    }
+
+    for (var keyName in data) {
+      if (!Object.prototype.hasOwnProperty.call(data, keyName)) {
+        continue;
+      }
+
+      var keyLower = String(keyName).toLowerCase();
+
+      if (
+        keyLower.indexOf('phone') !== -1 ||
+        keyLower.indexOf('телефон') !== -1
+      ) {
+        var detected = valueFromObject(data[keyName]);
+
+        if (detected && /\d{5,}/.test(detected)) {
+          return detected;
+        }
+      }
+    }
+
+    for (var childKey in data) {
+      if (!Object.prototype.hasOwnProperty.call(data, childKey)) {
+        continue;
+      }
+
+      var nested = data[childKey];
+
+      if (nested && typeof nested === 'object') {
+        var found = findPhone(nested, visited);
+
+        if (found) return found;
+      }
+    }
+
+    return '';
+  }
+
+  function getClientPhone(deal) {
+    var phone = findPhone(deal);
+
+    if (phone) {
+      return Promise.resolve(phone);
+    }
+
+    if (w.getClientValue) {
+      return w.getClientValue({
+        input_id: 1002,
+        type: 'service'
+      }).then(function (data) {
+        return valueFromObject(data);
+      }).catch(function () {
+        return '';
+      });
+    }
+
+    if (w.getClientValues) {
+      return w.getClientValues().then(function (data) {
+        return findPhone(data);
+      }).catch(function () {
+        return '';
+      });
+    }
+
+    return Promise.resolve('');
+  }
+
+  function getContext() {
+    return w.getDeal().then(function (deal) {
+      deal = deal || {};
+
+      var dealId = findDealId(deal);
+
+      return getClientPhone(deal).then(function (phone) {
+        return {
+          dealId: dealId,
+          phone: phone
+        };
+      });
+    });
+  }
+
+  function getProposalNumber(dealId) {
+    var d = new Date();
+
+    var day = String(d.getDate()).padStart(2, '0');
+    var month = String(d.getMonth() + 1).padStart(2, '0');
+    var year = d.getFullYear();
+
+    return 'КП-' + dealId + '/' + day + '.' + month + '.' + year;
+  }
+
+  function openConstructor(context) {
+    context = context || {};
+
+    var query =
+      '?embed=1' +
+      '&full=1' +
+      '&auto=1' +
+      '&deal_id=' + encodeURIComponent(context.dealId || '') +
+      '&phone=' + encodeURIComponent(context.phone || '') +
+      '&kp_number=' + encodeURIComponent(
+        getProposalNumber(context.dealId || '')
+      );
+
+    var url = CTOR + query;
 
     var content =
       '<iframe ' +
@@ -41,10 +215,14 @@
       'allowfullscreen>' +
       '</iframe>';
 
-    log('клик получен, открываю конструктор сразу');
+    log('открываю конструктор', {
+      deal_id: context.dealId,
+      phone: context.phone,
+      url: url
+    });
 
-    if (w.openPage) {
-      try {
+    try {
+      if (w.openPage) {
         var page = w.openPage({
           content: content
         });
@@ -58,45 +236,54 @@
                 title: 'Конструктор КП',
                 content: content,
                 width: 1150
-              }).catch(function (e) {
-                log('openModal не сработал', e);
               });
             }
           });
         }
 
         return;
-      } catch (error) {
-        log('ошибка openPage', error);
       }
-    }
 
-    if (w.openModal) {
-      try {
+      if (w.openModal) {
         w.openModal({
           title: 'Конструктор КП',
           content: content,
           width: 1150
-        }).catch(function (error) {
-          log('ошибка openModal', error);
         });
 
         return;
-      } catch (error) {
-        log('ошибка вызова openModal', error);
       }
-    }
 
-    /*
-     * Последний резервный вариант.
-     * Он сработает, если CRM не поддерживает openPage/openModal.
-     */
-    window.open(CTOR + '?embed=1&full=1', '_blank');
+      window.open(url, '_blank');
+
+    } catch (error) {
+      log('ошибка открытия конструктора', error);
+      window.open(url, '_blank');
+    }
   }
 
-  /*
-   * Принимаем только событие кнопки сделки.
-   */
+  function onClick() {
+    log('нажата кнопка формирования КП');
+
+    getContext()
+      .then(function (context) {
+        log('контекст получен', context);
+        openConstructor(context);
+      })
+      .catch(function (error) {
+        log('не удалось получить сделку', error);
+
+        /*
+         * Даже если CRM не вернула данные,
+         * конструктор всё равно открывается.
+         */
+        openConstructor({
+          dealId: '',
+          phone: ''
+        });
+      });
+  }
+
   window.addEventListener('message', function (event) {
     var type = event.data && event.data.type;
 
@@ -104,18 +291,9 @@
       return;
     }
 
-    log('получено событие kp-btn:click', event.data);
-
-    /*
-     * ВАЖНО: открываем сразу, без getDeal().
-     */
-    openConstructor();
+    onClick();
   }, false);
 
-  /*
-   * Регистрируем только одну кнопку:
-   * «Сформировать КП» в карточке сделки.
-   */
   try {
     w.init({
       'deal-btn': function () {
@@ -133,7 +311,7 @@
       }
     });
 
-    log('одна кнопка зарегистрирована');
+    log('зарегистрирована одна кнопка');
   } catch (error) {
     log('ошибка регистрации кнопки', error);
   }
