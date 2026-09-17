@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Конструктор КП</title>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #070a10;
+    }
+
+    #constructor {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+
+<iframe
+  id="constructor"
+  src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1"
+  title="Конструктор КП">
+</iframe>
+
+<script>
+(function () {
+  'use strict';
+
+  var params = new URLSearchParams(window.location.search);
+  var tokenFromUrl = params.get('token') || '';
+  var STORAGE_KEY = 'kp_current_deal_context';
+
+  var frame = document.getElementById('constructor');
+
+  var nameWasSet = false;
+  var phoneWasSet = false;
+  var numberWasSet = false;
+
+  var activeToken = '';
+
+  function readContext() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+
+      if (!raw) {
+        return null;
+      }
+
+      var context = JSON.parse(raw);
+
+      if (
+        tokenFromUrl &&
+        context.token &&
+        context.token !== tokenFromUrl
+      ) {
+        return null;
+      }
+
+      return context;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function constructorDocument() {
+    try {
+      return frame.contentDocument ||
+        (frame.contentWindow && frame.contentWindow.document) ||
+        null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function valueOf(element) {
+    if (!element) {
+      return '';
+    }
+
+    if (
+      element.matches &&
+      element.matches('[contenteditable="true"]')
+    ) {
+      return String(element.textContent || '').trim();
+    }
+
+    return String(element.value || '').trim();
+  }
+
+  function fire(element) {
+    if (!element) {
+      return;
+    }
+
+    element.dispatchEvent(new Event('input', {
+      bubbles: true
+    }));
+
+    element.dispatchEvent(new Event('change', {
+      bubbles: true
+    }));
+
+    element.dispatchEvent(new Event('blur', {
+      bubbles: true
+    }));
+  }
+
+  function setValue(element, value) {
+    if (!element || !value) {
+      return;
+    }
+
+    if (
+      element.matches &&
+      element.matches('[contenteditable="true"]')
+    ) {
+      element.textContent = value;
+      fire(element);
+      return;
+    }
+
+    /*
+     * Используем настоящий setter поля.
+     * Это важно для внутренней логики конструктора.
+     */
+    var prototype = Object.getPrototypeOf(element);
+    var descriptor = prototype &&
+      Object.getOwnPropertyDescriptor(prototype, 'value');
+
+    if (descriptor && descriptor.set) {
+      descriptor.set.call(element, value);
+    } else {
+      element.value = value;
+    }
+
+    fire(element);
+  }
+
+  function allFields(doc) {
+    return Array.prototype.slice.call(
+      doc.querySelectorAll(
+        'input, textarea, [contenteditable="true"]'
+      )
+    );
+  }
+
+  function surroundingText(element) {
+    if (!element) {
+      return '';
+    }
+
+    var result =
+      String(element.id || '') + ' ' +
+      String(element.name || '') + ' ' +
+      String(element.placeholder || '') + ' ' +
+      String(element.getAttribute('aria-label') || '');
+
+    if (element.labels) {
+      for (var i = 0; i < element.labels.length; i++) {
+        result += ' ' + String(
+          element.labels[i].innerText || ''
+        );
+      }
+    }
+
+    var parent = element.parentElement;
+
+    for (var j = 0; j < 5 && parent; j++) {
+      result += ' ' + String(parent.innerText || '');
+      parent = parent.parentElement;
+    }
+
+    return result
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+  }
+
+  function findFieldByLabel(doc, words, excluded) {
+    var labels = Array.prototype.slice.call(
+      doc.querySelectorAll('label')
+    );
+
+    for (var i = 0; i < labels.length; i++) {
+      var label = labels[i];
+
+      var labelText = String(label.innerText || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      var hasWord = words.some(function (word) {
+        return labelText.indexOf(word) !== -1;
+      });
+
+      if (!hasWord) {
+        continue;
+      }
+
+      if (
+        excluded &&
+        excluded.some(function (word) {
+          return labelText.indexOf(word) !== -1;
+        })
+      ) {
+        continue;
+      }
+
+      if (label.htmlFor) {
+        var linked = doc.getElementById(label.htmlFor);
+
+        if (linked) {
+          return linked;
+        }
+      }
+
+      var parent = label.parentElement;
+
+      if (parent) {
+        var inside = parent.querySelector(
+          'input, textarea, [contenteditable="true"]'
+        );
+
+        if (inside) {
+          return inside;
+        }
+
+        var next = parent.nextElementSibling;
+
+        if (next) {
+          var nextField = next.querySelector(
+            'input, textarea, [contenteditable="true"]'
+          );
+
+          if (nextField) {
+            return nextField;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function findPhoneField(doc) {
+    var direct =
+      doc.querySelector('#clientPhone') ||
+      doc.querySelector('#phone') ||
+      doc.querySelector('[name="client_phone"]') ||
+      doc.querySelector('[name="phone"]') ||
+      doc.querySelector('input[type="tel"]');
+
+    if (direct) {
+      return direct;
+    }
+
+    var field = findFieldByLabel(
+      doc,
+      ['телефон клиента'],
+      ['контакт']
+    );
+
+    if (field) {
+      return field;
+    }
+
+    var fields = allFields(doc);
+
+    for (var i = 0; i < fields.length; i++) {
+      var description = surroundingText(fields[i]);
+
+      if (
+        description.indexOf('телефон клиента') !== -1 ||
+        description.indexOf('client_phone') !== -1
+      ) {
+        return fields[i];
+      }
+    }
+
+    return null;
+  }
+
+  function findClientNameField(doc) {
+    var direct =
+      doc.querySelector('#clientName') ||
+      doc.querySelector('#customerName') ||
+      doc.querySelector('[name="client_name"]') ||
+      doc.querySelector('[name="customer_name"]') ||
+      doc.querySelector('[name="customer"]');
+
+    if (direct) {
+      return direct;
+    }
+
+    var field = findFieldByLabel(
+      doc,
+      ['кому', 'заказчик'],
+      ['телефон', 'контакт', 'исполнитель']
+    );
+
+    if (field) {
+      return field;
+    }
+
+    var fields = allFields(doc);
+
+    for (var i = 0; i < fields.length; i++) {
+      var description = surroundingText(fields[i]);
+
+      var looksLikeName =
+        description.indexOf('кому') !== -1 ||
+        description.indexOf('заказчик') !== -1 ||
+        description.indexOf('client_name') !== -1 ||
+        description.indexOf('customer_name') !== -1;
+
+      var looksLikeAnotherField =
+        description.indexOf('телефон') !== -1 ||
+        description.indexOf('контакт') !== -1 ||
+        description.indexOf('исполнитель') !== -1 ||
+        description.indexOf('от кого') !== -1;
+
+      if (looksLikeName && !looksLikeAnotherField) {
+        return fields[i];
+      }
+    }
+
+    return null;
+  }
+
+  function findProposalNumberField(doc) {
+    var direct =
+      doc.querySelector('#proposalNumber') ||
+      doc.querySelector('#kpNumber') ||
+      doc.querySelector('[name="proposal_number"]') ||
+      doc.querySelector('[name="kp_number"]');
+
+    if (direct) {
+      return direct;
+    }
+
+    var field = findFieldByLabel(
+      doc,
+      ['номер кп', '№ кп'],
+      ['телефон']
+    );
+
+    if (field) {
+      return field;
+    }
+
+    var fields = allFields(doc);
+
+    for (var i = 0; i < fields.length; i++) {
+      var description = surroundingText(fields[i]);
+
+      if (
+        description.indexOf('номер кп') !== -1 ||
+        description.indexOf('proposal_number') !== -1 ||
+        description.indexOf('kp_number') !== -1
+      ) {
+        return fields[i];
+      }
+    }
+
+    return null;
+  }
+
+  function hideManualControls(doc) {
+    var buttons = Array.prototype.slice.call(
+      doc.querySelectorAll('button')
+    );
+
+    buttons.forEach(function (button) {
+      var title = String(button.innerText || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      if (
+        title.indexOf('найти поля') !== -1 ||
+        title.indexOf('проверить api') !== -1 ||
+        title.indexOf('сохранить настройки') !== -1
+      ) {
+        button.style.display = 'none';
+      }
+    });
+  }
+
+  function applyContext() {
+    var doc = constructorDocument();
+
+    if (!doc || !doc.body) {
+      return;
+    }
+
+    var context = readContext();
+
+    if (!context) {
+      return;
+    }
+
+    if (activeToken !== context.token) {
+      activeToken = context.token || String(Date.now());
+
+      nameWasSet = false;
+      phoneWasSet = false;
+      numberWasSet = false;
+    }
+
+    var nameField = findClientNameField(doc);
+    var phoneField = findPhoneField(doc);
+    var numberField = findProposalNumberField(doc);
+
+    /*
+     * Имя заполняется один раз.
+     * После заполнения его можно свободно редактировать.
+     */
+    if (
+      !nameWasSet &&
+      nameField &&
+      context.clientName
+    ) {
+      setValue(nameField, context.clientName);
+      nameWasSet = true;
+    }
+
+    /*
+     * Телефон заполняется автоматически.
+     * Его можно копировать и редактировать.
+     */
+    if (
+      !phoneWasSet &&
+      phoneField &&
+      context.phone
+    ) {
+      setValue(phoneField, context.phone);
+      phoneWasSet = true;
+    }
+
+    /*
+     * Номер КП формируется автоматически по ID сделки.
+     */
+    if (
+      !numberWasSet &&
+      numberField &&
+      context.proposalNumber
+    ) {
+      setValue(numberField, context.proposalNumber);
+      numberWasSet = true;
+    }
+
+    hideManualControls(doc);
+  }
+
+  frame.addEventListener('load', function () {
+    applyContext();
+  });
+
+  /*
+   * Ждём и конструктор, и данные сделки.
+   */
+  var attempts = 0;
+
+  var timer = setInterval(function () {
+    applyContext();
+
+    attempts++;
+
+    if (attempts > 160) {
+      clearInterval(timer);
+    }
+  }, 250);
+
+  /*
+   * Отслеживаем перерисовку полей внутри конструктора.
+   */
+  function observeConstructor() {
+    var doc = constructorDocument();
+
+    if (
+      !doc ||
+      !doc.body ||
+      !window.MutationObserver
+    ) {
+      return;
+    }
+
+    var observer = new MutationObserver(function () {
+      applyContext();
+    });
+
+    observer.observe(doc.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  setTimeout(observeConstructor, 1000);
+
+  /*
+   * Получаем обновление localStorage от виджета.
+   */
+  window.addEventListener('storage', function (event) {
+    if (event.key === STORAGE_KEY) {
+      applyContext();
+    }
+  });
+
+  applyContext();
+})();
+</script>
+
+</body>
+</html>
