@@ -12,22 +12,22 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v19';
-  var AUTO_URL =
-    'https://alenik9024-cell.github.io/kp/kp-auto.html?v=19';
-
-  var currentContext = {
-    dealId: '',
-    clientId: ''
-  };
+  var VERSION = 'v20';
+  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=20';
+  var STORAGE_KEY = 'kp_context_v20';
 
   var w = window.EnvyCrmWidget;
+  var dealContext = {
+    dealId: '',
+    clientId: '',
+    clientName: '',
+    phone: ''
+  };
+
+  var dataPromise = Promise.resolve();
 
   function log(message, data) {
-    console.log(
-      '[KP ' + VERSION + '] ' + message,
-      data || ''
-    );
+    console.log('[KP ' + VERSION + '] ' + message, data || '');
   }
 
   if (!w) {
@@ -35,49 +35,143 @@
     return;
   }
 
-  function getParamValue(params, keys) {
-    params = params || {};
+  function scalar(value) {
+    if (value === null || value === undefined) {
+      return '';
+    }
 
-    for (var i = 0; i < keys.length; i++) {
-      if (
-        params[keys[i]] !== undefined &&
-        params[keys[i]] !== null &&
-        params[keys[i]] !== ''
-      ) {
-        return String(params[keys[i]]);
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number'
+    ) {
+      return String(value).trim();
+    }
+
+    if (Array.isArray(value)) {
+      for (var i = 0; i < value.length; i++) {
+        var arrayValue = scalar(value[i]);
+
+        if (arrayValue) {
+          return arrayValue;
+        }
+      }
+
+      return '';
+    }
+
+    if (typeof value === 'object') {
+      if (value.value !== undefined) {
+        return scalar(value.value);
+      }
+
+      if (value.phone !== undefined) {
+        return scalar(value.phone);
+      }
+
+      if (value.name !== undefined) {
+        return scalar(value.name);
+      }
+
+      if (value.result !== undefined) {
+        return scalar(value.result);
       }
     }
 
     return '';
   }
 
-  function openConstructor(eventData) {
-    eventData = eventData || {};
+  function getParam(params, names) {
+    params = params || {};
 
-    /*
-     * Основной источник — params из callback init.
-     * Резервный источник — данные события клика.
-     */
-    var dealId =
-      currentContext.dealId ||
-      getParamValue(eventData, [
-        'dealID',
-        'deal_id',
-        'dealId'
-      ]);
+    for (var i = 0; i < names.length; i++) {
+      if (
+        params[names[i]] !== undefined &&
+        params[names[i]] !== null &&
+        params[names[i]] !== ''
+      ) {
+        return String(params[names[i]]);
+      }
+    }
 
-    var clientId =
-      currentContext.clientId ||
-      getParamValue(eventData, [
-        'clientID',
-        'client_id',
-        'clientId'
-      ]);
+    return '';
+  }
+
+  function proposalNumber(dealId) {
+    var date = new Date();
+
+    var day = String(date.getDate()).padStart(2, '0');
+    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var year = date.getFullYear();
+
+    return 'КП-' + dealId + '/' + day + '.' + month + '.' + year;
+  }
+
+  function saveContext(token) {
+    var context = {
+      token: token,
+      dealId: dealContext.dealId,
+      clientId: dealContext.clientId,
+      clientName: dealContext.clientName,
+      phone: dealContext.phone,
+      proposalNumber: proposalNumber(dealContext.dealId),
+      updatedAt: Date.now()
+    };
+
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(context)
+      );
+
+      log('контекст сохранён', context);
+    } catch (error) {
+      log('ошибка сохранения контекста', error);
+    }
+  }
+
+  /*
+   * Этот вызов выполняется в основном расширении,
+   * а не во вложенном kp-auto.html.
+   */
+  function loadClientData() {
+    if (!w.getClientValue) {
+      return Promise.reject(
+        new Error('getClientValue недоступен')
+      );
+    }
+
+    return Promise.all([
+      w.getClientValue({
+        input_id: 1001,
+        type: 'service'
+      }),
+
+      w.getClientValue({
+        input_id: 1002,
+        type: 'service'
+      })
+    ]).then(function (values) {
+      dealContext.clientName = scalar(values[0]);
+      dealContext.phone = scalar(values[1]);
+
+      log('данные клиента получены', {
+        clientName: dealContext.clientName,
+        phone: dealContext.phone
+      });
+
+      return dealContext;
+    });
+  }
+
+  function openConstructor() {
+    var token = 'kp_' + Date.now();
+
+    saveContext(token);
 
     var url =
       AUTO_URL +
-      '&deal_id=' + encodeURIComponent(dealId) +
-      '&client_id=' + encodeURIComponent(clientId);
+      '&token=' +
+      encodeURIComponent(token);
 
     var iframe =
       '<iframe src="' + url + '" ' +
@@ -86,11 +180,13 @@
       'allowfullscreen></iframe>';
 
     log('открываю конструктор', {
-      dealID: dealId,
-      clientID: clientId,
-      url: url
+      dealId: dealContext.dealId,
+      clientId: dealContext.clientId
     });
 
+    /*
+     * Открываем сразу, чтобы не блокировать окно ожиданием API.
+     */
     try {
       if (w.openPage) {
         var page = w.openPage({
@@ -113,66 +209,74 @@
             }
           });
         }
-
-        return;
-      }
-
-      if (w.openModal) {
+      } else if (w.openModal) {
         w.openModal({
           title: 'Конструктор КП',
           content: iframe,
           width: 1150
         });
-
-        return;
+      } else {
+        window.open(url, '_blank');
       }
-
-      window.open(url, '_blank');
-
     } catch (error) {
-      log('ошибка открытия конструктора', error);
+      log('ошибка открытия', error);
       window.open(url, '_blank');
     }
+
+    /*
+     * После открытия обновляем localStorage.
+     * kp-auto.html увидит новые имя и телефон.
+     */
+    dataPromise
+      .then(function () {
+        saveContext(token);
+      })
+      .catch(function (error) {
+        log('данные клиента не получены', error);
+        saveContext(token);
+      });
   }
 
   window.addEventListener(
     'message',
     function (event) {
-      var type = event.data && event.data.type;
-
-      if (type !== 'kp-btn:click') {
-        return;
+      if (
+        event.data &&
+        event.data.type === 'kp-btn:click'
+      ) {
+        log('кнопка нажата');
+        openConstructor();
       }
-
-      log('кнопка нажата', event.data);
-      openConstructor(event.data);
     },
     false
   );
 
-  /*
-   * ВАЖНО:
-   * params — это параметры текущей сделки,
-   * которые CRM передаёт в callback init.
-   */
   try {
-    var initResult = w.init({
+    w.init({
       'deal-btn': function (params) {
-        currentContext.dealId = getParamValue(
+        /*
+         * Это правильный способ из вашего примера.
+         */
+        dealContext.dealId = getParam(
           params,
           ['dealID', 'deal_id', 'dealId']
         );
 
-        currentContext.clientId = getParamValue(
+        dealContext.clientId = getParam(
           params,
           ['clientID', 'client_id', 'clientId']
         );
 
         log('параметры сделки получены из init', {
-          params: params,
-          dealID: currentContext.dealId,
-          clientID: currentContext.clientId
+          dealId: dealContext.dealId,
+          clientId: dealContext.clientId,
+          params: params
         });
+
+        /*
+         * Запрашиваем значения в контексте основного расширения.
+         */
+        dataPromise = loadClientData();
 
         return [{
           title: 'Сформировать КП',
@@ -188,17 +292,7 @@
       }
     });
 
-    if (
-      initResult &&
-      typeof initResult.catch === 'function'
-    ) {
-      initResult.catch(function (error) {
-        log('ошибка init', error);
-      });
-    }
-
-    log('виджет v19 зарегистрирован');
-
+    log('виджет v20 зарегистрирован');
   } catch (error) {
     log('ошибка регистрации кнопки', error);
   }
