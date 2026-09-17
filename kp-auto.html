@@ -16,11 +16,11 @@
     }
 
     #kp-frame {
-      display: block;
       width: 100%;
       height: 100%;
       min-height: 100vh;
       border: 0;
+      display: block;
     }
   </style>
 </head>
@@ -40,21 +40,33 @@
     window.location.search
   );
 
-  var tokenFromUrl = params.get('token') || '';
-  var STORAGE_KEY = 'kp_current_deal_context';
-
+  var token = params.get('token') || '';
+  var STORAGE_KEY = 'kp_current_deal_context_v17';
   var frame = document.getElementById('kp-frame');
 
-  var activeToken = '';
-  var nameField = null;
-  var phoneField = null;
-  var numberField = null;
-
-  var nameChangedByUser = false;
-  var phoneChangedByUser = false;
-  var numberChangedByUser = false;
-
+  var currentToken = '';
+  var nameUserChanged = false;
+  var phoneUserChanged = false;
+  var numberUserChanged = false;
   var writing = false;
+
+  var channel = null;
+
+  if (window.BroadcastChannel && token) {
+    try {
+      channel = new BroadcastChannel(
+        'kp_context_' + token
+      );
+
+      channel.onmessage = function (event) {
+        if (event.data) {
+          apply(event.data);
+        }
+      };
+    } catch (e) {
+      channel = null;
+    }
+  }
 
   function readContext() {
     try {
@@ -67,38 +79,38 @@
       var context = JSON.parse(raw);
 
       if (
-        tokenFromUrl &&
+        token &&
         context.token &&
-        context.token !== tokenFromUrl
+        context.token !== token
       ) {
         return null;
       }
 
       return context;
-    } catch (error) {
+    } catch (e) {
       return null;
     }
   }
 
-  function getDocument() {
+  function doc() {
     try {
       return frame.contentDocument ||
         frame.contentWindow.document ||
         null;
-    } catch (error) {
+    } catch (e) {
       return null;
     }
   }
 
-  function fields(doc) {
+  function allFields(documentObject) {
     return Array.prototype.slice.call(
-      doc.querySelectorAll(
+      documentObject.querySelectorAll(
         'input, textarea, [contenteditable="true"]'
       )
     );
   }
 
-  function valueOf(element) {
+  function fieldValue(element) {
     if (!element) {
       return '';
     }
@@ -115,12 +127,12 @@
     return String(element.value || '').trim();
   }
 
-  function description(element) {
+  function fieldDescription(element) {
     if (!element) {
       return '';
     }
 
-    var result =
+    var text =
       String(element.id || '') + ' ' +
       String(element.name || '') + ' ' +
       String(element.placeholder || '') + ' ' +
@@ -128,7 +140,7 @@
 
     if (element.labels) {
       for (var i = 0; i < element.labels.length; i++) {
-        result += ' ' + String(
+        text += ' ' + String(
           element.labels[i].innerText || ''
         );
       }
@@ -136,48 +148,50 @@
 
     var parent = element.parentElement;
 
-    for (var j = 0; j < 4 && parent; j++) {
-      result += ' ' + String(parent.innerText || '');
+    for (var j = 0; j < 5 && parent; j++) {
+      text += ' ' + String(parent.innerText || '');
       parent = parent.parentElement;
     }
 
-    return result
+    return text
       .replace(/\s+/g, ' ')
       .toLowerCase();
   }
 
-  function fieldFromLabel(doc, words, excluded) {
+  function fromLabel(documentObject, words, excluded) {
     var labels = Array.prototype.slice.call(
-      doc.querySelectorAll('label')
+      documentObject.querySelectorAll('label')
     );
 
     for (var i = 0; i < labels.length; i++) {
       var label = labels[i];
 
-      var labelText = String(label.innerText || '')
+      var text = String(label.innerText || '')
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase();
 
-      var found = words.some(function (word) {
-        return labelText.indexOf(word) !== -1;
+      var matches = words.some(function (word) {
+        return text.indexOf(word) !== -1;
       });
 
-      if (!found) {
+      if (!matches) {
         continue;
       }
 
       if (
         excluded &&
         excluded.some(function (word) {
-          return labelText.indexOf(word) !== -1;
+          return text.indexOf(word) !== -1;
         })
       ) {
         continue;
       }
 
       if (label.htmlFor) {
-        var linked = doc.getElementById(label.htmlFor);
+        var linked = documentObject.getElementById(
+          label.htmlFor
+        );
 
         if (linked) {
           return linked;
@@ -187,12 +201,12 @@
       var parent = label.parentElement;
 
       if (parent) {
-        var inside = parent.querySelector(
+        var direct = parent.querySelector(
           'input, textarea, [contenteditable="true"]'
         );
 
-        if (inside) {
-          return inside;
+        if (direct) {
+          return direct;
         }
 
         var next = parent.nextElementSibling;
@@ -212,121 +226,56 @@
     return null;
   }
 
-  function findPhoneField(doc) {
-    var direct =
-      doc.querySelector('#clientPhone') ||
-      doc.querySelector('#phone') ||
-      doc.querySelector('[name="client_phone"]') ||
-      doc.querySelector('[name="phone"]') ||
-      doc.querySelector('input[type="tel"]');
-
-    if (direct) {
-      return direct;
-    }
-
-    var labelled = fieldFromLabel(
-      doc,
-      ['телефон клиента'],
-      ['контакт']
+  function findPhone(documentObject) {
+    return (
+      documentObject.querySelector('#clientPhone') ||
+      documentObject.querySelector('#phone') ||
+      documentObject.querySelector('[name="client_phone"]') ||
+      documentObject.querySelector('[name="phone"]') ||
+      documentObject.querySelector('input[type="tel"]') ||
+      fromLabel(
+        documentObject,
+        ['телефон клиента', 'телефон'],
+        ['контакт']
+      )
     );
-
-    if (labelled) {
-      return labelled;
-    }
-
-    var list = fields(doc);
-
-    for (var i = 0; i < list.length; i++) {
-      var text = description(list[i]);
-
-      if (
-        text.indexOf('телефон клиента') !== -1 ||
-        text.indexOf('client_phone') !== -1
-      ) {
-        return list[i];
-      }
-    }
-
-    return null;
   }
 
-  function findNameField(doc) {
+  function findName(documentObject) {
     var direct =
-      doc.querySelector('#clientName') ||
-      doc.querySelector('#customerName') ||
-      doc.querySelector('[name="client_name"]') ||
-      doc.querySelector('[name="customer_name"]') ||
-      doc.querySelector('[name="customer"]');
+      documentObject.querySelector('#clientName') ||
+      documentObject.querySelector('#customerName') ||
+      documentObject.querySelector('[name="client_name"]') ||
+      documentObject.querySelector('[name="customer_name"]') ||
+      documentObject.querySelector('[name="customer"]');
 
     if (direct) {
       return direct;
     }
 
-    var labelled = fieldFromLabel(
-      doc,
+    var byLabel = fromLabel(
+      documentObject,
       ['кому', 'заказчик'],
       ['телефон', 'контакт', 'исполнитель']
     );
 
-    if (labelled) {
-      return labelled;
+    if (byLabel) {
+      return byLabel;
     }
 
-    var list = fields(doc);
+    var list = allFields(documentObject);
 
     for (var i = 0; i < list.length; i++) {
-      var text = description(list[i]);
-
-      var isName =
-        text.indexOf('кому') !== -1 ||
-        text.indexOf('заказчик') !== -1 ||
-        text.indexOf('client_name') !== -1 ||
-        text.indexOf('customer_name') !== -1;
-
-      var isOther =
-        text.indexOf('телефон') !== -1 ||
-        text.indexOf('контакт') !== -1 ||
-        text.indexOf('исполнитель') !== -1 ||
-        text.indexOf('от кого') !== -1;
-
-      if (isName && !isOther) {
-        return list[i];
-      }
-    }
-
-    return null;
-  }
-
-  function findNumberField(doc) {
-    var direct =
-      doc.querySelector('#proposalNumber') ||
-      doc.querySelector('#kpNumber') ||
-      doc.querySelector('[name="proposal_number"]') ||
-      doc.querySelector('[name="kp_number"]');
-
-    if (direct) {
-      return direct;
-    }
-
-    var labelled = fieldFromLabel(
-      doc,
-      ['номер кп', '№ кп'],
-      ['телефон']
-    );
-
-    if (labelled) {
-      return labelled;
-    }
-
-    var list = fields(doc);
-
-    for (var i = 0; i < list.length; i++) {
-      var text = description(list[i]);
+      var text = fieldDescription(list[i]);
 
       if (
-        text.indexOf('номер кп') !== -1 ||
-        text.indexOf('proposal_number') !== -1 ||
-        text.indexOf('kp_number') !== -1
+        (
+          text.indexOf('кому') !== -1 ||
+          text.indexOf('заказчик') !== -1 ||
+          text.indexOf('client_name') !== -1
+        ) &&
+        text.indexOf('телефон') === -1 &&
+        text.indexOf('исполнитель') === -1
       ) {
         return list[i];
       }
@@ -335,7 +284,25 @@
     return null;
   }
 
-  function trigger(element) {
+  function findNumber(documentObject) {
+    var direct =
+      documentObject.querySelector('#proposalNumber') ||
+      documentObject.querySelector('#kpNumber') ||
+      documentObject.querySelector('[name="proposal_number"]') ||
+      documentObject.querySelector('[name="kp_number"]');
+
+    if (direct) {
+      return direct;
+    }
+
+    return fromLabel(
+      documentObject,
+      ['номер кп', '№ кп'],
+      ['телефон']
+    );
+  }
+
+  function fire(element) {
     element.dispatchEvent(new Event('input', {
       bubbles: true
     }));
@@ -349,7 +316,7 @@
     }));
   }
 
-  function setValue(element, value) {
+  function write(element, value) {
     if (!element || !value) {
       return;
     }
@@ -377,7 +344,7 @@
         }
       }
 
-      trigger(element);
+      fire(element);
     } finally {
       setTimeout(function () {
         writing = false;
@@ -385,8 +352,8 @@
     }
   }
 
-  function watchField(element, type) {
-    if (!element || element.__kpWatch === type) {
+  function watch(element, type) {
+    if (!element || element.__kpWatch) {
       return;
     }
 
@@ -398,22 +365,22 @@
       }
 
       if (type === 'name') {
-        nameChangedByUser = true;
+        nameUserChanged = true;
       }
 
       if (type === 'phone') {
-        phoneChangedByUser = true;
+        phoneUserChanged = true;
       }
 
       if (type === 'number') {
-        numberChangedByUser = true;
+        numberUserChanged = true;
       }
     }, false);
   }
 
-  function hideExtraButtons(doc) {
+  function hideExtraButtons(documentObject) {
     var buttons = Array.prototype.slice.call(
-      doc.querySelectorAll('button')
+      documentObject.querySelectorAll('button')
     );
 
     buttons.forEach(function (button) {
@@ -432,126 +399,112 @@
     });
   }
 
-  function apply() {
-    var doc = getDocument();
+  function apply(context) {
+    var documentObject = doc();
 
-    if (!doc || !doc.body) {
+    if (!documentObject || !documentObject.body) {
       return;
     }
 
-    var context = readContext();
+    if (!context) {
+      context = readContext();
+    }
 
     if (!context) {
       return;
     }
 
-    if (activeToken !== context.token) {
-      activeToken = context.token || String(Date.now());
+    if (currentToken !== context.token) {
+      currentToken = context.token || String(Date.now());
 
-      nameChangedByUser = false;
-      phoneChangedByUser = false;
-      numberChangedByUser = false;
+      nameUserChanged = false;
+      phoneUserChanged = false;
+      numberUserChanged = false;
     }
 
-    nameField = findNameField(doc);
-    phoneField = findPhoneField(doc);
-    numberField = findNumberField(doc);
+    var nameField = findName(documentObject);
+    var phoneField = findPhone(documentObject);
+    var numberField = findNumber(documentObject);
 
-    watchField(nameField, 'name');
-    watchField(phoneField, 'phone');
-    watchField(numberField, 'number');
+    watch(nameField, 'name');
+    watch(phoneField, 'phone');
+    watch(numberField, 'number');
 
-    /*
-     * Подставляем имя, пока пользователь сам его не изменил.
-     * Если CRM перерисовала поле и очистила его,
-     * значение будет вставлено повторно.
-     */
     if (
       nameField &&
       context.clientName &&
-      !nameChangedByUser &&
-      valueOf(nameField) !== context.clientName
+      !nameUserChanged &&
+      fieldValue(nameField) !== context.clientName
     ) {
-      setValue(nameField, context.clientName);
+      write(nameField, context.clientName);
     }
 
     if (
       phoneField &&
       context.phone &&
-      !phoneChangedByUser &&
-      valueOf(phoneField) !== context.phone
+      !phoneUserChanged &&
+      fieldValue(phoneField) !== context.phone
     ) {
-      setValue(phoneField, context.phone);
+      write(phoneField, context.phone);
     }
 
     if (
       numberField &&
       context.proposalNumber &&
-      !numberChangedByUser &&
-      valueOf(numberField) !== context.proposalNumber
+      !numberUserChanged &&
+      fieldValue(numberField) !== context.proposalNumber
     ) {
-      setValue(numberField, context.proposalNumber);
+      write(numberField, context.proposalNumber);
     }
 
-    hideExtraButtons(doc);
+    hideExtraButtons(documentObject);
   }
 
   frame.addEventListener('load', function () {
-    apply();
+    apply(readContext());
   });
-
-  /*
-   * Повторяем заполнение 40 секунд:
-   * этого достаточно для загрузки и перерисовки конструктора.
-   */
-  var attempts = 0;
-
-  var timer = setInterval(function () {
-    apply();
-
-    attempts++;
-
-    if (attempts > 160) {
-      clearInterval(timer);
-    }
-  }, 250);
-
-  if (window.MutationObserver) {
-    var observerTimer = setInterval(function () {
-      var doc = getDocument();
-
-      if (!doc || !doc.body) {
-        return;
-      }
-
-      if (doc.body.__kpObserverStarted) {
-        return;
-      }
-
-      doc.body.__kpObserverStarted = true;
-
-      var observer = new MutationObserver(function () {
-        apply();
-      });
-
-      observer.observe(doc.body, {
-        childList: true,
-        subtree: true
-      });
-    }, 500);
-
-    setTimeout(function () {
-      clearInterval(observerTimer);
-    }, 30000);
-  }
 
   window.addEventListener('storage', function (event) {
     if (event.key === STORAGE_KEY) {
-      apply();
+      apply(readContext());
     }
   });
 
-  apply();
+  var timer = setInterval(function () {
+    apply(readContext());
+  }, 300);
+
+  setTimeout(function () {
+    clearInterval(timer);
+  }, 45000);
+
+  var observerTimer = setInterval(function () {
+    var documentObject = doc();
+
+    if (
+      documentObject &&
+      documentObject.body &&
+      window.MutationObserver &&
+      !documentObject.body.__kpObserver
+    ) {
+      documentObject.body.__kpObserver = true;
+
+      var observer = new MutationObserver(function () {
+        apply(readContext());
+      });
+
+      observer.observe(documentObject.body, {
+        childList: true,
+        subtree: true
+      });
+    }
+  }, 500);
+
+  setTimeout(function () {
+    clearInterval(observerTimer);
+  }, 30000);
+
+  apply(readContext());
 })();
 </script>
 
