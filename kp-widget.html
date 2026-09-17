@@ -2,23 +2,24 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>КП — виджет EnvyCRM</title>
+  <title>КП — расширение EnvyCRM</title>
 </head>
 <body>
+
 <script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 
 <script>
 (function () {
   'use strict';
 
-  var VERSION = 'v9';
+  var VERSION = 'v10';
   var CTOR = 'https://alenik9024-cell.github.io/kp/kp.html';
-
-  var w = window.EnvyCrmWidget;
 
   function log(message, data) {
     console.log('[KP ' + VERSION + '] ' + message, data || '');
   }
+
+  var w = window.EnvyCrmWidget;
 
   if (!w) {
     log('EnvyCrmWidget не загрузилась');
@@ -26,121 +27,94 @@
   }
 
   /*
-   * Открывает новую вкладку сразу в момент клика.
-   * Это важно: браузер не блокирует такое открытие,
-   * потому что оно происходит непосредственно после нажатия кнопки.
+   * Открываем конструктор сразу.
+   * Не вызываем getDeal до openPage:
+   * иначе CRM теряет контекст клика.
    */
-  function openConstructorFromClick() {
-    var tab = null;
+  function openConstructor() {
+    var url = CTOR + '?embed=1&full=1';
 
-    try {
-      tab = window.open('about:blank', '_blank');
-    } catch (e) {
-      log('Браузер запретил новую вкладку', e);
-    }
+    var content =
+      '<iframe ' +
+      'src="' + url + '" ' +
+      'style="width:100%;height:calc(100vh - 70px);min-height:600px;border:0" ' +
+      'allowfullscreen>' +
+      '</iframe>';
 
-    function openUrl(dealId) {
-      var url = CTOR + '?embed=1&full=1';
+    log('клик получен, открываю конструктор сразу');
 
-      if (dealId) {
-        url += '&deal_id=' + encodeURIComponent(dealId);
-      }
+    if (w.openPage) {
+      try {
+        var page = w.openPage({
+          content: content
+        });
 
-      log('открываю конструктор: ' + url);
-
-      if (tab && !tab.closed) {
-        tab.location.href = url;
-        return;
-      }
-
-      /*
-       * Запасной вариант, если браузер заблокировал новую вкладку.
-       */
-      var html =
-        '<iframe src="' + url + '" ' +
-        'style="width:100%;height:calc(100vh - 80px);border:0" ' +
-        'allowfullscreen></iframe>';
-
-      if (w.openPage) {
-        w.openPage({ content: html })
-          .then(function () {
-            log('конструктор открыт через openPage');
-          })
-          .catch(function (error) {
+        if (page && typeof page.catch === 'function') {
+          page.catch(function (error) {
             log('openPage не сработал', error);
 
             if (w.openModal) {
               w.openModal({
                 title: 'Конструктор КП',
-                content: html,
+                content: content,
                 width: 1150
               }).catch(function (e) {
                 log('openModal не сработал', e);
               });
             }
           });
+        }
 
         return;
+      } catch (error) {
+        log('ошибка openPage', error);
       }
+    }
 
-      if (w.openModal) {
+    if (w.openModal) {
+      try {
         w.openModal({
           title: 'Конструктор КП',
-          content: html,
+          content: content,
           width: 1150
-        }).catch(function (e) {
-          log('openModal не сработал', e);
+        }).catch(function (error) {
+          log('ошибка openModal', error);
         });
 
         return;
+      } catch (error) {
+        log('ошибка вызова openModal', error);
       }
-
-      log('не удалось открыть конструктор');
     }
 
     /*
-     * ID сделки берём штатным методом расширения.
+     * Последний резервный вариант.
+     * Он сработает, если CRM не поддерживает openPage/openModal.
      */
-    if (w.getDeal) {
-      w.getDeal()
-        .then(function (deal) {
-          deal = deal || {};
-
-          var dealId =
-            deal.id ||
-            deal.deal_id ||
-            (deal.result && (deal.result.id || deal.result.deal_id)) ||
-            null;
-
-          log('получена сделка', deal);
-          openUrl(dealId);
-        })
-        .catch(function (error) {
-          log('getDeal не сработал', error);
-          openUrl(null);
-        });
-    } else {
-      openUrl(null);
-    }
+    window.open(CTOR + '?embed=1&full=1', '_blank');
   }
 
   /*
-   * Получаем события клика.
+   * Принимаем только событие кнопки сделки.
    */
   window.addEventListener('message', function (event) {
     var type = event.data && event.data.type;
 
-    if (type !== 'kp-btn:click' && type !== 'kp-side:click') {
+    if (type !== 'kp-btn:click') {
       return;
     }
 
-    log('клик: ' + type, event.data);
-    openConstructorFromClick();
+    log('получено событие kp-btn:click', event.data);
+
+    /*
+     * ВАЖНО: открываем сразу, без getDeal().
+     */
+    openConstructor();
   }, false);
 
   /*
-   * Регистрация кнопки в карточке сделки
-   * и пункта в левом меню.
+   * Регистрируем только одну кнопку:
+   * «Сформировать КП» в карточке сделки.
    */
   try {
     w.init({
@@ -148,7 +122,7 @@
         return [{
           title: 'Сформировать КП',
           styles: {
-            'color': '#fff',
+            color: '#fff',
             'background-color': '#2F6BFF'
           },
           icon: 'md-description',
@@ -156,24 +130,15 @@
           position: ['first'],
           name: 'kp-btn-1'
         }];
-      },
-
-      'sidebar-item': function () {
-        return [{
-          title: 'Конструктор КП',
-          icon: 'md-description',
-          clickEventName: 'kp-side:click',
-          position: ['first'],
-          name: 'kp-sidebar-1'
-        }];
       }
     });
 
-    log('кнопки зарегистрированы');
+    log('одна кнопка зарегистрирована');
   } catch (error) {
-    log('ошибка регистрации кнопок', error);
+    log('ошибка регистрации кнопки', error);
   }
 })();
 </script>
+
 </body>
 </html>
