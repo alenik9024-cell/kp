@@ -650,7 +650,6 @@ function renderDoc(){
     h += state.services.length ? cards(state.services, '') : '<div class="empty">Позиции не выбраны.</div>';
     h += '</div>';
   }
-  /* ПУНКТ 7 (Условия партнёрства) — показываем ТОЛЬКО если включена галочка showPartner и есть данные */
   if (state.showPartner && (state.partner.length || String(state.partnerNote).trim())){
     h += '<div class="sec"><h2>Условия партнёрства</h2>';
     if (state.partner.length) h += cards(state.partner, 'prt');
@@ -745,6 +744,7 @@ function bindFields(){
   });
 }
 
+var editor = $('#editor');
 editor.addEventListener('input', function(e){
   var f = e.target.getAttribute('data-f'); if (!f) return;
   var row = e.target.closest('[data-id]'); if (!row) return;
@@ -1055,9 +1055,9 @@ function addPhone(){
   var w = document.createElement('div');
   w.className = 'grid2'; w.style.marginTop = '10px';
   w.innerHTML = '<label class="f">Телефон клиента<input id="kpPhone" placeholder="+7 903 313-08-751"></label>'
-    + '<label class="f">Поиск сделки<button class="btn primary" id="kpFindPhone" style="width:100%">Найти сделку</button></label>';
+    + '<label class="f">Поиск сделки<button class="btn primary" id="kpTestPhone" style="width:100%">Найти сделку</button></label>';
   box.parentNode.insertBefore(w, box);
-  document.getElementById('kpFindPhone').onclick = function(){
+  document.getElementById('kpTestPhone').onclick = function(){
     var ph = (document.getElementById('kpPhone').value || '').replace(/\D/g,'');
     if (ph.length === 11 && ph.charAt(0) === '8') ph = '7' + ph.slice(1);
     if (!ph){ lg('впишите телефон', undefined, true); return; }
@@ -1111,10 +1111,52 @@ function checkUrl(){
   }
 }
 
+/* ---------- ОТКРЫТИЕ КАК ВИДЖЕТ В CRM ---------- */
+function showModalPage(url){
+  var w = W();
+  var html = '<iframe src="' + url + '" style="width:100%;height:92vh;border:0;border-radius:8px"></iframe>';
+  if (w && w.openPage){
+    w.openPage({ content: html }).catch(function(){
+      if (w.openModal) w.openModal({ title:'Конструктор КП', content:html, width:1100 });
+      else window.open(url, '_blank');
+    });
+  } else if (w && w.openModal){
+    w.openModal({ title:'Конструктор КП', content:html, width:1100 });
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
+function initWidget(){
+  var w = W();
+  if (!w || window.parent === window) return;
+
+  window.addEventListener('message', function(e){
+    var raw = JSON.stringify(e.data || {});
+    if (!/kp-btn:click|kp-side:click/.test(raw)) return;
+    var d = e.data || {};
+    var id = d.deal_id || d.id || (d.options && d.options.deal_id) || (d.data && d.data.deal_id) || null;
+    var u = location.origin + location.pathname + '?full=1' + (id ? '&deal_id=' + id : '');
+    showModalPage(u);
+  }, false);
+
+  try {
+    w.init({
+      'deal-btn': function(){
+        return [{ title:'Сформировать КП', styles:{'color':'#fff','background-color':'#2F6BFF'}, icon:'md-description', clickEventName:'kp-btn:click', position:['first'], name:'kp-btn-1' }];
+      },
+      'sidebar-item': function(){
+        return [{ title:'Конструктор КП', icon:'md-description', clickEventName:'kp-side:click', position:['after-section-2'], name:'kp-sidebar-1' }];
+      }
+    });
+  } catch(e){}
+}
+
 function boot(){
   bindPanel();
   checkUrl();
   addPhone();
+  initWidget();
 }
 if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(boot, 500);
 else window.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 500); });
