@@ -133,36 +133,126 @@
    * Этот вызов выполняется в основном расширении,
    * а не во вложенном kp-auto.html.
    */
-  function loadClientData() {
-    if (!w.getClientValue) {
-      return Promise.reject(
-        new Error('getClientValue недоступен')
-      );
-    }
+ function loadClientData() {
+  var dealId = dealContext.dealId;
+  var clientId = dealContext.clientId;
 
-    return Promise.all([
-      w.getClientValue({
-        input_id: 1001,
-        type: 'service'
-      }),
+  if (!dealId && !clientId) {
+    return Promise.reject(
+      new Error('CRM не передала dealID и clientID')
+    );
+  }
 
-      w.getClientValue({
-        input_id: 1002,
-        type: 'service'
-      })
-    ]).then(function (values) {
-      dealContext.clientName = scalar(values[0]);
-      dealContext.phone = scalar(values[1]);
+  var apiHost = 'https://novikov.envycrm.com';
+  var apiKey = '48a7f23ebf788af44686fe0fa4c9c955c4c34d7c';
+  var apiBase = apiHost + '/openapi/v1';
 
-      log('данные клиента получены', {
-        clientName: dealContext.clientName,
-        phone: dealContext.phone
+  function post(path, body) {
+    return fetch(
+      apiBase +
+      path +
+      '?api_key=' +
+      encodeURIComponent(apiKey),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      }
+    ).then(function (response) {
+      return response.text().then(function (text) {
+        var data = null;
+
+        try {
+          data = JSON.parse(text);
+        } catch (error) {
+          data = { raw: text };
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            'HTTP ' +
+            response.status +
+            ': ' +
+            (data.message || text)
+          );
+        }
+
+        return data;
       });
-
-      return dealContext;
     });
   }
 
+  function extractPhone(client) {
+    var contacts = client.contacts || [];
+
+    for (var i = 0; i < contacts.length; i++) {
+      var contact = contacts[i] || {};
+
+      var value =
+        contact.value ||
+        contact.phone ||
+        contact.mobile_phone ||
+        '';
+
+      value = String(value || '');
+
+      if (/\d{5,}/.test(value)) {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  var clientPromise = clientId
+    ? post('/client/get', {
+        client_id: Number(clientId)
+      })
+    : Promise.resolve(null);
+
+  var dealPromise = dealId
+    ? post('/deal/get', {
+        deal_id: Number(dealId)
+      })
+    : Promise.resolve(null);
+
+  return Promise.all([
+    clientPromise,
+    dealPromise
+  ]).then(function (results) {
+    var clientResponse = results[0] || {};
+    var dealResponse = results[1] || {};
+
+    var client = clientResponse.result || {};
+    var deal = dealResponse.result || {};
+
+    var name =
+      client.client_name ||
+      client.name ||
+      deal.client_name ||
+      '';
+
+    var phone =
+      extractPhone(client) ||
+      deal.phone ||
+      deal.client_phone ||
+      '';
+
+    dealContext.clientName = String(name || '');
+    dealContext.phone = String(phone || '');
+
+    log('данные получены через OpenAPI', {
+      dealId: dealId,
+      clientId: clientId,
+      clientName: dealContext.clientName,
+      phone: dealContext.phone
+    });
+
+    return dealContext;
+  });
+}
   function openConstructor() { dataPromise = loadClientData();
     var token = 'kp_' + Date.now();
 
