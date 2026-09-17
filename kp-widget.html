@@ -1,122 +1,70 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>КП — виджет EnvyCRM</title>
-</head>
-<body>
-<!-- библиотека виджета: только этот адрес -->
-<script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
+<head><meta charset="utf-8"><title>КП v7 — расширение EnvyCRM</title></head>
+<body style="margin:0;font:13px system-ui;padding:12px">
+<div id="s" style="padding:10px;border-radius:8px;background:#f1f3f8;color:#4b5565">КП v7: запуск…</div>
+<button id="b" style="width:100%;margin-top:10px;padding:11px;border:0;border-radius:8px;background:#2F6BFF;color:#fff;font-size:14px;font-weight:600">Открыть конструктор КП</button>
 <script>
-/* ===== Виджет КП для EnvyCRM. Версия 3 ===== */
-(function () {
-  'use strict';
-
-  var VERSION = 'v3';
-  var CTOR = 'https://alenik9024-cell.github.io/kp/kp.html';
-
-  function log() {
-    var a = ['[KP ' + VERSION + ']'].concat([].slice.call(arguments));
-    console.log.apply(console, a);
-  }
-
-  /* ждём библиотеку (она могла подключиться с задержкой) */
-  function waitW(cb, n) {
-    n = n || 0;
-    if (window.EnvyCrmWidget) return cb(window.EnvyCrmWidget);
-    if (n > 100) { log('EnvyCrmWidget не загрузилась — проверьте адрес скрипта'); return; }
-    setTimeout(function () { waitW(cb, n + 1); }, 100);
-  }
-
-  waitW(function (w) {
-    if (w.__kpDone) { log('уже зарегистрирован'); return; }
-    w.__kpDone = true;
-    log('библиотека найдена');
-
-    /* ---------- ID текущей сделки ---------- */
-    function dealId() {
-      return w.getDeal()
-        .then(function (d) {
-          d = d || {};
-          return d.id || d.deal_id || (d.result && (d.result.id || d.result.deal_id)) || null;
-        })
-        .catch(function (e) { log('getDeal:', e && e.message); return null; });
-    }
-
-    /* ---------- открыть конструктор ---------- */
-    function openCtor(id) {
-      var u = CTOR + '?embed=1&full=1' + (id ? '&deal_id=' + encodeURIComponent(id) : '');
-      log('открываю:', u);
-
-      var html = '<iframe src="' + u + '" '
-        + 'style="width:100%;height:calc(100vh - 90px);min-height:520px;border:0;border-radius:12px" '
-        + 'allowfullscreen></iframe>';
-
-      /* openPage — полноэкранный режим (по документации предпочтителен для больших форм) */
-      if (w.openPage) {
-        w.openPage({ content: html })
-          .then(function () { log('конструктор открыт (openPage)'); })
-          .catch(function (e) {
-            log('openPage не сработал:', e && e.message, '— пробую modal');
-            if (w.openModal) w.openModal({ title: 'Конструктор КП', content: html, width: 1150 });
-          });
-      } else if (w.openModal) {
-        w.openModal({ title: 'Конструктор КП', content: html, width: 1150 });
-      } else {
-        log('открыть нечем. Адрес: ' + u);
-      }
-    }
-
-    /* ---------- клики по кнопкам CRM ---------- */
-    window.addEventListener('message', function (event) {
-      var t = event.data && event.data.type;
-      if (!t) return;
-
-      if (t === 'kp-btn:click' || t === 'kp-side:click') {
-        log('клик: ' + t, event.data);
-        var id = event.data.deal_id || event.data.id || event.data.dealId || null;
-        if (id) return openCtor(id);
-        dealId().then(function (x) { openCtor(x); });
-      }
-    }, false);
-
-    /* ---------- регистрация кнопок ---------- */
-    w.init({
-      'deal-btn': function () {
-        return [{
-          title: 'Сформировать КП',
-          styles: { 'color': '#fff', 'background-color': '#2F6BFF' },
-          icon: 'md-description',
-          clickEventName: 'kp-btn:click',
-          position: ['first'],
-          name: 'kp-btn-1'
-        }];
-      },
-      'sidebar-item': function () {
-        return [{
-          title: 'Конструктор КП',
-          icon: 'md-description',
-          clickEventName: 'kp-side:click',
-          position: ['after-section-2'],
-          name: 'kp-sidebar-1'
-        }];
-      }
-    });
-
-    /* ---------- проверка прав (в журнал) ---------- */
-    if (w.checkPermissions) {
-      w.checkPermissions([
-        { permission: 'allow_change_deal_fields_value' },
-        { permission: 'allow_change_client_fields_value' },
-        { permission: 'allow_show_full_client_phone' }
-      ]).then(function (p) { log('права:', p); })
-       .catch(function (e) { log('права не получены:', e && e.message); });
-    }
-
-    log('виджет зарегистрирован');
+(function(){
+var V='v7', CTOR='https://alenik9024-cell.github.io/kp/kp.html';
+/* адрес, который работал раньше — первым */
+var SRCS=[
+ 'https://cdn.envycrm.com/widget/envycrmwidget.min.js',
+ 'https://cdn.envycrm.com/widget/js/envycrmwidget.min.js',
+ 'https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js'
+];
+var s=document.getElementById('s');
+function say(t,ok){
+ s.style.background=ok===1?'#e7f6ec':ok===0?'#fdecea':'#f1f3f8';
+ s.style.color=ok===1?'#0a7a3d':ok===0?'#b3261e':'#4b5565';
+ s.textContent='КП '+V+' · '+t; console.log('[KP '+V+'] '+t);
+}
+function open(id){
+ var u=CTOR+'?full=1'+(id?'&deal_id='+id:'');
+ var w=window.EnvyCrmWidget;
+ if(!w||!w.openPage){ window.open(u,'_blank'); return; }
+ w.openPage({content:'<iframe src="'+u+'" style="width:100%;height:calc(100vh - 70px);border:0"></iframe>'})
+  .then(function(){say('конструктор открыт',1);})
+  .catch(function(){window.open(u,'_blank');});
+}
+document.getElementById('b').onclick=function(){
+ var w=window.EnvyCrmWidget;
+ if(!w||!w.getDeal) return open(null);
+ w.getDeal().then(function(d){d=d||{};open(d.id||d.deal_id||null);}).catch(function(){open(null);});
+};
+function reg(){
+ var w=window.EnvyCrmWidget;
+ say('библиотека загружена · регистрирую кнопки…');
+ if(w.__kp) return say('кнопки уже зарегистрированы',1);
+ w.__kp=1;
+ try{
+  w.init({
+   'deal-btn':function(){return [{
+    title:'Сформировать КП',styles:{'color':'#fff','background-color':'#2F6BFF'},
+    icon:'md-description',clickEventName:'kp-btn:click',position:['first'],name:'kp-btn-1'}];},
+   'sidebar-item':function(){return [{
+    title:'Конструктор КП',icon:'md-description',
+    clickEventName:'kp-side:click',position:['first'],name:'kp-side-1'}];}
   });
+  say('кнопки зарегистрированы ✓',1);
+ }catch(e){ say('ошибка init: '+(e&&e.message||e),0); }
+ window.addEventListener('message',function(ev){
+  var t=ev.data&&ev.data.type;
+  if(t!=='kp-btn:click'&&t!=='kp-side:click') return;
+  var id=ev.data.deal_id||ev.data.id||null;
+  if(id) return open(id);
+  w.getDeal().then(function(d){d=d||{};open(d.id||d.deal_id||null);}).catch(function(){open(null);});
+ },false);
+}
+function load(i){
+ if(window.EnvyCrmWidget) return reg();
+ if(i>=SRCS.length) return say('библиотека виджета не загрузилась ни с одного адреса — кнопки в CRM не появятся',0);
+ var sc=document.createElement('script'); sc.src=SRCS[i];
+ sc.onload=function(){ window.EnvyCrmWidget?reg():load(i+1); };
+ sc.onerror=function(){ load(i+1); };
+ document.head.appendChild(sc);
+}
+load(0);
 })();
 </script>
-</body>
-</html>
+</body></html>
