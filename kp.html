@@ -85,6 +85,9 @@ textarea.big{min-height:130px}
 .bgs button i{display:block;position:absolute;inset:0}
 .bgs button b{position:relative;z-index:2;font-size:9px;font-weight:700;color:#fff;height:100%;
   display:grid;place-items:end center;padding:0 3px 5px;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.bgs .delbg{position:absolute;top:3px;right:3px;z-index:3;width:17px;height:17px;border-radius:5px;
+  border:1px solid rgba(255,255,255,.35);background:rgba(10,16,28,.72);color:#fff;font-size:11px;line-height:1;
+  cursor:pointer;display:grid;place-items:center;padding:0}
 .colorbar{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
 .colorbar input[type=color]{height:36px;padding:3px;cursor:pointer}
 .ucat-grp{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin:10px 0 5px}
@@ -103,7 +106,6 @@ textarea.big{min-height:130px}
   background:linear-gradient(135deg,#17B978,#0E8A58);color:#fff;font-size:12.5px;font-weight:600;
   padding:10px 18px;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.45);transition:.25s;z-index:99}
 .toast.show{opacity:1;transform:translate(-50%,0)}
-/* ================= ДОКУМЕНТ ================= */
 .doc{width:210mm;min-height:297mm;margin:0 auto;padding:12mm;position:relative;overflow:hidden;
   color:var(--dtxt);background:linear-gradient(160deg,var(--doc1),var(--doc2) 52%,var(--doc3));
   border:1px solid rgba(var(--lineRgb),.26);border-radius:10px;box-shadow:0 34px 90px rgba(0,0,0,.65);
@@ -160,22 +162,16 @@ textarea.big{min-height:130px}
   color:var(--dbody);white-space:pre-line;background:rgba(var(--acc2Rgb),.06)}
 .totals{border:1px solid rgba(var(--lineRgb),.32);border-radius:13px;overflow:hidden;margin-top:12px;
   background:rgba(var(--accRgb),.07);break-inside:avoid}
-.totals .grp{padding:9px 14px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;
-  color:var(--dhtxt);background:rgba(var(--accRgb),.22)}
 .totals .r{display:flex;justify-content:space-between;gap:14px;align-items:baseline;padding:9px 14px;font-size:12.5px;
   color:var(--dbody);border-bottom:1px solid var(--dline)}
 .totals .r b{font-size:13px;color:var(--dhtxt)}
-.totals .r b.blue{color:var(--blue)}
 .totals .r.sum{background:rgba(var(--accRgb),.14);font-weight:700}
-.totals .r.sum span{color:var(--dhtxt)}
-.totals .r.sum b{font-size:14px}
 .totals .r:last-child{border-bottom:0}
 .totals .note{padding:9px 14px;font-size:10.5px;color:var(--dmut);background:var(--surf);border-top:1px solid var(--dline)}
 .exblock{margin-bottom:10px;border:1px solid var(--dline);border-radius:12px;overflow:hidden;
   background:var(--surf);break-inside:avoid}
 .exblock .cap{padding:9px 12px;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--blue);
-  background:rgba(var(--accRgb),.13);border-bottom:1px solid var(--dline);display:flex;justify-content:space-between;gap:10px}
-.exblock .cap b{color:var(--dhtxt)}
+  background:rgba(var(--accRgb),.13);border-bottom:1px solid var(--dline)}
 table{width:100%;border-collapse:collapse;font-size:11.5px}
 th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--dmut);
   padding:8px 12px;border-bottom:1px solid var(--dline);background:var(--surf);font-weight:600}
@@ -227,15 +223,14 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
       <details class="card" open>
         <summary>КП из сделки — одна кнопка</summary>
         <div class="body">
-          <p class="hint"><b>Телефон обязателен.</b> По нему программа сама находит сделку и кладёт туда КП — даже если в CRM открыта карточка другого клиента.</p>
-          <label class="f">Телефон клиента (обязательно)<input id="kpPhone" placeholder="+7 903 313-08-751" inputmode="tel"></label>
+          <p class="hint"><b>Телефон обязателен.</b> По нему программа находит сделку и кладёт туда КП, даже если открыта карточка другого клиента. Если сделок несколько — берётся та, что открыта в CRM сейчас.</p>
+          <label class="f">Телефон клиента (обязательно)<input id="kpPhone" placeholder="8 903 313-08-751" inputmode="tel"></label>
           <div class="grid2" style="margin-top:10px">
             <label class="f">Адрес CRM<input id="kpHost"></label>
             <label class="f">Ключ API<input id="kpKey"></label>
             <label class="f">Поле «КП (файл)» — input_id<input id="kpFile" inputmode="numeric" placeholder="найдётся кнопкой"></label>
             <label class="f">Поле «КП» текст — input_id<input id="kpNumId" inputmode="numeric" placeholder="необязательно"></label>
           </div>
-          <label class="chk"><input type="checkbox" id="kpAutoNum" checked> Номер КП автоматически: КП-&lt;ID сделки&gt;/дата</label>
           <label class="chk"><input type="checkbox" id="kpWriteNum" checked> Записывать номер КП в текстовое поле</label>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
             <button class="btn primary" id="kpRun">Сформировать КП</button>
@@ -260,7 +255,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
             <button class="btn" id="btnBgSave">Сохранить фон как вариант</button>
             <span class="hint" id="bgNote" style="margin:0"></span>
           </div>
-          <p class="hint" style="margin:14px 0 6px"><b>Цветовая схема</b> — акцент для цифр, заголовков и карточек:</p>
+          <p class="hint" style="margin:14px 0 6px"><b>Цветовая схема</b>:</p>
           <div class="themes" id="themes"></div>
           <div class="colorbar" style="margin-top:10px">
             <label class="f" style="margin:0">Свой акцент<input type="color" data-bind="themeAccent"></label>
@@ -291,7 +286,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
       <details class="card" open>
         <summary>3. Наши услуги <span class="badge" id="cntServices">0</span></summary>
         <div class="body">
-          <p class="hint">Кнопка <b>★</b> на карточке сохраняет позицию в «Мой каталог» — потом её можно вставлять повторно.</p>
+          <p class="hint">Кнопка <b>★</b> сохраняет позицию в «Мой каталог».</p>
           <div class="picker">
             <select id="svcPick"></select>
             <button class="btn primary" id="btnAddSvc">Добавить</button>
@@ -306,7 +301,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
       <details class="card" open>
         <summary>4. Условия партнёрства <span class="badge" id="cntPartner">0</span></summary>
         <div class="body">
-          <p class="hint">Если блок включён, в «Условия работы» автоматически добавляется пункт 7. Выключен — пункта 7 нет.</p>
+          <p class="hint">Если блок включён (пункт 8), в «Условия работы» автоматически добавляется пункт 7. Выключен — пункта 7 нет.</p>
           <div class="picker">
             <select id="prtPick"></select>
             <button class="btn primary" id="btnAddPrt">Добавить</button>
@@ -336,7 +331,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
       <details class="card" open>
         <summary>6. Мой каталог</summary>
         <div class="body">
-          <p class="hint">Позиции, сохранённые кнопкой ★. Появляются в списках выше отдельной группой.</p>
+          <p class="hint">Позиции, сохранённые кнопкой ★.</p>
           <div id="userCatBox"></div>
         </div>
       </details>
@@ -375,9 +370,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <script>
-/* ============================================================
-   ЧАСТЬ 1. КОНСТРУКТОР
-   ============================================================ */
+/* ============ ЧАСТЬ 1. КОНСТРУКТОР ============ */
 var $ = function(s){ return document.querySelector(s); };
 var uid = function(){ return Math.random().toString(36).slice(2,9); };
 var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
@@ -694,7 +687,6 @@ function cards(list, cls){
   return h;
 }
 
-/* Условия: пункты 1–6 + пункт 7 только при включённом блоке партнёрства */
 function termsFull(){
   var t = String(state.terms || '').trim();
   if (state.showPartner && String(state.partnerNote || '').trim()){
@@ -828,7 +820,7 @@ function renderUserCat(){
     h += '</div>';
   });
   $('#userCatBox').innerHTML = h ||
-    '<p class="hint" style="margin:0">Пока пусто. Нажмите ★ на карточке позиции — она сохранится в каталог.</p>';
+    '<p class="hint" style="margin:0">Пока пусто. Нажмите ★ на карточке позиции.</p>';
 }
 
 function priceLabel(it, isExtra){
@@ -866,16 +858,16 @@ function renderAppearance(){
     return '<button data-theme="'+k+'" class="'+(state.theme===k?'active':'')+'">' +
       '<span class="sw" style="background:linear-gradient(135deg,'+t.accent+','+t.stripe+')"></span><span>'+esc(t.name)+'</span></button>';
   }).join('');
-  var html = '<button data-bg="paper" class="' + (state.bgId==='paper'?'active':'') + ' darklabel">' +
+  var html = '<button data-bg="paper" class="' + (state.bgId==='paper'?'active':'') + '">' +
     '<i style="background:' + (function(){var c=trio('#FFFFFF');return 'linear-gradient(160deg,'+c[0]+','+c[1]+' 55%,'+c[2]+')';})() + '"></i><b>Белый</b></button>';
   (state.bgSaves || []).forEach(function(s){
     var c = trio(s.base);
-    html += '<button data-bg="'+s.id+'" class="'+(state.bgId===s.id?'active':'')+(lum(hexToRgb(s.base))>0.58?' darklabel':'')+'">' +
+    html += '<button data-bg="'+s.id+'" class="'+(state.bgId===s.id?'active':'')+'">' +
       '<i style="background:linear-gradient(160deg,'+c[0]+','+c[1]+' 55%,'+c[2]+')"></i><b>'+esc(s.name)+'</b>' +
       '<span class="delbg" data-delbg="'+s.id+'">✕</span></button>';
   });
   var cc = trio(state.bgCustom || '#101A2E');
-  html += '<button data-bg="custom" class="'+(state.bgId==='custom'?'active':'')+(lum(hexToRgb(state.bgCustom||'#101A2E'))>0.58?' darklabel':'')+'">' +
+  html += '<button data-bg="custom" class="'+(state.bgId==='custom'?'active':'')+'">' +
     '<i style="background:linear-gradient(160deg,'+cc[0]+','+cc[1]+' 55%,'+cc[2]+')"></i><b>Свой</b></button>';
   $('#bgs').innerHTML = html;
   $('#bgNote').textContent = 'сохранено ' + (state.bgSaves||[]).length + ' из 3';
@@ -992,7 +984,7 @@ $('#btnBgSave').onclick = function(){
   toast('Фон сохранён как вариант ' + saves.length);
 };
 
-var KEY = 'speshu_kp_builder_v10';
+var KEY = 'speshu_kp_builder_v11';
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(_){} }
 function load(){
   try { var raw = localStorage.getItem(KEY); if (!raw) return null;
@@ -1027,13 +1019,11 @@ init();
 </script>
 
 <script>
-/* ============================================================
-   ЧАСТЬ 2. ОДНА КНОПКА: НАЙТИ СДЕЛКУ → PDF → В ПОЛЕ → ПЕЧАТЬ
-   ============================================================ */
+/* ============ ЧАСТЬ 2. ОДНА КНОПКА: НАЙТИ СДЕЛКУ → PDF → ПОЛЕ → ПЕЧАТЬ ============ */
 (function(){
 'use strict';
 
-var CK = 'kp_crm_v4';
+var CK = 'kp_crm_v5';
 var cfg = {
   host: 'https://novikov.envycrm.com',
   key:  '48a7f23ebf788af44686fe0fa4c9c955c4c34d7c',
@@ -1054,7 +1044,7 @@ function lg(m, v, bad){
 }
 function cfgSave(){ try { localStorage.setItem(CK, JSON.stringify(cfg)); } catch(e){} }
 
-/* --- нормализация телефона: 8XXX, 7XXX, +7XXX → 10 цифр после 7 --- */
+/* нормализация телефона: 8XXXXXXXXXX / 7XXXXXXXXXX / +7XXXXXXXXXX → 11 цифр, начинается с 7 */
 function normPhone(v){
   var d = String(v || '').replace(/\D/g,'');
   if (d.length === 11 && d.charAt(0) === '8') d = '7' + d.slice(1);
@@ -1067,7 +1057,6 @@ function prettyPhone(v){
   return '+7 ' + d.slice(1,4) + ' ' + d.slice(4,7) + '-' + d.slice(7,9) + '-' + d.slice(9,11);
 }
 
-/* --- API --- */
 function url(p){
   var b = String(cfg.host || '').replace(/\/+$/, '') + '/openapi/v1' + p;
   if (cfg.key) b += (b.indexOf('?') === -1 ? '?' : '&') + 'api_key=' + encodeURIComponent(cfg.key);
@@ -1087,10 +1076,14 @@ function api(path, method, body, form){
   });
 }
 
-/* --- текстовое поле: search / get / write --- */
 function dealSearch(phone){
   var p = normPhone(phone);
   return api('/deal/search', { phone: p }).catch(function(){ return api('/deal/search', { phone: '+' + p }); });
+}
+function phoneFromClient(c){
+  var a = (c && c.contacts) || [];
+  for (var i = 0; i < a.length; i++){ if (a[i] && (a[i].phone || a[i].value)) return a[i].phone || a[i].value; }
+  return '';
 }
 function dealsFrom(res){
   var cl = (res && res.clients) || [], out = [];
@@ -1101,24 +1094,17 @@ function dealsFrom(res){
   });
   return out;
 }
-function phoneFromClient(c){
-  var a = (c && c.contacts) || [];
-  for (var i = 0; i < a.length; i++){ if (a[i] && (a[i].phone || a[i].value)) return a[i].phone || a[i].value; }
-  return '';
-}
 function openedDealId(){
   var m = /[?&]deal_id=(\d+)/.exec(location.search);
-  if (m) return Number(m[1]);
+  if (m) return Promise.resolve(Number(m[1]));
   var w = W();
   if (w && w.getDeal){
-    return new Promise(function(res){
-      Promise.race([
-        w.getDeal(),
-        new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('таймаут')); }, 3000); })
-      ]).then(function(d){
-        res(Number(d && (d.id || d.deal_id || (d.result && d.result.id)) || 0));
-      }).catch(function(){ res(0); });
-    });
+    return Promise.race([
+      w.getDeal(),
+      new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('таймаут')); }, 2500); })
+    ]).then(function(d){
+      return Number(d && (d.id || d.deal_id || (d.result && d.result.id)) || 0);
+    }).catch(function(){ return 0; });
   }
   return Promise.resolve(0);
 }
@@ -1141,9 +1127,7 @@ function valById(v, id){
   var f = flatVals(v).filter(function(x){ return Number(x.input_id) === Number(id); })[0];
   return f ? f.value : null;
 }
-function readValues(){
-  return loadDeal(DEAL.id).then(function(d){ return d.values; });
-}
+function readValues(){ return loadDeal(DEAL.id).then(function(d){ return d.values; }); }
 function writeField(id, type, value){
   return api('/deal/updateDealValue','POST',{
     deal_id:Number(DEAL.id), client_id:Number(DEAL.client_id),
@@ -1152,7 +1136,6 @@ function writeField(id, type, value){
   });
 }
 
-/* --- подстановка в КП --- */
 function fillFromDeal(d){
   var values = d.values || {};
   var s = values.service;
@@ -1183,16 +1166,13 @@ function fillFromDeal(d){
   if (phone) state.clientContact = prettyPhone(phone);
 
   var now = new Date();
-  var iso = now.toISOString().slice(0,10);
   var dm = ('0' + now.getDate()).slice(-2) + '.' + ('0' + (now.getMonth()+1)).slice(-2) + '.' + now.getFullYear();
-  state.docDate = iso;
-  var an = document.getElementById('kpAutoNum');
-  if (!an || an.checked) state.docNumber = 'КП-' + d.id + '/' + dm;
+  state.docDate = now.toISOString().slice(0,10);
+  state.docNumber = 'КП-' + d.id + '/' + dm;
   syncInputs(); renderDoc(); save();
   lg('подставлено: Кому «' + state.client + '», телефон «' + state.clientContact + '», номер ' + state.docNumber);
 }
 
-/* --- поиск полей «КП» --- */
 function loadInputs(type){
   var all = [], off = 0;
   function step(){
@@ -1228,7 +1208,6 @@ function findKpFields(){
   });
 }
 
-/* --- кандидаты формата записи файла --- */
 function refPairs(res){
   var pairs = [], seen = {};
   (function walk(o, path){
@@ -1265,7 +1244,6 @@ function formatsFrom(pairs){
   return out.slice(0, 14);
 }
 
-/* --- PDF --- */
 function makePdf(){
   if (typeof html2pdf === 'undefined') return Promise.reject(new Error('html2pdf не загрузился'));
   var el = document.getElementById('doc');
@@ -1285,7 +1263,6 @@ function attachFile(dealId, blob, filename){
   return api('/deal/log/attachFile', 'POST', fd, true);
 }
 
-/* --- печать --- */
 function printDoc(){
   var css = '';
   Array.prototype.forEach.call(document.querySelectorAll('style'), function(s){ css += s.textContent; });
@@ -1301,41 +1278,34 @@ function printDoc(){
   w.document.open(); w.document.write(html); w.document.close();
 }
 
-/* ================= ГЛАВНОЕ ДЕЙСТВИЕ ================= */
 function run(){
   logEl().innerHTML = '';
   var phoneEl = document.getElementById('kpPhone');
   var phone = normPhone(phoneEl ? phoneEl.value : '');
   if (phone.length !== 11){
-    lg('телефон обязателен — введите 10 цифр номера', undefined, true);
+    lg('телефон обязателен — введите номер полностью', undefined, true);
     toast('Введите телефон клиента');
     if (phoneEl) phoneEl.focus();
     return;
   }
   lg('телефон: ' + prettyPhone(phone));
 
-  var resp = null;
-  var myDealId = 0;
+  var resp = null, myDealId = 0;
 
   Promise.all([ dealSearch(phone), openedDealId() ]).then(function(arr){
     var found = dealsFrom(arr[0]);
     var opened = arr[1];
     lg('найдено сделок: ' + found.length + (opened ? ', открыта сделка ' + opened : ''));
+    if (!found.length) throw new Error('по этому телефону сделка не найдена');
 
-    if (!found.length) throw new Error('по телефону сделка не найдена');
-
-    /* несколько сделок → берём открытую, если она из этого списка */
     var chosen = null;
     if (opened) chosen = found.filter(function(x){ return x.id === opened; })[0] || null;
     if (!chosen) chosen = found[0];
 
     myDealId = chosen.id;
-    lg('КП уйдёт в сделку №' + chosen.id + (chosen.client ? ' (' + chosen.client + ')' : ''),
-       undefined, false);
-
+    lg('КП уйдёт в сделку №' + chosen.id + (chosen.client ? ' (' + chosen.client + ')' : ''));
     return loadDeal(chosen.id);
   }).then(function(d){
-    if (normPhone(d.client_name) && false) {}
     fillFromDeal(d);
     return makePdf();
   }).then(function(blob){
@@ -1347,12 +1317,11 @@ function run(){
     lg('файл приложен к сделке №' + myDealId);
     if (!cfg.file_id) throw new Error('не найден input_id поля «КП (файл)» — нажмите «Найти поля»');
     return readValues();
-  }).then(function(vals){
+  }).then(function(){
     var pairs = refPairs(resp);
     if (!pairs.length){
       return api('/deal/log/list?deal_id=' + Number(myDealId) + '&limit=10','GET')
-        .then(function(r){ return refPairs(r); })
-        .catch(function(){ return []; });
+        .then(function(r){ return refPairs(r); }).catch(function(){ return []; });
     }
     return pairs;
   }).then(function(pairs){
@@ -1365,7 +1334,7 @@ function run(){
       var pr = pairs.filter(function(p){ return p.key === f.key; })[0];
       if (pr) list.push({ tpl:f.tpl, key:f.key, val:pr.val });
     });
-    if (!list.length) throw new Error('в ответе нет ссылки на файл — пришлите журнал');
+    if (!list.length) throw new Error('в ответе нет ссылки на файл');
 
     function tryNext(i){
       if (i >= list.length) throw new Error('формат записи файла не подошёл — пришлите журнал');
@@ -1386,7 +1355,6 @@ function run(){
         .then(function(){ lg('номер КП записан: ' + state.docNumber); })
         .catch(function(e){ lg('номер КП не записался: ' + e.message, undefined, true); });
     }
-    lg('запись номера пропущена');
   }).then(function(){
     lg('ГОТОВО — открываю печать');
     toast('КП сохранён в сделке №' + myDealId + ' — открываю печать');
@@ -1395,13 +1363,12 @@ function run(){
     var msg = String(e && e.message ? e.message : e);
     lg('ОШИБКА: ' + msg, undefined, true);
     if (/Failed to fetch|NetworkError|load failed/i.test(msg)){
-      lg('браузер блокирует запрос к CRM (CORS). Нужен файл-посредник на вашем хостинге — напишите мне', undefined, true);
+      lg('браузер блокирует запрос к CRM (CORS) — нужен файл-посредник на вашем хостинге', undefined, true);
     }
     toast('Ошибка — смотрите журнал');
   });
 }
 
-/* --- панель --- */
 function fillForm(){
   var set = function(id, v){ var el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
   set('kpHost', cfg.host); set('kpKey', cfg.key);
@@ -1432,12 +1399,10 @@ function bindPanel(){
   q('kpRun').onclick = run;
   fillForm();
 }
-/* Enter в поле телефона = сформировать */
 document.addEventListener('keydown', function(e){
   if (e.key === 'Enter' && e.target && e.target.id === 'kpPhone'){ e.preventDefault(); run(); }
 });
 
-/* --- настройки из CRM --- */
 function loadCfgFromCrm(){
   var w = W();
   if (!w || !w.getParams) return;
@@ -1456,9 +1421,6 @@ function boot(){
   loadCfgFromCrm();
   var q = new URLSearchParams(location.search);
   if (q.get('embed') === '1'){
-    var st = document.createElement('style');
-    st.textContent = 'body.embed-mode .app{height:auto}.main{min-height:0}';
-    document.head.appendChild(st);
     document.body.classList.add('embed-mode');
   }
 }
