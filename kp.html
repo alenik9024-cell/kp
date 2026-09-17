@@ -1428,5 +1428,201 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 else window.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 400); });
 })();
 </script>
+  <script>
+(function () {
+  'use strict';
+
+  var params = new URLSearchParams(window.location.search);
+
+  if (params.get('auto') !== '1') {
+    return;
+  }
+
+  var autoPhone = params.get('phone') || '';
+  var autoDealId = params.get('deal_id') || '';
+  var autoNumber = params.get('kp_number') || '';
+
+  window.KP_AUTO_CONTEXT = {
+    dealId: autoDealId,
+    phone: autoPhone,
+    number: autoNumber
+  };
+
+  function fire(element) {
+    if (!element) return;
+
+    element.dispatchEvent(new Event('input', {
+      bubbles: true
+    }));
+
+    element.dispatchEvent(new Event('change', {
+      bubbles: true
+    }));
+
+    element.dispatchEvent(new Event('blur', {
+      bubbles: true
+    }));
+  }
+
+  function setValue(element, value) {
+    if (!element || !value) return;
+
+    element.value = value;
+    fire(element);
+  }
+
+  function parentText(element) {
+    var parent = element;
+
+    for (var i = 0; i < 4 && parent; i++) {
+      var text = String(parent.innerText || '').toLowerCase();
+
+      if (text.length > 0) {
+        return text;
+      }
+
+      parent = parent.parentElement;
+    }
+
+    return '';
+  }
+
+  function findInput(words) {
+    var inputs = Array.prototype.slice.call(
+      document.querySelectorAll('input, textarea')
+    );
+
+    for (var i = 0; i < inputs.length; i++) {
+      var input = inputs[i];
+
+      var allText = (
+        String(input.id || '') + ' ' +
+        String(input.name || '') + ' ' +
+        String(input.placeholder || '') + ' ' +
+        parentText(input)
+      ).toLowerCase();
+
+      var matches = true;
+
+      for (var j = 0; j < words.length; j++) {
+        if (allText.indexOf(words[j]) === -1) {
+          matches = false;
+          break;
+        }
+      }
+
+      if (matches) {
+        return input;
+      }
+    }
+
+    return null;
+  }
+
+  function findPhoneInput() {
+    var direct =
+      document.querySelector('#clientPhone') ||
+      document.querySelector('#phone') ||
+      document.querySelector('[name="client_phone"]') ||
+      document.querySelector('[name="phone"]');
+
+    if (direct) {
+      return direct;
+    }
+
+    return findInput(['телефон']);
+  }
+
+  function findNumberInput() {
+    var direct =
+      document.querySelector('#proposalNumber') ||
+      document.querySelector('#kpNumber') ||
+      document.querySelector('[name="proposal_number"]') ||
+      document.querySelector('[name="kp_number"]');
+
+    if (direct) {
+      return direct;
+    }
+
+    var byLabel = findInput(['номер', 'кп']);
+
+    if (byLabel) {
+      return byLabel;
+    }
+
+    return findInput(['номер']);
+  }
+
+  function hideUnnecessaryButtons() {
+    var buttons = Array.prototype.slice.call(
+      document.querySelectorAll('button')
+    );
+
+    buttons.forEach(function (button) {
+      var text = String(button.innerText || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      if (
+        text.indexOf('найти поля') !== -1 ||
+        text.indexOf('проверить api') !== -1 ||
+        text.indexOf('сохранить настройки') !== -1
+      ) {
+        button.style.display = 'none';
+      }
+    });
+  }
+
+  function applyAutomaticData() {
+    var phoneInput = findPhoneInput();
+    var numberInput = findNumberInput();
+
+    if (phoneInput && autoPhone && phoneInput.value !== autoPhone) {
+      setValue(phoneInput, autoPhone);
+    }
+
+    if (numberInput && autoNumber && numberInput.value !== autoNumber) {
+      setValue(numberInput, autoNumber);
+    }
+
+    hideUnnecessaryButtons();
+
+    document.documentElement.setAttribute(
+      'data-kp-auto',
+      '1'
+    );
+  }
+
+  var attempts = 0;
+
+  var timer = setInterval(function () {
+    applyAutomaticData();
+
+    attempts++;
+
+    if (attempts > 40) {
+      clearInterval(timer);
+    }
+  }, 250);
+
+  if (window.MutationObserver) {
+    var observer = new MutationObserver(function () {
+      applyAutomaticData();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    setTimeout(function () {
+      observer.disconnect();
+    }, 12000);
+  }
+
+  applyAutomaticData();
+})();
+</script>
 </body>
 </html>
