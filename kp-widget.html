@@ -12,14 +12,18 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v17';
-  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=17';
-  var STORAGE_KEY = 'kp_current_deal_context_v17';
+  var VERSION = 'v18';
+  var AUTO_URL =
+    'https://alenik9024-cell.github.io/kp/kp-auto.html?v=18';
 
+  var STORAGE_KEY = 'kp_current_deal_context_v18';
   var w = window.EnvyCrmWidget;
 
-  function log(text, data) {
-    console.log('[KP ' + VERSION + '] ' + text, data || '');
+  function log(message, data) {
+    console.log(
+      '[KP ' + VERSION + '] ' + message,
+      data || ''
+    );
   }
 
   if (!w) {
@@ -27,61 +31,55 @@
     return;
   }
 
-  function primitive(value) {
-    return value !== null &&
-      value !== undefined &&
-      (typeof value === 'string' || typeof value === 'number');
-  }
-
-  function extract(value, seen) {
+  function scalar(value) {
     if (value === null || value === undefined) {
       return '';
     }
 
-    if (primitive(value)) {
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number'
+    ) {
       return String(value).trim();
     }
 
-    if (typeof value !== 'object') {
-      return '';
-    }
+    if (Array.isArray(value)) {
+      for (var i = 0; i < value.length; i++) {
+        var arrayValue = scalar(value[i]);
 
-    seen = seen || [];
-
-    if (seen.indexOf(value) !== -1) {
-      return '';
-    }
-
-    seen.push(value);
-
-    var keys = [
-      'value',
-      'phone',
-      'client_phone',
-      'mobile_phone',
-      'client_name',
-      'customer_name',
-      'name',
-      'result',
-      'data'
-    ];
-
-    for (var i = 0; i < keys.length; i++) {
-      if (value[keys[i]] !== undefined) {
-        var result = extract(value[keys[i]], seen);
-
-        if (result) {
-          return result;
+        if (arrayValue) {
+          return arrayValue;
         }
       }
+
+      return '';
     }
 
-    if (Array.isArray(value)) {
-      for (var j = 0; j < value.length; j++) {
-        var item = extract(value[j], seen);
+    if (typeof value === 'object') {
+      var priorityKeys = [
+        'value',
+        'phone',
+        'client_phone',
+        'mobile_phone',
+        'client_name',
+        'customer_name',
+        'name',
+        'result',
+        'data'
+      ];
 
-        if (item) {
-          return item;
+      for (var j = 0; j < priorityKeys.length; j++) {
+        var key = priorityKeys[j];
+
+        if (
+          value[key] !== undefined &&
+          value[key] !== null
+        ) {
+          var result = scalar(value[key]);
+
+          if (result) {
+            return result;
+          }
         }
       }
     }
@@ -89,32 +87,112 @@
     return '';
   }
 
-  function findInputValue(data, inputId, seen) {
+  function searchKey(data, keys, visited) {
     if (!data || typeof data !== 'object') {
       return '';
     }
 
-    seen = seen || [];
+    visited = visited || [];
 
-    if (seen.indexOf(data) !== -1) {
+    if (visited.indexOf(data) !== -1) {
       return '';
     }
 
-    seen.push(data);
+    visited.push(data);
+
+    if (Array.isArray(data)) {
+      for (var i = 0; i < data.length; i++) {
+        var arrayResult = searchKey(
+          data[i],
+          keys,
+          visited
+        );
+
+        if (arrayResult) {
+          return arrayResult;
+        }
+      }
+
+      return '';
+    }
+
+    for (var j = 0; j < keys.length; j++) {
+      var key = keys[j];
+
+      if (
+        data[key] !== undefined &&
+        data[key] !== null
+      ) {
+        var directResult = scalar(data[key]);
+
+        if (directResult) {
+          return directResult;
+        }
+      }
+    }
+
+    for (var property in data) {
+      if (
+        !Object.prototype.hasOwnProperty.call(
+          data,
+          property
+        )
+      ) {
+        continue;
+      }
+
+      if (
+        data[property] &&
+        typeof data[property] === 'object'
+      ) {
+        var nestedResult = searchKey(
+          data[property],
+          keys,
+          visited
+        );
+
+        if (nestedResult) {
+          return nestedResult;
+        }
+      }
+    }
+
+    return '';
+  }
+
+  function searchInputValue(data, inputId, visited) {
+    if (!data || typeof data !== 'object') {
+      return '';
+    }
+
+    visited = visited || [];
+
+    if (visited.indexOf(data) !== -1) {
+      return '';
+    }
+
+    visited.push(data);
 
     if (
       data.input_id !== undefined &&
       String(data.input_id) === String(inputId)
     ) {
-      return extract(data.value);
+      return scalar(data.value);
+    }
+
+    if (
+      data.inputId !== undefined &&
+      String(data.inputId) === String(inputId)
+    ) {
+      return scalar(data.value);
     }
 
     if (Array.isArray(data)) {
       for (var i = 0; i < data.length; i++) {
-        var arrayValue = findInputValue(
+        var arrayValue = searchInputValue(
           data[i],
           inputId,
-          seen
+          visited
         );
 
         if (arrayValue) {
@@ -126,14 +204,19 @@
     }
 
     for (var key in data) {
-      if (!Object.prototype.hasOwnProperty.call(data, key)) {
+      if (
+        !Object.prototype.hasOwnProperty.call(
+          data,
+          key
+        )
+      ) {
         continue;
       }
 
-      var nestedValue = findInputValue(
+      var nestedValue = searchInputValue(
         data[key],
         inputId,
-        seen
+        visited
       );
 
       if (nestedValue) {
@@ -144,74 +227,62 @@
     return '';
   }
 
-  function dealObject(deal) {
-    if (!deal || typeof deal !== 'object') {
-      return {};
-    }
-
-    if (deal.result && typeof deal.result === 'object') {
-      return deal.result;
-    }
-
-    return deal;
-  }
-
   function getDealId(deal) {
-    var d = dealObject(deal);
-
-    return String(
-      d.id ||
-      d.deal_id ||
-      ''
+    var id = searchKey(
+      deal,
+      ['deal_id', 'dealId']
     );
+
+    if (id) {
+      return id;
+    }
+
+    return searchKey(deal, ['id']);
   }
 
-  function getName(deal) {
-    var d = dealObject(deal);
-
-    var name = extract(
-      d.client_name ||
-      d.clientName ||
-      d.customer_name ||
-      d.name_client
+  function getClientName(deal) {
+    var name = searchKey(
+      deal,
+      [
+        'client_name',
+        'clientName',
+        'customer_name',
+        'customerName',
+        'name_client'
+      ]
     );
 
     if (name) {
       return name;
     }
 
-    if (d.client) {
-      name = extract(d.client);
-
-      if (name) {
-        return name;
-      }
-    }
-
+    /*
+     * Запасной вариант: имя клиента как системное поле 1001.
+     */
     return '';
   }
 
-  function getPhone(deal) {
-    var d = dealObject(deal);
-
-    var phone = extract(
-      d.phone ||
-      d.client_phone ||
-      d.mobile_phone
+  function getPhoneFromDeal(deal) {
+    var phone = searchKey(
+      deal,
+      [
+        'client_phone',
+        'mobile_phone',
+        'phone'
+      ]
     );
 
     if (phone && /\d{5,}/.test(phone)) {
       return phone;
     }
 
-    if (Array.isArray(d.contacts)) {
-      for (var i = 0; i < d.contacts.length; i++) {
-        phone = extract(d.contacts[i]);
+    var contacts = searchKey(
+      deal,
+      ['contacts']
+    );
 
-        if (phone && /\d{5,}/.test(phone)) {
-          return phone;
-        }
-      }
+    if (contacts && /\d{5,}/.test(contacts)) {
+      return contacts;
     }
 
     return '';
@@ -222,83 +293,126 @@
       return w.getClientValue({
         input_id: inputId,
         type: 'service'
-      }).then(function (data) {
-        var value = extract(data);
+      })
+        .then(function (data) {
+          var value = scalar(data);
 
-        if (value) {
-          return value;
-        }
+          if (value) {
+            return value;
+          }
 
-        if (w.getClientValues) {
-          return w.getClientValues().then(function (all) {
-            return findInputValue(all, inputId);
-          });
-        }
+          if (w.getClientValues) {
+            return w.getClientValues()
+              .then(function (allValues) {
+                return searchInputValue(
+                  allValues,
+                  inputId
+                );
+              });
+          }
 
-        return '';
-      }).catch(function () {
-        return '';
-      });
+          return '';
+        })
+        .catch(function () {
+          return '';
+        });
     }
 
     if (w.getClientValues) {
-      return w.getClientValues().then(function (all) {
-        return findInputValue(all, inputId);
-      }).catch(function () {
-        return '';
-      });
+      return w.getClientValues()
+        .then(function (allValues) {
+          return searchInputValue(
+            allValues,
+            inputId
+          );
+        })
+        .catch(function () {
+          return '';
+        });
     }
 
     return Promise.resolve('');
   }
 
-  function makeNumber(dealId) {
+  function makeProposalNumber(dealId) {
     var date = new Date();
 
-    var day = String(date.getDate()).padStart(2, '0');
-    var month = String(date.getMonth() + 1).padStart(2, '0');
+    var day = String(date.getDate())
+      .padStart(2, '0');
+
+    var month = String(date.getMonth() + 1)
+      .padStart(2, '0');
+
     var year = date.getFullYear();
 
-    return 'КП-' + dealId + '/' + day + '.' + month + '.' + year;
+    return 'КП-' + dealId + '/' +
+      day + '.' + month + '.' + year;
   }
 
-  var channel = null;
-
-  function publish(context) {
+  function saveContext(context) {
     try {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify(context)
       );
-    } catch (e) {
-      log('ошибка localStorage', e);
-    }
 
-    if (channel) {
-      try {
-        channel.postMessage(context);
-      } catch (e) {
-        log('ошибка BroadcastChannel', e);
-      }
+      log('контекст сохранён', context);
+    } catch (error) {
+      log('ошибка сохранения контекста', error);
     }
+  }
 
-    log('контекст передан', context);
+  function publishDealContext(token) {
+    return w.getDeal()
+      .then(function (deal) {
+        log('полный ответ getDeal', deal);
+
+        var dealId = getDealId(deal);
+        var clientName = getClientName(deal);
+        var phone = getPhoneFromDeal(deal);
+
+        var namePromise = clientName
+          ? Promise.resolve(clientName)
+          : getClientField(1001);
+
+        var phonePromise = phone
+          ? Promise.resolve(phone)
+          : getClientField(1002);
+
+        return Promise.all([
+          namePromise,
+          phonePromise
+        ]).then(function (values) {
+          var context = {
+            token: token,
+            dealId: dealId || '',
+            clientName: values[0] || '',
+            phone: values[1] || '',
+            proposalNumber: makeProposalNumber(
+              dealId || ''
+            ),
+            updatedAt: Date.now()
+          };
+
+          saveContext(context);
+
+          return context;
+        });
+      })
+      .catch(function (error) {
+        log('ошибка получения сделки', error);
+        throw error;
+      });
   }
 
   function openConstructor() {
     var token = 'kp_' + Date.now();
 
-    if (window.BroadcastChannel) {
-      try {
-        channel = new BroadcastChannel(
-          'kp_context_' + token
-        );
-      } catch (e) {
-        channel = null;
-      }
-    }
-
-    publish({
+    /*
+     * Сначала создаём контекст с токеном,
+     * чтобы автоматический конструктор открылся сразу.
+     */
+    saveContext({
       token: token,
       dealId: '',
       clientName: '',
@@ -314,20 +428,25 @@
 
     var iframe =
       '<iframe src="' + url + '" ' +
-      'style="width:100%;height:calc(100vh - 60px);min-height:650px;border:0" ' +
+      'style="width:100%;height:calc(100vh - 60px);' +
+      'min-height:650px;border:0" ' +
       'allowfullscreen></iframe>';
 
-    /*
-     * Открываем сразу, не ожидая getDeal.
-     */
+    log('открываю автоматический конструктор');
+
     try {
       if (w.openPage) {
         var page = w.openPage({
           content: iframe
         });
 
-        if (page && typeof page.catch === 'function') {
-          page.catch(function () {
+        if (
+          page &&
+          typeof page.catch === 'function'
+        ) {
+          page.catch(function (error) {
+            log('openPage не сработал', error);
+
             if (w.openModal) {
               w.openModal({
                 title: 'Конструктор КП',
@@ -352,51 +471,29 @@
     }
 
     /*
-     * После открытия получаем текущую сделку.
+     * Получаем сделку уже после открытия окна.
      */
-    w.getDeal()
-      .then(function (deal) {
-        var id = getDealId(deal);
-        var name = getName(deal);
-        var phone = getPhone(deal);
-
-        var namePromise = name
-          ? Promise.resolve(name)
-          : getClientField(1001);
-
-        var phonePromise = phone
-          ? Promise.resolve(phone)
-          : getClientField(1002);
-
-        return Promise.all([
-          namePromise,
-          phonePromise
-        ]).then(function (values) {
-          publish({
-            token: token,
-            dealId: id,
-            clientName: values[0] || '',
-            phone: values[1] || '',
-            proposalNumber: makeNumber(id),
-            updatedAt: Date.now()
-          });
-        });
-      })
-      .catch(function (error) {
-        log('не удалось получить данные сделки', error);
-      });
+    publishDealContext(token)
+      .catch(function () {});
   }
 
-  window.addEventListener('message', function (event) {
-    if (
-      event.data &&
-      event.data.type === 'kp-btn:click'
-    ) {
-      log('кнопка нажата');
-      openConstructor();
-    }
-  }, false);
+  window.addEventListener(
+    'message',
+    function (event) {
+      if (
+        event.data &&
+        event.data.type === 'kp-btn:click'
+      ) {
+        log('кнопка нажата');
+        openConstructor();
+      }
+    },
+    false
+  );
 
+  /*
+   * Убираем старые пункты бокового меню.
+   */
   if (w.closeWidget) {
     try {
       w.closeWidget({
@@ -413,23 +510,39 @@
     } catch (e) {}
   }
 
-  w.init({
-    'deal-btn': function () {
-      return [{
-        title: 'Сформировать КП',
-        styles: {
-          color: '#fff',
-          'background-color': '#2F6BFF'
-        },
-        icon: 'md-description',
-        clickEventName: 'kp-btn:click',
-        position: ['first'],
-        name: 'kp-btn-1'
-      }];
-    }
-  });
+  /*
+   * Оставляем только кнопку в карточке сделки.
+   */
+  try {
+    var initResult = w.init({
+      'deal-btn': function () {
+        return [{
+          title: 'Сформировать КП',
+          styles: {
+            color: '#fff',
+            'background-color': '#2F6BFF'
+          },
+          icon: 'md-description',
+          clickEventName: 'kp-btn:click',
+          position: ['first'],
+          name: 'kp-btn-1'
+        }];
+      }
+    });
 
-  log('виджет v17 зарегистрирован');
+    if (
+      initResult &&
+      typeof initResult.catch === 'function'
+    ) {
+      initResult.catch(function (error) {
+        log('ошибка init', error);
+      });
+    }
+
+    log('виджет v18 зарегистрирован');
+  } catch (error) {
+    log('ошибка регистрации кнопки', error);
+  }
 })();
 </script>
 
