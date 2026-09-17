@@ -12,11 +12,15 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v18';
+  var VERSION = 'v19';
   var AUTO_URL =
-    'https://alenik9024-cell.github.io/kp/kp-auto.html?v=18';
+    'https://alenik9024-cell.github.io/kp/kp-auto.html?v=19';
 
-  var STORAGE_KEY = 'kp_current_deal_context_v18';
+  var currentContext = {
+    dealId: '',
+    clientId: ''
+  };
+
   var w = window.EnvyCrmWidget;
 
   function log(message, data) {
@@ -31,400 +35,49 @@
     return;
   }
 
-  function scalar(value) {
-    if (value === null || value === undefined) {
-      return '';
-    }
+  function getParamValue(params, keys) {
+    params = params || {};
 
-    if (
-      typeof value === 'string' ||
-      typeof value === 'number'
-    ) {
-      return String(value).trim();
-    }
-
-    if (Array.isArray(value)) {
-      for (var i = 0; i < value.length; i++) {
-        var arrayValue = scalar(value[i]);
-
-        if (arrayValue) {
-          return arrayValue;
-        }
-      }
-
-      return '';
-    }
-
-    if (typeof value === 'object') {
-      var priorityKeys = [
-        'value',
-        'phone',
-        'client_phone',
-        'mobile_phone',
-        'client_name',
-        'customer_name',
-        'name',
-        'result',
-        'data'
-      ];
-
-      for (var j = 0; j < priorityKeys.length; j++) {
-        var key = priorityKeys[j];
-
-        if (
-          value[key] !== undefined &&
-          value[key] !== null
-        ) {
-          var result = scalar(value[key]);
-
-          if (result) {
-            return result;
-          }
-        }
+    for (var i = 0; i < keys.length; i++) {
+      if (
+        params[keys[i]] !== undefined &&
+        params[keys[i]] !== null &&
+        params[keys[i]] !== ''
+      ) {
+        return String(params[keys[i]]);
       }
     }
 
     return '';
   }
 
-  function searchKey(data, keys, visited) {
-    if (!data || typeof data !== 'object') {
-      return '';
-    }
-
-    visited = visited || [];
-
-    if (visited.indexOf(data) !== -1) {
-      return '';
-    }
-
-    visited.push(data);
-
-    if (Array.isArray(data)) {
-      for (var i = 0; i < data.length; i++) {
-        var arrayResult = searchKey(
-          data[i],
-          keys,
-          visited
-        );
-
-        if (arrayResult) {
-          return arrayResult;
-        }
-      }
-
-      return '';
-    }
-
-    for (var j = 0; j < keys.length; j++) {
-      var key = keys[j];
-
-      if (
-        data[key] !== undefined &&
-        data[key] !== null
-      ) {
-        var directResult = scalar(data[key]);
-
-        if (directResult) {
-          return directResult;
-        }
-      }
-    }
-
-    for (var property in data) {
-      if (
-        !Object.prototype.hasOwnProperty.call(
-          data,
-          property
-        )
-      ) {
-        continue;
-      }
-
-      if (
-        data[property] &&
-        typeof data[property] === 'object'
-      ) {
-        var nestedResult = searchKey(
-          data[property],
-          keys,
-          visited
-        );
-
-        if (nestedResult) {
-          return nestedResult;
-        }
-      }
-    }
-
-    return '';
-  }
-
-  function searchInputValue(data, inputId, visited) {
-    if (!data || typeof data !== 'object') {
-      return '';
-    }
-
-    visited = visited || [];
-
-    if (visited.indexOf(data) !== -1) {
-      return '';
-    }
-
-    visited.push(data);
-
-    if (
-      data.input_id !== undefined &&
-      String(data.input_id) === String(inputId)
-    ) {
-      return scalar(data.value);
-    }
-
-    if (
-      data.inputId !== undefined &&
-      String(data.inputId) === String(inputId)
-    ) {
-      return scalar(data.value);
-    }
-
-    if (Array.isArray(data)) {
-      for (var i = 0; i < data.length; i++) {
-        var arrayValue = searchInputValue(
-          data[i],
-          inputId,
-          visited
-        );
-
-        if (arrayValue) {
-          return arrayValue;
-        }
-      }
-
-      return '';
-    }
-
-    for (var key in data) {
-      if (
-        !Object.prototype.hasOwnProperty.call(
-          data,
-          key
-        )
-      ) {
-        continue;
-      }
-
-      var nestedValue = searchInputValue(
-        data[key],
-        inputId,
-        visited
-      );
-
-      if (nestedValue) {
-        return nestedValue;
-      }
-    }
-
-    return '';
-  }
-
-  function getDealId(deal) {
-    var id = searchKey(
-      deal,
-      ['deal_id', 'dealId']
-    );
-
-    if (id) {
-      return id;
-    }
-
-    return searchKey(deal, ['id']);
-  }
-
-  function getClientName(deal) {
-    var name = searchKey(
-      deal,
-      [
-        'client_name',
-        'clientName',
-        'customer_name',
-        'customerName',
-        'name_client'
-      ]
-    );
-
-    if (name) {
-      return name;
-    }
+  function openConstructor(eventData) {
+    eventData = eventData || {};
 
     /*
-     * Запасной вариант: имя клиента как системное поле 1001.
+     * Основной источник — params из callback init.
+     * Резервный источник — данные события клика.
      */
-    return '';
-  }
+    var dealId =
+      currentContext.dealId ||
+      getParamValue(eventData, [
+        'dealID',
+        'deal_id',
+        'dealId'
+      ]);
 
-  function getPhoneFromDeal(deal) {
-    var phone = searchKey(
-      deal,
-      [
-        'client_phone',
-        'mobile_phone',
-        'phone'
-      ]
-    );
-
-    if (phone && /\d{5,}/.test(phone)) {
-      return phone;
-    }
-
-    var contacts = searchKey(
-      deal,
-      ['contacts']
-    );
-
-    if (contacts && /\d{5,}/.test(contacts)) {
-      return contacts;
-    }
-
-    return '';
-  }
-
-  function getClientField(inputId) {
-    if (w.getClientValue) {
-      return w.getClientValue({
-        input_id: inputId,
-        type: 'service'
-      })
-        .then(function (data) {
-          var value = scalar(data);
-
-          if (value) {
-            return value;
-          }
-
-          if (w.getClientValues) {
-            return w.getClientValues()
-              .then(function (allValues) {
-                return searchInputValue(
-                  allValues,
-                  inputId
-                );
-              });
-          }
-
-          return '';
-        })
-        .catch(function () {
-          return '';
-        });
-    }
-
-    if (w.getClientValues) {
-      return w.getClientValues()
-        .then(function (allValues) {
-          return searchInputValue(
-            allValues,
-            inputId
-          );
-        })
-        .catch(function () {
-          return '';
-        });
-    }
-
-    return Promise.resolve('');
-  }
-
-  function makeProposalNumber(dealId) {
-    var date = new Date();
-
-    var day = String(date.getDate())
-      .padStart(2, '0');
-
-    var month = String(date.getMonth() + 1)
-      .padStart(2, '0');
-
-    var year = date.getFullYear();
-
-    return 'КП-' + dealId + '/' +
-      day + '.' + month + '.' + year;
-  }
-
-  function saveContext(context) {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(context)
-      );
-
-      log('контекст сохранён', context);
-    } catch (error) {
-      log('ошибка сохранения контекста', error);
-    }
-  }
-
-  function publishDealContext(token) {
-    return w.getDeal()
-      .then(function (deal) {
-        log('полный ответ getDeal', deal);
-
-        var dealId = getDealId(deal);
-        var clientName = getClientName(deal);
-        var phone = getPhoneFromDeal(deal);
-
-        var namePromise = clientName
-          ? Promise.resolve(clientName)
-          : getClientField(1001);
-
-        var phonePromise = phone
-          ? Promise.resolve(phone)
-          : getClientField(1002);
-
-        return Promise.all([
-          namePromise,
-          phonePromise
-        ]).then(function (values) {
-          var context = {
-            token: token,
-            dealId: dealId || '',
-            clientName: values[0] || '',
-            phone: values[1] || '',
-            proposalNumber: makeProposalNumber(
-              dealId || ''
-            ),
-            updatedAt: Date.now()
-          };
-
-          saveContext(context);
-
-          return context;
-        });
-      })
-      .catch(function (error) {
-        log('ошибка получения сделки', error);
-        throw error;
-      });
-  }
-
-  function openConstructor() {
-    var token = 'kp_' + Date.now();
-
-    /*
-     * Сначала создаём контекст с токеном,
-     * чтобы автоматический конструктор открылся сразу.
-     */
-    saveContext({
-      token: token,
-      dealId: '',
-      clientName: '',
-      phone: '',
-      proposalNumber: '',
-      updatedAt: Date.now()
-    });
+    var clientId =
+      currentContext.clientId ||
+      getParamValue(eventData, [
+        'clientID',
+        'client_id',
+        'clientId'
+      ]);
 
     var url =
       AUTO_URL +
-      '&token=' +
-      encodeURIComponent(token);
+      '&deal_id=' + encodeURIComponent(dealId) +
+      '&client_id=' + encodeURIComponent(clientId);
 
     var iframe =
       '<iframe src="' + url + '" ' +
@@ -432,7 +85,11 @@
       'min-height:650px;border:0" ' +
       'allowfullscreen></iframe>';
 
-    log('открываю автоматический конструктор');
+    log('открываю конструктор', {
+      dealID: dealId,
+      clientID: clientId,
+      url: url
+    });
 
     try {
       if (w.openPage) {
@@ -456,66 +113,67 @@
             }
           });
         }
-      } else if (w.openModal) {
+
+        return;
+      }
+
+      if (w.openModal) {
         w.openModal({
           title: 'Конструктор КП',
           content: iframe,
           width: 1150
         });
-      } else {
-        window.open(url, '_blank');
+
+        return;
       }
+
+      window.open(url, '_blank');
+
     } catch (error) {
-      log('ошибка открытия', error);
+      log('ошибка открытия конструктора', error);
       window.open(url, '_blank');
     }
-
-    /*
-     * Получаем сделку уже после открытия окна.
-     */
-    publishDealContext(token)
-      .catch(function () {});
   }
 
   window.addEventListener(
     'message',
     function (event) {
-      if (
-        event.data &&
-        event.data.type === 'kp-btn:click'
-      ) {
-        log('кнопка нажата');
-        openConstructor();
+      var type = event.data && event.data.type;
+
+      if (type !== 'kp-btn:click') {
+        return;
       }
+
+      log('кнопка нажата', event.data);
+      openConstructor(event.data);
     },
     false
   );
 
   /*
-   * Убираем старые пункты бокового меню.
-   */
-  if (w.closeWidget) {
-    try {
-      w.closeWidget({
-        type: 'sidebar-item',
-        name: 'kp-sidebar-1'
-      });
-    } catch (e) {}
-
-    try {
-      w.closeWidget({
-        type: 'sidebar-item',
-        name: 'kp-side-1'
-      });
-    } catch (e) {}
-  }
-
-  /*
-   * Оставляем только кнопку в карточке сделки.
+   * ВАЖНО:
+   * params — это параметры текущей сделки,
+   * которые CRM передаёт в callback init.
    */
   try {
     var initResult = w.init({
-      'deal-btn': function () {
+      'deal-btn': function (params) {
+        currentContext.dealId = getParamValue(
+          params,
+          ['dealID', 'deal_id', 'dealId']
+        );
+
+        currentContext.clientId = getParamValue(
+          params,
+          ['clientID', 'client_id', 'clientId']
+        );
+
+        log('параметры сделки получены из init', {
+          params: params,
+          dealID: currentContext.dealId,
+          clientID: currentContext.clientId
+        });
+
         return [{
           title: 'Сформировать КП',
           styles: {
@@ -539,7 +197,8 @@
       });
     }
 
-    log('виджет v18 зарегистрирован');
+    log('виджет v19 зарегистрирован');
+
   } catch (error) {
     log('ошибка регистрации кнопки', error);
   }
