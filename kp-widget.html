@@ -12,12 +12,16 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v13';
+  var VERSION = 'v15';
 
-  var CTOR =
-    'https://alenik9024-cell.github.io/kp/kp.html';
+  /*
+   * Открываем новый автоматический вход,
+   * а не старый kp.html напрямую.
+   */
+  var CONSTRUCTOR =
+    'https://alenik9024-cell.github.io/kp/kp-auto.html';
 
-  var STORAGE_KEY = 'kp_envycrm_context_v13';
+  var STORAGE_KEY = 'kp_current_deal_context';
 
   var w = window.EnvyCrmWidget;
 
@@ -30,9 +34,281 @@
     return;
   }
 
+  function scalar(value) {
+    if (value === null || value === undefined) {
+      return '';
+    }
+
+    if (typeof value === 'string' || typeof value === 'number') {
+      return String(value).trim();
+    }
+
+    if (typeof value === 'object') {
+      if (value.value !== undefined && value.value !== null) {
+        return scalar(value.value);
+      }
+
+      if (value.phone !== undefined && value.phone !== null) {
+        return scalar(value.phone);
+      }
+
+      if (value.client_name !== undefined && value.client_name !== null) {
+        return scalar(value.client_name);
+      }
+
+      if (value.name !== undefined && value.name !== null) {
+        return scalar(value.name);
+      }
+
+      if (value.data !== undefined && value.data !== null) {
+        return scalar(value.data);
+      }
+
+      if (value.result !== undefined && value.result !== null) {
+        return scalar(value.result);
+      }
+    }
+
+    return '';
+  }
+
+  function getDealObject(deal) {
+    return deal && deal.result ? deal.result : (deal || {});
+  }
+
+  function getDealId(deal) {
+    var d = getDealObject(deal);
+
+    return String(
+      d.id ||
+      d.deal_id ||
+      ''
+    );
+  }
+
+  function getClientNameFromDeal(deal) {
+    var d = getDealObject(deal);
+
+    var name = scalar(
+      d.client_name ||
+      d.clientName ||
+      d.customer_name ||
+      d.name_client
+    );
+
+    if (name) {
+      return name;
+    }
+
+    if (d.client && typeof d.client === 'object') {
+      return scalar(
+        d.client.client_name ||
+        d.client.name ||
+        d.client.name_client
+      );
+    }
+
+    return '';
+  }
+
+  function getPhoneFromDeal(deal) {
+    var d = getDealObject(deal);
+
+    var phone = scalar(
+      d.phone ||
+      d.client_phone ||
+      d.mobile_phone
+    );
+
+    if (phone && /\d{5,}/.test(phone)) {
+      return phone;
+    }
+
+    var contacts = d.contacts || [];
+
+    for (var i = 0; i < contacts.length; i++) {
+      var contact = contacts[i] || {};
+
+      phone = scalar(
+        contact.phone ||
+        contact.mobile_phone ||
+        contact.value
+      );
+
+      if (phone && /\d{5,}/.test(phone)) {
+        return phone;
+      }
+    }
+
+    return '';
+  }
+
+  function getClientValue(inputId) {
+    if (!w.getClientValue) {
+      return Promise.resolve('');
+    }
+
+    return w.getClientValue({
+      input_id: inputId,
+      type: 'service'
+    })
+      .then(function (result) {
+        return scalar(result);
+      })
+      .catch(function () {
+        return '';
+      });
+  }
+
+  function getProposalNumber(dealId) {
+    var now = new Date();
+
+    var day = String(now.getDate()).padStart(2, '0');
+    var month = String(now.getMonth() + 1).padStart(2, '0');
+    var year = now.getFullYear();
+
+    return 'КП-' + dealId + '/' + day + '.' + month + '.' + year;
+  }
+
+  function saveContext(context) {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(context)
+      );
+
+      log('контекст сохранён', context);
+    } catch (error) {
+      log('ошибка сохранения контекста', error);
+    }
+  }
+
+  function getCurrentContext() {
+    return w.getDeal()
+      .then(function (deal) {
+        deal = deal || {};
+
+        var dealId = getDealId(deal);
+        var clientName = getClientNameFromDeal(deal);
+        var phone = getPhoneFromDeal(deal);
+
+        var namePromise = clientName
+          ? Promise.resolve(clientName)
+          : getClientValue(1001);
+
+        var phonePromise = phone
+          ? Promise.resolve(phone)
+          : getClientValue(1002);
+
+        return Promise.all([
+          namePromise,
+          phonePromise
+        ]).then(function (values) {
+          return {
+            dealId: dealId,
+            clientName: values[0] || '',
+            phone: values[1] || '',
+            proposalNumber: getProposalNumber(dealId),
+            updatedAt: Date.now()
+          };
+        });
+      });
+  }
+
+  function openConstructor() {
+    var token = 'kp_' + Date.now();
+
+    /*
+     * Сначала сохраняем пустой контекст,
+     * затем сразу открываем окно.
+     */
+    saveContext({
+      token: token,
+      dealId: '',
+      clientName: '',
+      phone: '',
+      proposalNumber: '',
+      updatedAt: Date.now()
+    });
+
+    var url =
+      CONSTRUCTOR +
+      '?token=' +
+      encodeURIComponent(token);
+
+    var iframe =
+      '<iframe ' +
+      'src="' + url + '" ' +
+      'style="width:100%;height:calc(100vh - 60px);min-height:650px;border:0" ' +
+      'allowfullscreen>' +
+      '</iframe>';
+
+    log('открываю автоматический конструктор');
+
+    /*
+     * Открываем сразу, не ожидая getDeal().
+     */
+    try {
+      if (w.openPage) {
+        var page = w.openPage({
+          content: iframe
+        });
+
+        if (page && typeof page.catch === 'function') {
+          page.catch(function (error) {
+            log('openPage не сработал', error);
+
+            if (w.openModal) {
+              w.openModal({
+                title: 'Конструктор КП',
+                content: iframe,
+                width: 1150
+              });
+            }
+          });
+        }
+      } else if (w.openModal) {
+        w.openModal({
+          title: 'Конструктор КП',
+          content: iframe,
+          width: 1150
+        });
+      } else {
+        window.open(url, '_blank');
+      }
+    } catch (error) {
+      log('ошибка открытия конструктора', error);
+      window.open(url, '_blank');
+    }
+
+    /*
+     * После открытия получаем данные текущей сделки.
+     * kp-auto.html увидит обновление через localStorage.
+     */
+    getCurrentContext()
+      .then(function (context) {
+        context.token = token;
+        saveContext(context);
+      })
+      .catch(function (error) {
+        log('не удалось получить данные сделки', error);
+      });
+  }
+
+  window.addEventListener('message', function (event) {
+    var type = event.data && event.data.type;
+
+    if (type !== 'kp-btn:click') {
+      return;
+    }
+
+    log('нажата кнопка «Сформировать КП»');
+    openConstructor();
+  }, false);
+
   /*
-   * Удаляем старый пункт из левого меню,
-   * если CRM ещё держит старую версию расширения.
+   * Убираем старые пункты бокового меню,
+   * если CRM ещё держит их в кэше.
    */
   if (w.closeWidget) {
     try {
@@ -50,273 +326,8 @@
     } catch (e) {}
   }
 
-  function scalar(value) {
-    if (value === null || value === undefined) {
-      return '';
-    }
-
-    if (typeof value === 'string' || typeof value === 'number') {
-      return String(value);
-    }
-
-    if (typeof value === 'object') {
-      if (value.value !== undefined && value.value !== null) {
-        return scalar(value.value);
-      }
-
-      if (value.phone !== undefined && value.phone !== null) {
-        return scalar(value.phone);
-      }
-
-      if (value.name !== undefined && value.name !== null) {
-        return scalar(value.name);
-      }
-
-      if (value.client_name !== undefined && value.client_name !== null) {
-        return scalar(value.client_name);
-      }
-
-      if (value.result !== undefined && value.result !== null) {
-        return scalar(value.result);
-      }
-    }
-
-    return '';
-  }
-
-  function dealId(deal) {
-    deal = deal || {};
-
-    return String(
-      deal.id ||
-      deal.deal_id ||
-      (deal.result && (
-        deal.result.id ||
-        deal.result.deal_id
-      )) ||
-      ''
-    );
-  }
-
-  function dealObject(deal) {
-    return deal && deal.result ? deal.result : (deal || {});
-  }
-
-  function dealName(deal) {
-    var d = dealObject(deal);
-
-    return String(
-      d.client_name ||
-      d.clientName ||
-      d.customer_name ||
-      d.name_client ||
-      (d.client && (
-        d.client.name ||
-        d.client.client_name ||
-        d.client.name_client
-      )) ||
-      ''
-    ).trim();
-  }
-
-  function dealPhone(deal) {
-    var d = dealObject(deal);
-
-    var direct = scalar(
-      d.phone ||
-      d.client_phone ||
-      d.mobile_phone ||
-      ''
-    );
-
-    if (direct && /\d{5,}/.test(direct)) {
-      return direct;
-    }
-
-    var contacts = d.contacts || [];
-
-    for (var i = 0; i < contacts.length; i++) {
-      var contact = contacts[i] || {};
-
-      var phone = scalar(
-        contact.phone ||
-        contact.mobile_phone ||
-        contact.value ||
-        ''
-      );
-
-      if (phone && /\d{5,}/.test(phone)) {
-        return phone;
-      }
-    }
-
-    return '';
-  }
-
-  function clientValue(inputId) {
-    if (!w.getClientValue) {
-      return Promise.resolve('');
-    }
-
-    return w.getClientValue({
-      input_id: inputId,
-      type: 'service'
-    })
-      .then(function (data) {
-        return scalar(data);
-      })
-      .catch(function () {
-        return '';
-      });
-  }
-
-  function saveContext(context) {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(context)
-      );
-
-      log('контекст сохранён', context);
-    } catch (e) {
-      log('не удалось сохранить контекст', e);
-    }
-  }
-
-  function proposalNumber(id) {
-    var date = new Date();
-
-    var day = String(date.getDate()).padStart(2, '0');
-    var month = String(date.getMonth() + 1).padStart(2, '0');
-    var year = date.getFullYear();
-
-    return 'КП-' + (id || '') + '/' + day + '.' + month + '.' + year;
-  }
-
   /*
-   * Конструктор открывается сразу.
-   * Данные сделки догружаются после открытия.
-   */
-  function openConstructor() {
-    var token = 'kp_' + Date.now();
-
-    var initialContext = {
-      token: token,
-      dealId: '',
-      phone: '',
-      clientName: '',
-      number: '',
-      createdAt: Date.now()
-    };
-
-    saveContext(initialContext);
-
-    var url =
-      CTOR +
-      '?embed=1' +
-      '&full=1' +
-      '&auto=1' +
-      '&context_token=' +
-      encodeURIComponent(token);
-
-    var content =
-      '<iframe ' +
-      'src="' + url + '" ' +
-      'style="width:100%;height:calc(100vh - 70px);min-height:600px;border:0" ' +
-      'allowfullscreen>' +
-      '</iframe>';
-
-    log('открываю конструктор сразу');
-
-    /*
-     * Важно: openPage вызывается до getDeal().
-     */
-    try {
-      if (w.openPage) {
-        var page = w.openPage({
-          content: content
-        });
-
-        if (page && typeof page.catch === 'function') {
-          page.catch(function (error) {
-            log('openPage не сработал', error);
-
-            if (w.openModal) {
-              w.openModal({
-                title: 'Конструктор КП',
-                content: content,
-                width: 1150
-              });
-            }
-          });
-        }
-      } else if (w.openModal) {
-        w.openModal({
-          title: 'Конструктор КП',
-          content: content,
-          width: 1150
-        });
-      } else {
-        window.open(url, '_blank');
-      }
-    } catch (error) {
-      log('ошибка открытия', error);
-      window.open(url, '_blank');
-    }
-
-    /*
-     * Данные сделки получаем уже после открытия.
-     */
-    if (!w.getDeal) {
-      return;
-    }
-
-    w.getDeal()
-      .then(function (deal) {
-        deal = deal || {};
-
-        var id = dealId(deal);
-        var name = dealName(deal);
-        var phone = dealPhone(deal);
-
-        return Promise.all([
-          name ? Promise.resolve(name) : clientValue(1001),
-          phone ? Promise.resolve(phone) : clientValue(1002)
-        ])
-          .then(function (values) {
-            var context = {
-              token: token,
-              dealId: id,
-              phone: values[1] || '',
-              clientName: values[0] || '',
-              number: proposalNumber(id),
-              createdAt: Date.now()
-            };
-
-            saveContext(context);
-          });
-      })
-      .catch(function (error) {
-        log('не удалось получить данные сделки', error);
-      });
-  }
-
-  /*
-   * Получаем только событие кнопки сделки.
-   */
-  window.addEventListener('message', function (event) {
-    var type = event.data && event.data.type;
-
-    if (type !== 'kp-btn:click') {
-      return;
-    }
-
-    log('нажата кнопка «Сформировать КП»');
-    openConstructor();
-  }, false);
-
-  /*
-   * Регистрируем только одну кнопку.
+   * Регистрируем только одну кнопку сделки.
    */
   try {
     w.init({
