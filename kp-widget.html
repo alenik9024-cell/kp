@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v20';
+  var VERSION = 'v21';
   var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=21';
   var STORAGE_KEY = 'kp_context_v20';
 
@@ -24,7 +24,7 @@
     phone: ''
   };
 
-  var dataPromise = Promise.resolve();
+  var dataPromise = Promise.resolve();;
 
   function log(message, data) {
     console.log('[KP ' + VERSION + '] ' + message, data || '');
@@ -163,7 +163,7 @@
     });
   }
 
-  function openConstructor() {
+  function openConstructor() { dataPromise = loadClientData();
     var token = 'kp_' + Date.now();
 
     saveContext(token);
