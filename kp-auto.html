@@ -1,137 +1,432 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head><meta charset="utf-8"><title>КП — виджет</title></head>
+<head>
+<meta charset="utf-8">
+<title>Коммерческое предложение</title>
+<style>
+  html,body{margin:0;height:100%;background:#fff}
+  #kp-frame{display:block;width:100%;height:100vh;border:0}
+  #kpToast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);
+    background:#101722;color:#e8edf5;border:1px solid #26324a;border-radius:10px;
+    padding:9px 14px;font:13px/1.4 -apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    z-index:2147483000;display:none;max-width:80vw;text-align:center;pointer-events:none}
+  #kpToast.err{color:#ff8b8b} #kpToast.ok{color:#7ee0a0}
+</style>
+</head>
 <body>
+
+<iframe id="kp-frame" src="kp.html?v=36"></iframe>
+<div id="kpToast"></div>
+
 <script>
 (function () {
   'use strict';
-  var VERSION = 'v36';
-  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=36';
-  var w = window.EnvyCrmWidget;
-  var dealId = '', clientId = '';
 
-  function log(m, d) { try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {} }
+  var PROXY = 'https://script.google.com/macros/s/AKfycbwTIDBQvAu7q2WFEOr6F8AQ_gJdjnSxYAJrtrd04QODVyoVoR085ZdtsiwpXE7Z26AQ/exec';
+  var CRM = 'https://novikov.envycrm.com';
 
-  function getParam(params, names) {
-    params = params || {};
-    for (var i = 0; i < names.length; i++) {
-      var v = params[names[i]];
-      if (v !== undefined && v !== null && v !== '') return String(v);
+  /* путь карточки сделки — из вашего скриншота чата */
+  var URL_CARD  = CRM + '/client/{client}/deal/{id}';
+  var URL_CHAT  = '';
+  var URL_EMAIL = '';
+
+  var NUM_INPUT_ID = '';
+  var ACT = { client:'client', attach:'attachFile', number:'updateDealValue' };
+
+  var PAGE_W_MM = 210, PAGE_H_MM = 297, DOC_PX = 794;
+
+  var params   = new URLSearchParams(location.search);
+  var dealId   = params.get('deal_id')   || '';
+  var clientId = params.get('client_id') || '';
+  var wantMode = params.get('mode')      || '';
+
+  var frame = document.getElementById('kp-frame');
+  var clientName = '', clientPhone = '', clientEmail = '';
+  var dataReady = false, installed = false, hooked = false, lastPdf = null, busy = false;
+
+  function log(m, d) { try { console.log('[KP AUTO v36] ' + m, d || ''); } catch (e) {} }
+  function doc() { try { return frame.contentDocument || frame.contentWindow.document || null; } catch (e) { return null; } }
+  function win() { try { return frame.contentWindow; } catch (e) { return null; } }
+
+  function writable(el) {
+    if (!el) return false;
+    if (el.matches && el.matches('[contenteditable="true"]')) return true;
+    if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return false;
+    var t = String(el.type || 'text').toLowerCase();
+    if (['file','color','checkbox','radio','hidden','button','submit','reset'].indexOf(t) !== -1) return false;
+    return !el.disabled;
+  }
+  function getV(el) {
+    if (!el) return '';
+    if (el.matches && el.matches('[contenteditable="true"]')) return String(el.textContent || '').trim();
+    return String(el.value || '').trim();
+  }
+  function setV(el, value) {
+    if (!writable(el) || !value) return;
+    var proto = Object.getPrototypeOf(el);
+    var desc  = proto && Object.getOwnPropertyDescriptor(proto, 'value');
+    if (el.matches && el.matches('[contenteditable="true"]')) el.textContent = value;
+    else if (desc && desc.set) desc.set.call(el, value);
+    else el.value = value;
+    var w = el.ownerDocument.defaultView;
+    ['input','change','blur'].forEach(function (t) { el.dispatchEvent(new w.Event(t, { bubbles: true })); });
+  }
+  function ownLabel(el) {
+    if (!el) return '';
+    if (el.labels && el.labels.length) {
+      return String(el.labels[0].innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+    if (el.closest) {
+      var l = el.closest('label, .field, .form-group');
+      if (l) { var t = String(l.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase(); if (t.length < 80) return t; }
     }
     return '';
   }
-
-  function openConstructor(mode) {
-    var url = AUTO_URL +
-      '&deal_id=' + encodeURIComponent(dealId) +
-      '&client_id=' + encodeURIComponent(clientId) +
-      '&mode=' + encodeURIComponent(mode || '');
-    var html = '<iframe src="' + url + '" style="width:100%;height:80vh;border:0;display:block"></iframe>';
-    log('открываю конструктор', { deal_id: dealId, client_id: clientId, mode: mode });
-
-    try {
-      if (w && typeof w.openPage === 'function') {
-        w.openPage({ content: html }).catch(function (e) {
-          log('openPage не сработал', e);
-          if (w && typeof w.openModal === 'function') {
-            w.openModal({ title: 'Коммерческое предложение', content: html, width: 1250 });
-          }
-        });
-        return;
-      }
-      if (w && typeof w.openModal === 'function') {
-        w.openModal({ title: 'Коммерческое предложение', content: html, width: 1250 });
-        return;
-      }
-      window.open(url, '_blank');
-    } catch (e) {
-      log('ошибка открытия', e);
-      window.open(url, '_blank');
-    }
-  }
-
-  function apiProbe() {
-    var lines = [];
-    lines.push('Страница виджета: ' + location.href);
-    lines.push('typeof EnvyCrmWidget: ' + typeof window.EnvyCrmWidget);
-    try {
-      var names = [];
-      for (var k in window.EnvyCrmWidget) names.push(k + ' [' + typeof window.EnvyCrmWidget[k] + ']');
-      lines.push('Свойства и методы: ' + (names.length ? names.join(', ') : '— не перечисляются'));
-    } catch (e) { lines.push('перечисление не удалось: ' + e); }
-    try {
-      var proto = Object.getOwnPropertyNames(Object.getPrototypeOf(window.EnvyCrmWidget));
-      lines.push('Прототип: ' + (proto.length ? proto.join(', ') : '— пусто'));
-    } catch (e) {}
-    try {
-      var pd = window.parent.document;
-      lines.push('Доступ к DOM CRM: ДА, элементов ' + pd.querySelectorAll('*').length);
-      var hits = [];
-      Array.prototype.forEach.call(pd.querySelectorAll('button,a,div,span,i,svg'), function (el) {
-        var s = ((el.getAttribute('title') || '') + ' ' + (el.getAttribute('aria-label') || '') + ' ' +
-                 String(el.className || '')).toLowerCase();
-        if (/chat|mail|email|dialog|сообщен|письм|чат/.test(s)) hits.push(s.replace(/\s+/g, ' ').slice(0, 70));
+  function shortControls(d) {
+    return Array.prototype.slice.call(d.querySelectorAll('input, [contenteditable="true"]'))
+      .filter(function (el) {
+        if (!writable(el) || el.tagName === 'TEXTAREA') return false;
+        if (el.matches && el.matches('[contenteditable="true"]')) return true;
+        return ['text','tel','email','number','search','url',''].indexOf(String(el.type || 'text').toLowerCase()) !== -1;
       });
-      var uniq = hits.filter(function (v, i) { return hits.indexOf(v) === i; });
-      lines.push('Элементы чат/почта: ' + (uniq.slice(0, 25).join(' | ') || '— не найдены'));
-    } catch (e) {
-      lines.push('Доступ к DOM CRM: НЕТ (' + e.name + ') — браузер блокирует чужой домен');
+  }
+  function isLongText(el) {
+    var hay = (ownLabel(el) + ' ' + (el.id || '') + ' ' + (el.getAttribute('name') || '') + ' ' +
+               (el.getAttribute('placeholder') || '')).toLowerCase();
+    return /текст|описан|услуг|каталог|реквизит|примечан|коммент/.test(hay);
+  }
+  function findByWords(d, words, opts) {
+    opts = opts || {};
+    var list = shortControls(d), i, j, hay;
+    for (i = 0; i < list.length; i++) {
+      if (isLongText(list[i])) continue;
+      hay = (ownLabel(list[i]) + ' ' + (list[i].id || '') + ' ' + (list[i].getAttribute('name') || '')).toLowerCase();
+      for (j = 0; j < words.length; j++) if (hay.indexOf(words[j]) !== -1) return list[i];
     }
-    var text = lines.join('\n');
-    try { navigator.clipboard.writeText(text); } catch (e) {}
-    var safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    try {
-      w.openModal({ title: 'Диагностика API виджета', width: 760,
-        content: '<pre style="white-space:pre-wrap;font:12px/1.5 monospace;max-height:60vh;overflow:auto;padding:8px">' +
-                 safe + '</pre>' });
-    } catch (e) { try { alert(text); } catch (e2) {} }
+    for (i = 0; i < list.length; i++) {
+      if (isLongText(list[i])) continue;
+      hay = String(list[i].getAttribute('placeholder') || '').toLowerCase();
+      for (j = 0; j < words.length; j++) if (hay.indexOf(words[j]) !== -1) return list[i];
+    }
+    if (opts.type) for (i = 0; i < list.length; i++)
+      if (String(list[i].getAttribute('type') || '').toLowerCase() === opts.type) return list[i];
+    return null;
+  }
+  function fillOnce(el, value) {
+    if (!el || !value || el.__kpFilled) return;
+    if (getV(el) === value) { el.__kpFilled = true; return; }
+    setV(el, value); el.__kpFilled = true;
+  }
+  function proposalNumber() {
+    if (!dealId) return 'КП';
+    var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
+    return 'КП-' + dealId + '/' + p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
+  }
+  function normPhone(raw) {
+    var d = String(raw || '').replace(/\D/g, '');
+    if (d.length === 11 && d.charAt(0) === '8') d = '7' + d.slice(1);
+    if (d.length === 10) d = '7' + d;
+    return d;
   }
 
-  function register() {
-    w = window.EnvyCrmWidget;
-    if (!w) { log('EnvyCrmWidget не найдена'); return; }
+  function applyData() {
+    var d = doc();
+    if (!d || !d.body) return;
+    var platform = findByWords(d, ['название платформ']);
+    if (platform) platform.__kpFilled = true;
+    fillOnce(findByWords(d, ['номер кп', 'номер предложения']), proposalNumber());
+    if (!dataReady) return;
+    if (clientName)  fillOnce(findByWords(d, ['кому (заказчик)', 'кому', 'заказчик']), clientName);
+    if (clientPhone) {
+      var tel = findByWords(d, ['контакт (телефон)', 'телефон', 'тел.'], { type: 'tel' });
+      if (tel && !isLongText(tel)) fillOnce(tel, clientPhone);
+    }
+  }
 
-    window.addEventListener('message', function (e) {
-      var t = e.data && e.data.type;
-      if (t === 'kp:chat')  { openConstructor('chat');  return; }
-      if (t === 'kp:email') { openConstructor('email'); return; }
-      if (t === 'kp:pdf')   { openConstructor('pdf');   return; }
-      if (t === 'kp:api')   { apiProbe();               return; }
-      if (t === 'kp-btn:click') { openConstructor('');  return; }
-    }, false);
+  function findPrintButton(d) {
+    var b = d.querySelectorAll('button');
+    for (var i = 0; i < b.length; i++) {
+      var t = String(b[i].innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (t.indexOf('сформировать') !== -1 || t.indexOf('распечат') !== -1 || t.indexOf('печат') !== -1) return b[i];
+    }
+    return null;
+  }
 
-    try {
-      w.init({
-        'deal-btn': function (params) {
-          dealId   = getParam(params, ['dealID', 'deal_id', 'dealId']);
-          clientId = getParam(params, ['clientID', 'client_id', 'clientId']);
-          log('сделка', { deal_id: dealId, client_id: clientId });
-          return [
-            { title: 'В чат сделки', icon: 'md-chat',
-              styles: { color: '#fff', 'background-color': '#2F6BFF' },
-              clickEventName: 'kp:chat', position: ['first'], name: 'kp-btn-chat' },
-            { title: 'На e-mail', icon: 'md-email',
-              clickEventName: 'kp:email', position: ['first'], name: 'kp-btn-email' },
-            { title: 'Скачать КП', icon: 'md-download',
-              clickEventName: 'kp:pdf', position: ['first'], name: 'kp-btn-pdf' },
-            { title: '🔍 API', icon: 'md-info',
-              clickEventName: 'kp:api', position: ['first'], name: 'kp-btn-api' }
-          ];
+  function installButtons(d) {
+    if (installed || d.__kpBar) return;
+    var printBtn = findPrintButton(d);
+    if (!printBtn) return;
+
+    var wrap = d.createElement('span');
+    wrap.style.cssText = 'display:inline-flex;gap:8px;flex-wrap:wrap;align-items:center;vertical-align:middle';
+
+    function mk(act, label, primary) {
+      var b = d.createElement('button');
+      b.type = 'button';
+      b.setAttribute('data-kp-act', act);
+      b.textContent = label;
+      b.style.cssText = 'padding:9px 14px;border-radius:9px;font:600 13px/1 -apple-system,Segoe UI,Roboto,Arial,sans-serif;' +
+        'cursor:pointer;white-space:nowrap;border:1px solid ' + (primary ? '#2F6BFF' : '#33415c') + ';' +
+        'background:' + (primary ? '#2F6BFF' : '#182233') + ';color:' + (primary ? '#fff' : '#e8edf5');
+      return b;
+    }
+    wrap.appendChild(mk('chat',  '📩 В чат сделки', true));
+    wrap.appendChild(mk('email', '✉️ На e-mail', false));
+    wrap.appendChild(mk('pdf',   '💾 Скачать КП', false));
+    wrap.appendChild(mk('copy',  '📋 Текст', false));
+
+    wrap.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('[data-kp-act]') : null;
+      if (!b) return;
+      doAction(b.getAttribute('data-kp-act'));
+    });
+
+    printBtn.parentNode.insertBefore(wrap, printBtn);
+    printBtn.style.display = 'none';
+    installed = true;
+    log('кнопки установлены в шапку');
+  }
+
+  function gasGet(payload, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var cb = 'kpj_' + Math.random().toString(36).slice(2);
+      var q = Object.keys(payload).map(function (k) {
+        return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] == null ? '' : payload[k]);
+      }).join('&');
+      var s = document.createElement('script'), done = false;
+      var timer = setTimeout(function () { finish(new Error('timeout')); }, timeoutMs || 15000);
+      function finish(err, data) {
+        if (done) return; done = true; clearTimeout(timer);
+        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+        if (s.parentNode) s.parentNode.removeChild(s);
+        err ? reject(err) : resolve(data);
+      }
+      window[cb] = function (data) { finish(null, data); };
+      s.onerror = function () { finish(new Error('gas error')); };
+      s.src = PROXY + '?' + q + '&callback=' + cb;
+      document.head.appendChild(s);
+    });
+  }
+
+  function gasPost(payload) {
+    var target = 'kpPost_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    var ifr = document.createElement('iframe');
+    ifr.name = target; ifr.style.cssText = 'display:none;width:0;height:0;border:0';
+    document.body.appendChild(ifr);
+    var f = document.createElement('form');
+    f.method = 'POST'; f.action = PROXY; f.target = target; f.style.display = 'none';
+    Object.keys(payload).forEach(function (k) {
+      var i = document.createElement('input');
+      i.type = 'hidden'; i.name = k; i.value = payload[k] == null ? '' : String(payload[k]);
+      f.appendChild(i);
+    });
+    document.body.appendChild(f); f.submit();
+    setTimeout(function () { try { f.remove(); } catch (e) {} try { ifr.remove(); } catch (e) {} }, 30000);
+  }
+
+  function loadClient() {
+    if (!dealId && !clientId) { dataReady = true; applyData(); return; }
+    gasGet({ action: ACT.client, deal_id: dealId, client_id: clientId }).then(function (res) {
+      var c = (res && (res.client || res.data)) || res || {};
+      clientName  = c.name  || c.fio || c.client_name || clientName;
+      clientPhone = normPhone(c.phone || c.phone_main || clientPhone);
+      clientEmail = c.email || c.email_main || clientEmail;
+      if (res && res.deal_id)   dealId   = String(res.deal_id);
+      if (res && res.client_id) clientId = String(res.client_id);
+      dataReady = true; applyData();
+    }).catch(function (e) { log('клиент не загружен', e && e.message); dataReady = true; applyData(); });
+  }
+
+  function ensureLibs() {
+    var w = win();
+    if (!w) return Promise.reject(new Error('нет доступа к фрейму'));
+    function inject(src) {
+      return new Promise(function (resolve) {
+        var s = w.document.createElement('script');
+        s.src = src; s.onload = resolve; s.onerror = resolve;
+        w.document.head.appendChild(s);
+      });
+    }
+    var chain = Promise.resolve();
+    if (!w.html2canvas) chain = chain.then(function () {
+      return inject('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'); });
+    if (!(w.jspdf && w.jspdf.jsPDF)) chain = chain.then(function () {
+      return inject('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); });
+    return chain;
+  }
+
+  function findDocEl(d) {
+    var cands = ['#kpDoc','#doc','#docPreview','#preview','#kpDocument','#kpDocPreview',
+                 '.kp-doc','.doc-page','.doc-preview','.preview','.paper','.sheet','.a4','[data-doc]'];
+    for (var i = 0; i < cands.length; i++) {
+      var el = d.querySelector(cands[i]);
+      if (el && el.offsetHeight > 300 && el.offsetWidth > 400) return { el: el, sel: cands[i] };
+    }
+    var vw = d.documentElement.clientWidth || 1200, best = null, area = 0;
+    Array.prototype.forEach.call(d.body.querySelectorAll('div,section,article,main'), function (el) {
+      var r = el.getBoundingClientRect();
+      if (r.width < 500 || r.height < 500 || r.left < vw * 0.18) return;
+      var a = r.width * r.height;
+      if (a > area) { area = a; best = el; }
+    });
+    return best ? { el: best, sel: 'эвристика' } : { el: d.body, sel: 'body' };
+  }
+
+  function docText(d) {
+    var t = String(d.body.innerText || d.body.textContent || '');
+    return t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  function buildPdf() {
+    var d = doc(), w = win();
+    if (!d || !w) return Promise.reject(new Error('фрейм не готов'));
+    var found = findDocEl(d);
+
+    return ensureLibs().then(function () {
+      var hc = w.html2canvas;
+      var JsPDF = (w.jspdf && w.jspdf.jsPDF) || w.jsPDF;
+      if (!hc || !JsPDF) throw new Error('html2canvas/jsPDF недоступны');
+
+      var sandbox = d.createElement('div');
+      sandbox.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + DOC_PX +
+        'px;background:#fff;padding:0;margin:0;box-sizing:border-box;z-index:-1';
+      sandbox.appendChild(found.el.cloneNode(true));
+      d.body.appendChild(sandbox);
+
+      return hc(sandbox, { scale:2, backgroundColor:'#ffffff', useCORS:true,
+                           logging:false, width:DOC_PX, windowWidth:DOC_PX })
+        .then(function (canvas) {
+          try { d.body.removeChild(sandbox); } catch (e) {}
+          if (!canvas.width || !canvas.height) throw new Error('пустой canvas');
+
+          var pdf  = new JsPDF('p', 'mm', 'a4');
+          var img  = canvas.toDataURL('image/jpeg', 0.92);
+          var imgH = canvas.height * PAGE_W_MM / canvas.width;
+          var pages = Math.ceil(imgH / PAGE_H_MM);
+          if (pages > 1 && (imgH - (pages - 1) * PAGE_H_MM) < 5) pages -= 1;
+
+          for (var i = 0; i < pages; i++) {
+            if (i) pdf.addPage();
+            pdf.addImage(img, 'JPEG', 0, -i * PAGE_H_MM, PAGE_W_MM, imgH);
+          }
+          return { blob: pdf.output('blob'), text: docText(d), sel: found.sel };
+        })
+        .catch(function (e) { try { d.body.removeChild(sandbox); } catch (e2) {} throw e; });
+    });
+  }
+
+  function fileName() { return proposalNumber().replace(/[\\/:*?"<>|]/g, '_') + '.pdf'; }
+  function download(blob, name) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+  function toast(msg, cls) {
+    var n = document.getElementById('kpToast');
+    n.textContent = msg || ''; n.className = cls || ''; n.style.display = msg ? 'block' : 'none';
+    if (msg) setTimeout(function () { if (n.textContent === msg) n.style.display = 'none'; }, 8000);
+  }
+  function blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(String(r.result).split(',')[1]); };
+      r.onerror = reject; r.readAsDataURL(blob);
+    });
+  }
+
+  function buildUrl(tpl) {
+    return tpl.replace(/\{client\}/g, encodeURIComponent(clientId || ''))
+              .replace(/\{id\}/g, encodeURIComponent(dealId || ''));
+  }
+  function openCrm(kind) {
+    var tpl = (kind === 'email' ? URL_EMAIL : URL_CHAT) || URL_CARD;
+    var url = buildUrl(tpl);
+    log('открываю CRM: ' + url);
+    var t = window.open(url, '_blank');
+    if (!t) toast('Браузер заблокировал новую вкладку — разрешите всплывающие окна.', 'err');
+  }
+
+  function attachToDeal() {
+    if (!dealId || !lastPdf) return;
+    blobToBase64(lastPdf.blob).then(function (b64) {
+      gasPost({ action: ACT.attach, deal_id: dealId, client_id: clientId,
+                fileName: lastPdf.name, file: b64, pdf: b64 });
+      if (NUM_INPUT_ID) gasPost({ action: ACT.number, deal_id: dealId,
+                                  input_id: NUM_INPUT_ID, value: proposalNumber() });
+    }).catch(function (e) { log('вложение не отправлено', e && e.message); });
+  }
+
+  function doAction(mode) {
+    if (mode === 'copy') {
+      if (!lastPdf) { toast('Сначала нажмите «💾 Скачать КП».', 'err'); return; }
+      navigator.clipboard.writeText(lastPdf.text).then(function () {
+        toast('Текст КП скопирован.', 'ok');
+      }, function () { toast('Браузер не дал доступ к буферу.', 'err'); });
+      return;
+    }
+    if (busy) { toast('Подождите, идёт сборка…'); return; }
+    busy = true;
+    toast('Формирую PDF…');
+
+    buildPdf().then(function (res) {
+      lastPdf = { blob: res.blob, text: res.text, name: fileName() };
+      download(lastPdf.blob, lastPdf.name);
+      attachToDeal();
+
+      return navigator.clipboard.writeText(lastPdf.text).catch(function () {}).then(function () {
+        if (mode === 'chat') {
+          openCrm('chat');
+          toast('PDF скачан и прикреплён к сделке. В карточке нажмите пузырь чата и вставьте текст (Ctrl+V).', 'ok');
+        } else if (mode === 'email') {
+          openCrm('email');
+          toast('PDF скачан и прикреплён к сделке. В карточке нажмите «Написать письмо» и прикрепите файл.', 'ok');
+        } else {
+          toast('PDF скачан (' + res.sel + ') и прикреплён к сделке.', 'ok');
         }
       });
-      log('кнопки зарегистрированы');
-    } catch (e) { log('ошибка регистрации', e); }
+    }).catch(function (e) {
+      toast('Ошибка PDF: ' + (e && e.message ? e.message : e), 'err');
+    }).then(function () { busy = false; });
   }
 
-  function wait(n) {
-    n = n || 0;
-    if (window.EnvyCrmWidget) { register(); return; }
-    if (n >= 100) { log('библиотека не загрузилась'); return; }
-    setTimeout(function () { wait(n + 1); }, 100);
+  function hookInner(d, w) {
+    if (hooked) return;
+    hooked = true;
+    d.addEventListener('click', function (e) {
+      var el = e.target;
+      while (el && el !== d) {
+        if (el.tagName === 'BUTTON') {
+          var t = String(el.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
+          if (t.indexOf('найти поля') === -1 && t.indexOf('проверить api') === -1 &&
+              t.indexOf('сохранить') === -1 && el.style.display !== 'none' &&
+              (t.indexOf('печат') !== -1 || t.indexOf('распечат') !== -1)) {
+            e.preventDefault(); e.stopImmediatePropagation(); doAction('pdf'); return;
+          }
+        }
+        el = el.parentNode;
+      }
+    }, true);
   }
 
-  log('виджет ' + VERSION + ' запущен');
-  wait(0);
+  frame.addEventListener('load', function () {
+    var d = doc(), w = win();
+    if (!d || !w) { log('фрейм недоступен'); return; }
+    hookInner(d, w);
+    applyData();
+    loadClient();
+
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      installButtons(d);
+      applyData();
+      if (tries > 40) clearInterval(iv);
+    }, 400);
+  });
+
+  if (wantMode) toast('Выбрано: ' + wantMode + ' — нажмите нужную кнопку в шапке конструктора.');
+  log('v36 запущен', { deal_id: dealId, mode: wantMode });
 })();
 </script>
 </body>
