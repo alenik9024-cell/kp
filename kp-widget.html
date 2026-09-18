@@ -13,7 +13,7 @@
   #kpBtn{display:block;width:100%;padding:13px 16px;border:0;border-radius:10px;
          background:#2F6BFF;color:#fff;font:600 14px/1 inherit;cursor:pointer}
   #kpBtn:hover{background:#1f57e0}
-  #st{margin-top:10px;font-size:12px;line-height:1.6;color:#666}
+  #st{margin-top:10px;font-size:12px;line-height:1.6;color:#666;word-break:break-all}
   .ok{color:#0a7d33;font-weight:600} .err{color:#c0392b;font-weight:600}
 </style>
 </head>
@@ -32,9 +32,11 @@
   var btn = document.getElementById('kpBtn');
 
   var dealId = '', clientId = '';
-  var registered = false, numberWritten = false, fieldId = '', state = '—';
+  var registered = false, numberWritten = false, fieldId = '';
+  var state = '—', lastError = '';
+  var opening = false;
 
-  function log(m, d) { try { console.log('[KP v52] ' + m, d || ''); } catch (e) {} }
+  function log(m, d) { try { console.log('[KP v53] ' + m, d || ''); } catch (e) {} }
   function W() { return window.EnvyCrmWidget; }
 
   /* ============ НОМЕР КП: <ID сделки>/<ДД>/<ММ> → 115998924/18/09 ============ */
@@ -45,34 +47,65 @@
     return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
   }
 
-  /* ---------- ID сделки ---------- */
-  function readIds() {
-    return new Promise(function (res) {
-      var w = W();
-      if (!w || typeof w.getDeal !== 'function') { res(); return; }
+  /* ---- любой промис с таймаутом: висящий вызов больше ничего не блокирует ---- */
+  function withTimeout(promise, ms, label) {
+    return new Promise(function (resolve) {
+      var done = false;
+      var t = setTimeout(function () {
+        if (done) return; done = true;
+        log(label + ' — таймаут ' + ms + ' мс, продолжаю');
+        resolve(null);
+      }, ms);
       try {
-        var r = w.getDeal();
-        if (r && typeof r.then === 'function') {
-          r.then(function (d) {
-            d = d || {};
-            dealId   = String(d.id || d.deal_id || dealId || '');
-            clientId = String(d.client_id || d.clientId || clientId || '');
-            log('getDeal', { deal_id: dealId, client_id: clientId });
-            res();
-          }).catch(function (e) { log('getDeal ошибка', e); res(); });
-        } else res();
-      } catch (e) { res(); }
+        promise.then(function (v) {
+          if (done) return; done = true; clearTimeout(t); resolve(v);
+        }).catch(function (e) {
+          if (done) return; done = true; clearTimeout(t);
+          log(label + ' — ошибка: ' + e); resolve(null);
+        });
+      } catch (e) {
+        if (done) return; done = true; clearTimeout(t);
+        log(label + ' — исключение: ' + e); resolve(null);
+      }
     });
   }
 
-  /* ---------- поиск input_id поля «КП» среди всех полей сделки ---------- */
+  /* ---- ID из params (основной источник) ---- */
+  function takeIds(params) {
+    params = params || {};
+    var d = params.deal_id || params.dealID || params.dealId;
+    var c = params.client_id || params.clientID || params.clientId;
+    if (d) dealId = String(d);
+    if (c) clientId = String(c);
+
+    /* если params содержит объект deal — берём оттуда */
+    var deal = params.deal || {};
+    if (!dealId && (deal.id || deal.deal_id)) dealId = String(deal.id || deal.deal_id);
+    if (!clientId && (deal.client_id || deal.clientId)) clientId = String(deal.client_id || deal.clientId);
+    return dealId;
+  }
+
+  /* ---- резервный источник: getDeal() с таймаутом 3 с ---- */
+  function readIdsFromApi() {
+    var w = W();
+    if (dealId || !w || typeof w.getDeal !== 'function') return Promise.resolve(dealId);
+    return withTimeout(w.getDeal(), 3000, 'getDeal').then(function (d) {
+      if (d) {
+        d = d.result || d;
+        dealId   = String(d.id || d.deal_id || dealId || '');
+        clientId = String(d.client_id || d.clientId || clientId || '');
+      }
+      return dealId;
+    });
+  }
+
+  /* ---- запись номера в поле сделки: в фоне, с таймаутами, не блокирует открытие ---- */
   function findFieldId(data, wanted) {
     var found = '';
     (function walk(o) {
       if (found || !o || typeof o !== 'object') return;
       if (Array.isArray(o)) { o.forEach(walk); return; }
-
-      var nm  = String(o.name || o.title || o.label || o.name_id || '').toLowerCase().trim();
+      var nm  = String(o.name || o.title || o.label || '').toLowerCase().trim();
       var iid = o.input_id || o.id;
       if (nm && iid) {
         for (var i = 0; i < wanted.length; i++) {
@@ -89,8 +122,9 @@
     var w = W();
     if (!w || typeof w.getDealValues !== 'function') { state = 'нет getDealValues'; return; }
 
-    w.getDealValues().then(function (data) {
-      /* для диагностики — покажем все названия полей */
+    withTimeout(w.getDealValues(), 5000, 'getDealValues').then(function (data) {
+      if (!data) { state = 'getDealValues не ответил'; show(); return; }
+
       var names = [];
       (function walk(o) {
         if (!o || typeof o !== 'object') return;
@@ -101,60 +135,86 @@
       })(data);
       log('поля сделки: ' + names.join(' | '));
 
-      fieldId = findFieldId(data, ['кп', 'номер кп', 'номер кп (кп)', 'коммерческое предложение']);
-      if (!fieldId) { state = 'поле КП не найдено'; log('поле КП не найдено среди: ' + names.join(', ')); return; }
+      fieldId = findFieldId(data, ['кп', 'номер кп', 'коммерческое предложение']);
+      if (!fieldId) { state = 'поле КП не найдено'; log('поля: ' + names.join(', ')); show(); return; }
 
       log('input_id поля КП = ' + fieldId);
-      if (typeof w.changeDealValue !== 'function') { state = 'нет changeDealValue'; return; }
+      if (typeof w.changeDealValue !== 'function') { state = 'нет changeDealValue'; show(); return; }
 
-      return w.changeDealValue({ input_id: fieldId, value: proposalNumber() })
-        .then(function () {
-          numberWritten = true;
-          state = 'номер записан в поле ' + fieldId;
-          log('номер записан: ' + proposalNumber());
-          show();
-        });
-    }).catch(function (e) { state = 'ошибка записи: ' + e; log('ошибка записи номера', e); show(); });
+      return withTimeout(
+        w.changeDealValue({ input_id: fieldId, value: proposalNumber() }),
+        5000, 'changeDealValue'
+      ).then(function () {
+        numberWritten = true;
+        state = 'номер записан в поле ' + fieldId;
+        log('номер записан: ' + proposalNumber());
+        show();
+      });
+    });
   }
 
-  /* ---------- открытие конструктора ---------- */
+  /* ---- открытие конструктора: СРАЗУ, без ожидания промисов ---- */
   function fallback(content, url) {
     var w = W();
     try {
       if (w && typeof w.openModal === 'function') {
+        log('открываю через openModal');
         w.openModal({ title: 'Коммерческое предложение', content: content, width: 1250 });
         return;
       }
-    } catch (e) {}
+    } catch (e) { log('openModal исключение: ' + e); }
+    log('открываю новую вкладку');
     window.open(url, '_blank');
   }
 
-  function open() {
-    readIds().then(function () {
-      writeNumber();
+  function openNow() {
+    var url = CONSTRUCTOR_URL +
+      (dealId   ? '?deal_id='   + encodeURIComponent(dealId)   : '?') +
+      (clientId ? '&client_id=' + encodeURIComponent(clientId) : '');
 
-      var url = CONSTRUCTOR_URL +
-        (dealId   ? '?deal_id='   + encodeURIComponent(dealId)   : '?') +
-        (clientId ? '&client_id=' + encodeURIComponent(clientId) : '');
+    var content = '<iframe src="' + url +
+      '" style="width:100%;height:80vh;border:0;display:block"></iframe>';
 
-      var content = '<iframe src="' + url +
-        '" style="width:100%;height:80vh;border:0;display:block"></iframe>';
+    log('открываю конструктор: ' + url);
 
-      log('открываю конструктор', url);
-
-      var w = W();
-      try {
-        if (w && typeof w.openPage === 'function') {
-          var r = w.openPage({ content: content });
-          if (r && typeof r.catch === 'function') {
-            r.catch(function (e) { log('openPage не сработал', e); fallback(content, url); });
-          }
-          return;
+    var w = W();
+    try {
+      if (w && typeof w.openPage === 'function') {
+        log('вызываю openPage');
+        var r = w.openPage({ content: content });
+        /* НЕ ждём resolve: openPage завершается при закрытии окна.
+           Ловим только явную ошибку. */
+        if (r && typeof r.catch === 'function') {
+          r.catch(function (e) {
+            lastError = String(e);
+            log('openPage отклонён: ' + e);
+            fallback(content, url);
+          });
         }
-      } catch (e) { log('openPage исключение', e); }
+        return;
+      }
+      log('openPage недоступен');
+    } catch (e) {
+      lastError = String(e);
+      log('openPage исключение: ' + e);
+    }
+    fallback(content, url);
+  }
 
-      fallback(content, url);
-    });
+  function open() {
+    if (opening) { log('уже открываю, повтор игнорирую'); return; }
+    opening = true;
+    state = 'открываю…';
+    show();
+
+    var finish = function () {
+      openNow();
+      setTimeout(function () { opening = false; }, 1500);
+      writeNumber();          /* в фоне, открытие не блокирует */
+    };
+
+    if (dealId) { log('ID уже есть: ' + dealId); finish(); return; }
+    readIdsFromApi().then(finish);
   }
 
   btn.addEventListener('click', open);
@@ -166,7 +226,7 @@
     }
   }, false);
 
-  /* ---------- регистрация кнопки ---------- */
+  /* ---- регистрация кнопки ---- */
   function register() {
     var w = W();
     if (!w || typeof w.init !== 'function' || registered) return registered;
@@ -174,10 +234,9 @@
     try {
       w.init({
         'deal-btn': function (params) {
-          params = params || {};
-          dealId   = String(params.dealID   || params.deal_id   || params.dealId   || dealId   || '');
-          clientId = String(params.clientID || params.client_id || params.clientId || clientId || '');
-          log('params', { deal_id: dealId, client_id: clientId });
+          takeIds(params);
+          log('params кнопки', { deal_id: dealId, client_id: clientId });
+          try { log('params целиком: ' + JSON.stringify(params).slice(0, 700)); } catch (e) {}
 
           return [{
             title: 'Сформировать КП',
@@ -191,26 +250,26 @@
       });
       registered = true;
       log('кнопка зарегистрирована');
-    } catch (e) { log('ошибка init', e); }
+    } catch (e) { log('ошибка init: ' + e); }
     return registered;
   }
 
   function show() {
     st.innerHTML =
       'Библиотека: <b class="' + (W() ? 'ok' : 'err') + '">' + (W() ? 'загружена' : 'ожидание…') + '</b><br>' +
-      'Кнопка в шапке: <b>' + (registered ? 'зарегистрирована' : 'нет') + '</b><br>' +
+      'Кнопка: <b>' + (registered ? 'зарегистрирована' : 'нет') + '</b><br>' +
       'Номер КП: <b>' + (proposalNumber() || '—') + '</b><br>' +
       'Сделка: <b>' + (dealId || '—') + '</b> · Клиент: <b>' + (clientId || '—') + '</b><br>' +
-      'Состояние: <b>' + state + '</b>';
+      'Состояние: <b>' + state + '</b>' +
+      (lastError ? '<br><span class="err">' + lastError.slice(0, 120) + '</span>' : '');
   }
 
-  /* библиотека грузится с задержкой — ждём до 120 секунд */
   var tries = 0;
   var iv = setInterval(function () {
     tries++;
     if (W()) {
       register();
-      if (registered) { readIds().then(show); clearInterval(iv); return; }
+      if (registered) { clearInterval(iv); show(); return; }
     }
     if (tries % 10 === 0) show();
     if (tries > 1200) { clearInterval(iv); log('библиотека не появилась за 120 с'); show(); }
