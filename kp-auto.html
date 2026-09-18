@@ -4,517 +4,437 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Конструктор КП</title>
-
   <style>
-    html,
-    body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #070a10;
-    }
-
-    #kp-frame {
-      display: block;
-      width: 100%;
-      height: 100%;
-      min-height: 100vh;
-      border: 0;
-    }
+    html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#070a10; }
+    #kp-frame { display:block; width:100%; height:100%; min-height:100vh; border:0; }
   </style>
 </head>
 <body>
 
-<iframe
-  id="kp-frame"
-  src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=28"
-  title="Конструктор КП">
-</iframe>
+<iframe id="kp-frame"
+        src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=32"
+        title="Конструктор КП"></iframe>
 
 <script>
 (function () {
   'use strict';
 
-  var params = new URLSearchParams(
-    window.location.search
-  );
+  /* ====== НАСТРОЙКИ ====== */
 
+  /* URL веб-приложения Google Apps Script (заканчивается на /exec) */
+  var PROXY = 'https://script.google.com/macros/s/ВСТАВЬТЕ_НОВЫЙ_URL/exec';
+
+  /* input_id поля сделки «КП» (текстовое). Пусто — номер в CRM не пишем. */
+  var NUM_INPUT_ID = '';
+
+  /* ====== ДАЛЬШЕ МЕНЯТЬ НЕ НУЖНО ====== */
+
+  var PAGE_W_MM = 210;
+  var PAGE_H_MM = 297;
+  var DOC_PX = 794;
+  var PX_PER_MM = DOC_PX / PAGE_W_MM;
+  var PAGE_PX = Math.round(PAGE_H_MM * PX_PER_MM);
+
+  var params = new URLSearchParams(location.search);
   var dealId = params.get('deal_id') || '';
   var clientId = params.get('client_id') || '';
-
-  var PROXY_URL =
-    'https://script.google.com/macros/s/AKfycbwTIDBQvAu7q2WFEOr6F8AQ_gJdjnSxYAJrtrd04QODVyoVoR085ZdtsiwpXE7Z26AQ/exec';
 
   var frame = document.getElementById('kp-frame');
 
   var clientName = '';
   var clientPhone = '';
+  var dataReady = false;
 
-  var nameChanged = false;
-  var phoneChanged = false;
-  var numberChanged = false;
-  var writing = false;
-
-  function log(message, data) {
-    console.log(
-      '[KP AUTO v28] ' + message,
-      data || ''
-    );
+  function log(m, d) {
+    try { console.log('[KP AUTO v32] ' + m, d || ''); } catch (e) {}
   }
 
-  function getDocument() {
-    try {
-      return frame.contentDocument ||
-        frame.contentWindow.document ||
-        null;
-    } catch (e) {
-      return null;
-    }
+  /* ---------- доступ к внутреннему документу ---------- */
+  function doc() {
+    try { return frame.contentDocument || frame.contentWindow.document || null; }
+    catch (e) { return null; }
+  }
+  function win() {
+    try { return frame.contentWindow; } catch (e) { return null; }
   }
 
-  function controls(doc) {
+  /* ---------- поля ---------- */
+  function controls(d) {
     return Array.prototype.slice.call(
-      doc.querySelectorAll(
-        'input, textarea, select, [contenteditable="true"]'
-      )
+      d.querySelectorAll('input, textarea, select, [contenteditable="true"]')
     );
   }
+  function byIndex(d, i) { return controls(d)[i] || null; }
 
-  function control(doc, index) {
-    return controls(doc)[index] || null;
+  function writable(el) {
+    if (!el) return false;
+    if (el.matches && el.matches('[contenteditable="true"]')) return true;
+    if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return false;
+    var t = String(el.type || 'text').toLowerCase();
+    if (['file','color','checkbox','radio','hidden','button','submit','reset'].indexOf(t) !== -1) return false;
+    return !el.disabled;
   }
 
-  function writable(element) {
-    if (!element) {
-      return false;
+  function getV(el) {
+    if (!el) return '';
+    if (el.matches && el.matches('[contenteditable="true"]')) {
+      return String(el.textContent || '').trim();
     }
-
-    if (
-      element.matches &&
-      element.matches('[contenteditable="true"]')
-    ) {
-      return !element.hasAttribute('disabled');
-    }
-
-    if (
-      element.tagName !== 'INPUT' &&
-      element.tagName !== 'TEXTAREA'
-    ) {
-      return false;
-    }
-
-    var type = String(
-      element.type || 'text'
-    ).toLowerCase();
-
-    return (
-      type !== 'file' &&
-      type !== 'color' &&
-      type !== 'checkbox' &&
-      type !== 'radio' &&
-      type !== 'hidden' &&
-      type !== 'button' &&
-      type !== 'submit' &&
-      type !== 'reset' &&
-      !element.disabled
-    );
+    return String(el.value || '').trim();
   }
 
-  function value(element) {
-    if (!element) {
-      return '';
+  function setV(el, value) {
+    if (!writable(el) || !value) return;
+    var proto = Object.getPrototypeOf(el);
+    var desc = proto && Object.getOwnPropertyDescriptor(proto, 'value');
+
+    if (el.matches && el.matches('[contenteditable="true"]')) {
+      el.textContent = value;
+    } else if (desc && desc.set) {
+      desc.set.call(el, value);
+    } else {
+      el.value = value;
     }
 
-    if (
-      element.matches &&
-      element.matches('[contenteditable="true"]')
-    ) {
-      return String(
-        element.textContent || ''
-      ).trim();
-    }
-
-    return String(element.value || '').trim();
+    var w = el.ownerDocument.defaultView;
+    ['input', 'change', 'blur'].forEach(function (type) {
+      el.dispatchEvent(new w.Event(type, { bubbles: true }));
+    });
   }
 
-  function setValue(element, newValue) {
-    if (
-      !writable(element) ||
-      !newValue
-    ) {
-      return;
+  function ownLabel(el) {
+    if (!el) return '';
+    if (el.labels && el.labels.length) {
+      return String(el.labels[0].innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
     }
-
-    writing = true;
-
-    try {
-      if (
-        element.matches &&
-        element.matches('[contenteditable="true"]')
-      ) {
-        element.textContent = newValue;
-      } else {
-        var prototype = Object.getPrototypeOf(element);
-        var descriptor = prototype &&
-          Object.getOwnPropertyDescriptor(
-            prototype,
-            'value'
-          );
-
-        if (
-          descriptor &&
-          descriptor.set
-        ) {
-          descriptor.set.call(element, newValue);
-        } else {
-          element.value = newValue;
-        }
-      }
-
-      var win =
-        element.ownerDocument.defaultView;
-
-      element.dispatchEvent(new win.Event(
-        'input',
-        { bubbles: true }
-      ));
-
-      element.dispatchEvent(new win.Event(
-        'change',
-        { bubbles: true }
-      ));
-
-      element.dispatchEvent(new win.Event(
-        'blur',
-        { bubbles: true }
-      ));
-
-    } finally {
-      setTimeout(function () {
-        writing = false;
-      }, 0);
+    if (el.closest) {
+      var l = el.closest('label');
+      if (l) return String(l.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
     }
+    return '';
   }
 
-  function watch(element, type) {
-    if (
-      !element ||
-      element.__kpWatch28
-    ) {
-      return;
+  /* ищем поле по подписи, при неудаче — по индексу */
+  function findField(d, exact, index) {
+    var list = controls(d), i;
+
+    for (i = 0; i < list.length; i++) {
+      if (ownLabel(list[i]) === exact) return list[i];
     }
+    for (i = 0; i < list.length; i++) {
+      if (ownLabel(list[i]).indexOf(exact) !== -1) return list[i];
+    }
+    return byIndex(d, index);
+  }
 
-    element.__kpWatch28 = type;
-
-    element.addEventListener(
-      'input',
-      function () {
-        if (writing) {
-          return;
-        }
-
-        if (type === 'name') {
-          nameChanged = true;
-        }
-
-        if (type === 'phone') {
-          phoneChanged = true;
-        }
-
-        if (type === 'number') {
-          numberChanged = true;
-        }
-      },
-      false
-    );
+  /* одноразовое заполнение: после ручной правки значение не перезаписывается */
+  function fillOnce(el, value) {
+    if (!el || !value) return;
+    if (el.__kpFilled) return;
+    if (getV(el) === value) { el.__kpFilled = true; return; }
+    setV(el, value);
+    el.__kpFilled = true;
   }
 
   function proposalNumber() {
-    var date = new Date();
-
-    var day = String(date.getDate())
-      .padStart(2, '0');
-
-    var month = String(date.getMonth() + 1)
-      .padStart(2, '0');
-
-    var year = date.getFullYear();
-
-    return 'КП-' + dealId + '/' +
-      day + '.' + month + '.' + year;
+    if (!dealId) return 'КП';
+    var d = new Date();
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return 'КП-' + dealId + '/' + p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
   }
 
-  function hideButtons(doc) {
-    var buttons = Array.prototype.slice.call(
-      doc.querySelectorAll('button')
-    );
-
-    buttons.forEach(function (button) {
-      var text = String(
-        button.innerText || ''
-      )
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-
-      if (
-        text.indexOf('найти поля') !== -1 ||
-        text.indexOf('проверить api') !== -1 ||
-        text.indexOf('сохранить настройки') !== -1
-      ) {
-        button.style.display = 'none';
+  function hideSystemButtons(d) {
+    Array.prototype.forEach.call(d.querySelectorAll('button'), function (b) {
+      var t = String(b.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (t.indexOf('найти поля') !== -1 ||
+          t.indexOf('проверить api') !== -1 ||
+          t.indexOf('сохранить настройки') !== -1) {
+        b.style.display = 'none';
       }
     });
   }
 
-  function getProxyData() {
+  /* ---------- заполнение документа ---------- */
+  function applyData() {
+    var d = doc();
+    if (!d || !d.body) return;
+
+    hideSystemButtons(d);
+
+    var platform = byIndex(d, 10);
+    var number = findField(d, 'номер кп', 13);
+    var name = findField(d, 'кому (заказчик)', 16);
+    var contact = findField(d, 'контакт (телефон)', 17);
+    var phone = d.querySelector('#kpPhone');
+
+    /* «Название платформы» не заполняем новыми данными.
+       Только убираем старое загрязнение телефоном. */
+    if (platform && writable(platform)) {
+      var pv = getV(platform);
+      if (pv.replace(/\D/g, '').length >= 7) setV(platform, 'Платформа');
+    }
+
+    if (clientPhone) {
+      fillOnce(phone, clientPhone);
+      fillOnce(contact, clientPhone);
+    }
+    if (clientName) fillOnce(name, clientName);
+    if (dealId) fillOnce(number, proposalNumber());
+  }
+
+  /* ---------- получение имени и телефона через прокси ---------- */
+  function loadData() {
     if (!dealId && !clientId) {
+      dataReady = true;
       return Promise.resolve();
     }
 
     return new Promise(function (resolve) {
-      var callbackName =
-        '__kp_data_' +
-        Date.now() +
-        '_' +
-        Math.floor(Math.random() * 100000);
+      var cb = '__kp_d_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+      var script = document.createElement('script');
 
-      var script = document.createElement(
-        'script'
-      );
-
-      var timer = setTimeout(function () {
-        cleanup();
-        log('прокси не ответил');
-        resolve();
-      }, 15000);
+      var timer = setTimeout(function () { cleanup(); resolve(); }, 15000);
 
       function cleanup() {
         clearTimeout(timer);
-
-        try {
-          delete window[callbackName];
-        } catch (e) {
-          window[callbackName] = undefined;
-        }
-
-        if (script.parentNode) {
-          script.parentNode.removeChild(script);
-        }
+        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+        if (script.parentNode) script.parentNode.removeChild(script);
       }
 
-      window[callbackName] = function (data) {
+      window[cb] = function (data) {
         cleanup();
+        dataReady = true;
 
-        if (!data || !data.ok) {
-          log(
-            'ошибка прокси',
-            data && data.error
-          );
-
-          resolve();
-          return;
+        if (data && data.ok) {
+          clientName = String(data.clientName || '');
+          clientPhone = String(data.phone || '');
+          log('данные клиента получены', { clientName: clientName, phone: clientPhone });
+        } else {
+          log('прокси вернул ошибку', data && data.error);
         }
-
-        clientName = String(
-          data.clientName || ''
-        );
-
-        clientPhone = String(
-          data.phone || ''
-        );
-
-        log('данные клиента получены', {
-          name: clientName,
-          phone: clientPhone
-        });
-
         resolve();
       };
 
-      script.onerror = function () {
-        cleanup();
-        log('Google Apps Script недоступен');
-        resolve();
-      };
+      script.onerror = function () { cleanup(); dataReady = true; resolve(); };
 
-      script.src =
-        PROXY_URL +
-        '?deal_id=' +
-        encodeURIComponent(dealId) +
-        '&client_id=' +
-        encodeURIComponent(clientId) +
-        '&callback=' +
-        encodeURIComponent(callbackName);
+      script.src = PROXY +
+        '?deal_id=' + encodeURIComponent(dealId) +
+        '&client_id=' + encodeURIComponent(clientId) +
+        '&callback=' + encodeURIComponent(cb);
 
       document.head.appendChild(script);
     });
   }
 
-  function apply() {
-    var doc = getDocument();
+  /* ---------- сборка PDF с фиксированной шириной A4 ---------- */
+  function buildPdf() {
+    var d = doc();
+    var w = win();
 
-    if (!doc || !doc.body) {
+    if (!d || !w) return Promise.reject(new Error('нет доступа к документу конструктора'));
+    if (typeof w.html2canvas === 'undefined') return Promise.reject(new Error('html2canvas не загрузился'));
+
+    var jsPDFCtor = (w.jspdf && w.jspdf.jsPDF) || w.jsPDF;
+    if (!jsPDFCtor) return Promise.reject(new Error('jsPDF не загрузился'));
+
+    var source = d.getElementById('doc');
+    if (!source) return Promise.reject(new Error('блок #doc не найден'));
+
+    /* копия документа вне панели — фиксированная ширина, без прокрутки */
+    var sandbox = d.createElement('div');
+    sandbox.style.cssText =
+      'position:fixed;left:-20000px;top:0;width:' + DOC_PX + 'px;' +
+      'background:#ffffff;z-index:-1;padding:0;margin:0;';
+
+    var copy = source.cloneNode(true);
+    copy.removeAttribute('id');
+    copy.style.cssText += ';width:' + DOC_PX + 'px;min-height:0;height:auto;' +
+      'margin:0;border:0;border-radius:0;box-shadow:none;overflow:visible;background:#ffffff;';
+
+    sandbox.appendChild(copy);
+    d.body.appendChild(sandbox);
+
+    return w.html2canvas(copy, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      width: DOC_PX,
+      windowWidth: DOC_PX,
+      scrollX: 0,
+      scrollY: 0,
+      logging: false
+    }).then(function (canvas) {
+      if (sandbox.parentNode) sandbox.parentNode.removeChild(sandbox);
+
+      var pdf = new jsPDFCtor({
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait',
+        compress: true
+      });
+
+      var pages = Math.max(1, Math.ceil((canvas.height - 8) / PAGE_PX));
+      var slicePx = Math.round(PAGE_PX);
+
+      for (var p = 0; p < pages; p++) {
+        var top = p * slicePx;
+        var h = Math.min(slicePx, canvas.height - top);
+        if (h < 20) break;
+
+        var c = d.createElement('canvas');
+        c.width = canvas.width;
+        c.height = h;
+
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(canvas, 0, -top);
+
+        if (p > 0) pdf.addPage();
+        pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, PAGE_W_MM, h / PX_PER_MM);
+      }
+
+      return pdf.output('blob');
+
+    }).catch(function (e) {
+      if (sandbox.parentNode) sandbox.parentNode.removeChild(sandbox);
+      throw e;
+    });
+  }
+
+  /* ---------- скачивание ---------- */
+  function download(blob, filename) {
+    var a = document.createElement('a');
+    var url = URL.createObjectURL(blob);
+
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+      if (a.parentNode) a.parentNode.removeChild(a);
+    }, 4000);
+  }
+
+  /* ---------- отправка в сделку через прокси ---------- */
+  function sendToCrm(blob, filename) {
+    if (!PROXY || PROXY.indexOf('http') !== 0 || PROXY.indexOf('ВСТАВЬТЕ') !== -1) {
+      log('URL прокси не задан — файл только скачан');
+      return;
+    }
+    if (!dealId) {
+      log('нет deal_id — в сделку не отправляю');
       return;
     }
 
-    /*
-     * Точные индексы из вашей диагностики:
-     * 10 — название платформы;
-     * 13 — номер КП;
-     * 16 — кому;
-     * 17 — контактный телефон.
-     */
-    var platformField = control(doc, 10);
-    var numberField = control(doc, 13);
-    var nameField = control(doc, 16);
-    var contactPhoneField = control(doc, 17);
-    var searchPhoneField =
-      doc.querySelector('#kpPhone');
+    var reader = new FileReader();
 
-    /*
-     * Поле «Название платформы» никогда не получает
-     * имя или телефон. Если старое значение уже испорчено,
-     * возвращаем штатное название.
-     */
-    if (
-      platformField &&
-      writable(platformField)
-    ) {
-      var platformValue = value(platformField);
-      var digits = platformValue.replace(/\D/g, '');
+    reader.onload = function () {
+      var dataUrl = String(reader.result || '');
+      var comma = dataUrl.indexOf(',');
+      if (comma < 0) { log('не удалось прочитать PDF'); return; }
 
-      if (
-        digits.length >= 7 ||
-        (
-          clientName &&
-          platformValue === clientName
-        )
-      ) {
-        setValue(platformField, 'Платформа');
-      }
-    }
+      var body =
+        'deal_id=' + encodeURIComponent(dealId) +
+        '&filename=' + encodeURIComponent(filename) +
+        '&comment=' + encodeURIComponent('Коммерческое предложение ' + proposalNumber()) +
+        '&num_input_id=' + encodeURIComponent(NUM_INPUT_ID) +
+        '&num_value=' + encodeURIComponent(proposalNumber()) +
+        '&client_id=' + encodeURIComponent(clientId) +
+        '&base64=' + encodeURIComponent(dataUrl.slice(comma + 1));
 
-    watch(searchPhoneField, 'phone');
-    watch(contactPhoneField, 'phone');
-    watch(nameField, 'name');
-    watch(numberField, 'number');
+      fetch(PROXY, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body
+      })
+        .then(function () { log('PDF отправлен в сделку №' + dealId); })
+        .catch(function (e) { log('отправка в сделку не удалась', e); });
+    };
 
-    if (
-      clientPhone &&
-      !phoneChanged
-    ) {
-      if (
-        writable(searchPhoneField) &&
-        value(searchPhoneField) !== clientPhone
-      ) {
-        setValue(
-          searchPhoneField,
-          clientPhone
-        );
-      }
-
-      if (
-        writable(contactPhoneField) &&
-        value(contactPhoneField) !== clientPhone
-      ) {
-        setValue(
-          contactPhoneField,
-          clientPhone
-        );
-      }
-    }
-
-    if (
-      clientName &&
-      !nameChanged &&
-      writable(nameField) &&
-      value(nameField) !== clientName
-    ) {
-      setValue(
-        nameField,
-        clientName
-      );
-    }
-
-    if (
-      dealId &&
-      !numberChanged &&
-      writable(numberField)
-    ) {
-      var number = proposalNumber();
-
-      if (value(numberField) !== number) {
-        setValue(
-          numberField,
-          number
-        );
-      }
-    }
-
-    hideButtons(doc);
+    reader.onerror = function () { log('PDF не прочитался'); };
+    reader.readAsDataURL(blob);
   }
 
-  frame.addEventListener(
-    'load',
-    function () {
-      apply();
-    },
-    false
-  );
+  /* ---------- главный сценарий ---------- */
+  function generate() {
+    var w = win();
 
-  getProxyData().then(function () {
-    apply();
+    try {
+      if (w && typeof w.renderDoc === 'function') w.renderDoc();
+    } catch (e) {}
+
+    buildPdf()
+      .then(function (blob) {
+        var filename = proposalNumber().replace(/[^\wа-яА-ЯёЁ-]+/g, '_') + '.pdf';
+
+        download(blob, filename);
+        log('PDF скачан', filename);
+
+        sendToCrm(blob, filename);
+      })
+      .catch(function (e) {
+        log('ошибка сборки PDF', e);
+      });
+  }
+
+  /* ---------- своя кнопка вместо штатной ---------- */
+  function bindRunButton() {
+    var d = doc();
+    if (!d) return;
+
+    var old = d.getElementById('kpRun');
+    if (!old || old.__kpBound32) return;
+
+    var nw = old.cloneNode(true);   /* клон снимает все прежние обработчики */
+    nw.__kpBound32 = true;
+
+    old.parentNode.replaceChild(nw, old);
+
+    nw.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      generate();
+    }, true);
+
+    log('кнопка «Сформировать КП» переназначена');
+  }
+
+  /* ---------- цикл ---------- */
+  frame.addEventListener('load', function () {
+    applyData();
+    bindRunButton();
+  }, false);
+
+  loadData().then(function () {
+    applyData();
+    bindRunButton();
   });
 
-  var attempts = 0;
-
+  var ticks = 0;
   var timer = setInterval(function () {
-    apply();
-
-    attempts++;
-
-    if (attempts > 180) {
-      clearInterval(timer);
-    }
+    applyData();
+    bindRunButton();
+    if (++ticks > 200) clearInterval(timer);
   }, 250);
 
   if (window.MutationObserver) {
-    var observerTimer = setInterval(
-      function () {
-        var doc = getDocument();
-
-        if (
-          !doc ||
-          !doc.body ||
-          doc.body.__kpObserver28
-        ) {
-          return;
-        }
-
-        doc.body.__kpObserver28 = true;
-
-        var observer = new MutationObserver(
-          function () {
-            apply();
-          }
-        );
-
-        observer.observe(doc.body, {
-          childList: true,
-          subtree: true
-        });
-      },
-      500
-    );
-
-    setTimeout(function () {
-      clearInterval(observerTimer);
-    }, 45000);
+    var obsTimer = setInterval(function () {
+      var d = doc();
+      if (!d || !d.body || d.body.__kpObs32) return;
+      d.body.__kpObs32 = true;
+      new MutationObserver(function () { applyData(); bindRunButton(); })
+        .observe(d.body, { childList: true, subtree: true });
+    }, 500);
+    setTimeout(function () { clearInterval(obsTimer); }, 60000);
   }
 
-  apply();
+  applyData();
+  bindRunButton();
 })();
 </script>
 
