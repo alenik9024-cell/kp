@@ -5,13 +5,8 @@
 <script>
 (function () {
   'use strict';
-
-  var VERSION = 'v35';
-  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=35';
-
-  /* Адреса окон внутри вашей CRM. Подставьте реальные — см. пояснение ниже. */
-  var CRM_BASE = 'https://novikov.envycrm.com';
-
+  var VERSION = 'v36';
+  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=36';
   var w = window.EnvyCrmWidget;
   var dealId = '', clientId = '';
 
@@ -31,22 +26,21 @@
       '&deal_id=' + encodeURIComponent(dealId) +
       '&client_id=' + encodeURIComponent(clientId) +
       '&mode=' + encodeURIComponent(mode || '');
-
-    var html = '<iframe src="' + url + '" style="width:100%;height:78vh;border:0;display:block"></iframe>';
-    log('открываю конструктор', { deal_id: dealId, mode: mode });
+    var html = '<iframe src="' + url + '" style="width:100%;height:80vh;border:0;display:block"></iframe>';
+    log('открываю конструктор', { deal_id: dealId, client_id: clientId, mode: mode });
 
     try {
       if (w && typeof w.openPage === 'function') {
         w.openPage({ content: html }).catch(function (e) {
           log('openPage не сработал', e);
           if (w && typeof w.openModal === 'function') {
-            w.openModal({ title: 'Коммерческое предложение', content: html, width: 1200 });
+            w.openModal({ title: 'Коммерческое предложение', content: html, width: 1250 });
           }
         });
         return;
       }
       if (w && typeof w.openModal === 'function') {
-        w.openModal({ title: 'Коммерческое предложение', content: html, width: 1200 });
+        w.openModal({ title: 'Коммерческое предложение', content: html, width: 1250 });
         return;
       }
       window.open(url, '_blank');
@@ -54,6 +48,43 @@
       log('ошибка открытия', e);
       window.open(url, '_blank');
     }
+  }
+
+  function apiProbe() {
+    var lines = [];
+    lines.push('Страница виджета: ' + location.href);
+    lines.push('typeof EnvyCrmWidget: ' + typeof window.EnvyCrmWidget);
+    try {
+      var names = [];
+      for (var k in window.EnvyCrmWidget) names.push(k + ' [' + typeof window.EnvyCrmWidget[k] + ']');
+      lines.push('Свойства и методы: ' + (names.length ? names.join(', ') : '— не перечисляются'));
+    } catch (e) { lines.push('перечисление не удалось: ' + e); }
+    try {
+      var proto = Object.getOwnPropertyNames(Object.getPrototypeOf(window.EnvyCrmWidget));
+      lines.push('Прототип: ' + (proto.length ? proto.join(', ') : '— пусто'));
+    } catch (e) {}
+    try {
+      var pd = window.parent.document;
+      lines.push('Доступ к DOM CRM: ДА, элементов ' + pd.querySelectorAll('*').length);
+      var hits = [];
+      Array.prototype.forEach.call(pd.querySelectorAll('button,a,div,span,i,svg'), function (el) {
+        var s = ((el.getAttribute('title') || '') + ' ' + (el.getAttribute('aria-label') || '') + ' ' +
+                 String(el.className || '')).toLowerCase();
+        if (/chat|mail|email|dialog|сообщен|письм|чат/.test(s)) hits.push(s.replace(/\s+/g, ' ').slice(0, 70));
+      });
+      var uniq = hits.filter(function (v, i) { return hits.indexOf(v) === i; });
+      lines.push('Элементы чат/почта: ' + (uniq.slice(0, 25).join(' | ') || '— не найдены'));
+    } catch (e) {
+      lines.push('Доступ к DOM CRM: НЕТ (' + e.name + ') — браузер блокирует чужой домен');
+    }
+    var text = lines.join('\n');
+    try { navigator.clipboard.writeText(text); } catch (e) {}
+    var safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    try {
+      w.openModal({ title: 'Диагностика API виджета', width: 760,
+        content: '<pre style="white-space:pre-wrap;font:12px/1.5 monospace;max-height:60vh;overflow:auto;padding:8px">' +
+                 safe + '</pre>' });
+    } catch (e) { try { alert(text); } catch (e2) {} }
   }
 
   function register() {
@@ -65,7 +96,8 @@
       if (t === 'kp:chat')  { openConstructor('chat');  return; }
       if (t === 'kp:email') { openConstructor('email'); return; }
       if (t === 'kp:pdf')   { openConstructor('pdf');   return; }
-      if (t === 'kp-btn:click') { openConstructor(''); return; }   /* старая кнопка, если осталась */
+      if (t === 'kp:api')   { apiProbe();               return; }
+      if (t === 'kp-btn:click') { openConstructor('');  return; }
     }, false);
 
     try {
@@ -74,16 +106,16 @@
           dealId   = getParam(params, ['dealID', 'deal_id', 'dealId']);
           clientId = getParam(params, ['clientID', 'client_id', 'clientId']);
           log('сделка', { deal_id: dealId, client_id: clientId });
-
-          /* вместо прежней «Сформировать КП» — сразу нужные действия */
           return [
             { title: 'В чат сделки', icon: 'md-chat',
               styles: { color: '#fff', 'background-color': '#2F6BFF' },
-              clickEventName: 'kp:chat',  position: ['first'], name: 'kp-btn-chat' },
+              clickEventName: 'kp:chat', position: ['first'], name: 'kp-btn-chat' },
             { title: 'На e-mail', icon: 'md-email',
               clickEventName: 'kp:email', position: ['first'], name: 'kp-btn-email' },
             { title: 'Скачать КП', icon: 'md-download',
-              clickEventName: 'kp:pdf',   position: ['first'], name: 'kp-btn-pdf' }
+              clickEventName: 'kp:pdf', position: ['first'], name: 'kp-btn-pdf' },
+            { title: '🔍 API', icon: 'md-info',
+              clickEventName: 'kp:api', position: ['first'], name: 'kp-btn-api' }
           ];
         }
       });
