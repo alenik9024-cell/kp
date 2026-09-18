@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>КП — виджет</title>
+
+<!-- ОБЯЗАТЕЛЬНО: путь подключения библиотеки из документации EnvyCRM.
+     Должен стоять ДО нашего кода. -->
+<script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
+
+<style>
+  body{margin:0;padding:12px;box-sizing:border-box;background:#fff;color:#2b2b2b;
+       font:13px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  #kpBtn{display:block;width:100%;padding:13px 16px;border:0;border-radius:10px;
+         background:#2F6BFF;color:#fff;font:600 14px/1 inherit;cursor:pointer}
+  #kpBtn:hover{background:#1f57e0}
+  #st{margin-top:10px;font-size:12px;line-height:1.6;color:#666}
+  .ok{color:#0a7d33;font-weight:600} .err{color:#c0392b;font-weight:600}
+</style>
+</head>
+<body>
+
+<button id="kpBtn" type="button">📄 Сформировать КП</button>
+<div id="st">запуск…</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp-constructor.html';
+
+  var st  = document.getElementById('st');
+  var btn = document.getElementById('kpBtn');
+
+  var dealId = '', clientId = '', state = '—';
+
+  function log(m, d) { try { console.log('[KP v50] ' + m, d || ''); } catch (e) {} }
+  function W() { return window.EnvyCrmWidget; }
+
+  /* ---------- открытие конструктора ---------- */
+  function open() {
+    /* getDeal() — метод из документации, без параметров */
+    var p = Promise.resolve();
+    try {
+      if (W() && typeof W().getDeal === 'function') {
+        p = W().getDeal().then(function (deal) {
+          deal = deal || {};
+          dealId   = String(deal.id || deal.deal_id || dealId || '');
+          clientId = String(deal.client_id || deal.clientId || clientId || '');
+          log('getDeal', deal);
+        }).catch(function (e) { log('getDeal ошибка', e); });
+      }
+    } catch (e) { log('getDeal исключение', e); }
+
+    p.then(function () {
+      var url = CONSTRUCTOR_URL +
+        (dealId   ? '?deal_id='   + encodeURIComponent(dealId)   : '?') +
+        (clientId ? '&client_id=' + encodeURIComponent(clientId) : '');
+
+      var content = '<iframe src="' + url +
+        '" style="width:100%;height:80vh;border:0;display:block"></iframe>';
+
+      log('открываю конструктор', url);
+
+      try {
+        /* openPage — режим страницы (из документации) */
+        if (W() && typeof W().openPage === 'function') {
+          var r = W().openPage({ content: content });
+          if (r && typeof r.catch === 'function') {
+            r.catch(function (e) {
+              log('openPage не сработал', e);
+              if (W() && typeof W().openModal === 'function') {
+                W().openModal({ title: 'Коммерческое предложение', content: content, width: 1250 });
+              } else { window.open(url, '_blank'); }
+            });
+          }
+          return;
+        }
+        if (W() && typeof W().openModal === 'function') {
+          W().openModal({ title: 'Коммерческое предложение', content: content, width: 1250 });
+          return;
+        }
+      } catch (e) { log('ошибка открытия', e); }
+
+      window.open(url, '_blank');
+    });
+  }
+
+  /* кнопка внутри панели расширения */
+  btn.addEventListener('click', open);
+
+  /* ---------- события клика: как в документации ---------- */
+  window.addEventListener('message', function (event) {
+    if (event.data && event.data.hasOwnProperty('type') && event.data.type === 'kp-btn:click') {
+      log('кнопка в шапке нажата');
+      open();
+    }
+  }, false);
+
+  /* ---------- регистрация кнопки сделки ---------- */
+  function register() {
+    var w = W();
+    if (!w || typeof w.init !== 'function') { state = 'библиотеки нет'; return; }
+
+    try {
+      w.init({
+        'deal-btn': function (params) {
+          params = params || {};
+          dealId   = String(params.dealID   || params.deal_id   || params.dealId   || dealId   || '');
+          clientId = String(params.clientID || params.client_id || params.clientId || clientId || '');
+          log('params кнопки', params);
+
+          return [{
+            title: 'Сформировать КП',
+            styles: { color: '#fff', 'background-color': '#2F6BFF' },
+            icon: 'md-description',
+            clickEventName: 'kp-btn:click',
+            position: ['first'],
+            name: 'kp-btn'
+          }];
+        }
+      });
+      state = 'init вызван';
+      log('кнопка зарегистрирована');
+    } catch (e) { state = 'ошибка init: ' + e; log('ошибка init', e); }
+  }
+
+  /* ---------- состояние на экране ---------- */
+  function show() {
+    st.innerHTML =
+      'Библиотека: <b class="' + (W() ? 'ok' : 'err') + '">' + (W() ? 'загружена' : 'НЕ загружена') + '</b><br>' +
+      'init: <b>' + state + '</b><br>' +
+      'Сделка: <b>' + (dealId || '—') + '</b> · Клиент: <b>' + (clientId || '—') + '</b>';
+  }
+
+  function wait(n) {
+    n = n || 0;
+    if (W()) { register(); show(); return; }
+    if (n >= 60) { state = 'библиотека не загрузилась'; show(); return; }
+    setTimeout(function () { wait(n + 1); }, 100);
+  }
+
+  log('запуск', { lib: !!W() });
+  wait(0);
+  setInterval(show, 2000);
+})();
+</script>
+</body>
+</html>
