@@ -13,38 +13,32 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v25';
+  var VERSION = 'v26';
 
-  var CONSTRUCTOR_URL =
-    'https://alenik9024-cell.github.io/kp/kp.html';
+  var AUTO_URL =
+    'https://alenik9024-cell.github.io/kp/kp-auto.html?v=26';
 
   var widget = null;
   var dealId = '';
   var clientId = '';
 
   function log(message, data) {
-    try {
-      console.log(
-        '[KP ' + VERSION + '] ' + message,
-        data || ''
-      );
-    } catch (error) {}
+    console.log(
+      '[KP ' + VERSION + '] ' + message,
+      data || ''
+    );
   }
-
-  log('kp-widget.html запущен');
 
   function getParam(params, names) {
     params = params || {};
 
     for (var i = 0; i < names.length; i++) {
-      var value = params[names[i]];
-
       if (
-        value !== undefined &&
-        value !== null &&
-        value !== ''
+        params[names[i]] !== undefined &&
+        params[names[i]] !== null &&
+        params[names[i]] !== ''
       ) {
-        return String(value);
+        return String(params[names[i]]);
       }
     }
 
@@ -53,23 +47,21 @@
 
   function openConstructor() {
     var url =
-      CONSTRUCTOR_URL +
-      '?embed=1' +
-      '&full=1' +
+      AUTO_URL +
       '&deal_id=' +
       encodeURIComponent(dealId) +
       '&client_id=' +
       encodeURIComponent(clientId);
 
-    var iframe =
+    var html =
       '<iframe src="' + url + '"' +
       ' style="width:100%;height:calc(100vh - 60px);' +
       'min-height:650px;border:0"' +
       ' allowfullscreen></iframe>';
 
-    log('открываю конструктор', {
-      deal_id: dealId,
-      client_id: clientId
+    log('открываю kp-auto.html', {
+      dealId: dealId,
+      clientId: clientId
     });
 
     try {
@@ -78,7 +70,7 @@
         typeof widget.openPage === 'function'
       ) {
         widget.openPage({
-          content: iframe
+          content: html
         }).catch(function (error) {
           log('openPage не сработал', error);
 
@@ -88,7 +80,7 @@
           ) {
             widget.openModal({
               title: 'Конструктор КП',
-              content: iframe,
+              content: html,
               width: 1150
             });
           }
@@ -103,7 +95,7 @@
       ) {
         widget.openModal({
           title: 'Конструктор КП',
-          content: iframe,
+          content: html,
           width: 1150
         });
 
@@ -145,10 +137,6 @@
     try {
       widget.init({
         'deal-btn': function (params) {
-          /*
-           * Правильный способ из примера EnvyCRM:
-           * CRM передаёт эти параметры в callback.
-           */
           dealId = getParam(
             params,
             ['dealID', 'deal_id', 'dealId']
@@ -160,8 +148,8 @@
           );
 
           log('параметры сделки получены', {
-            dealID: dealId,
-            clientID: clientId
+            dealId: dealId,
+            clientId: clientId
           });
 
           return [{
@@ -179,7 +167,6 @@
       });
 
       log('кнопка зарегистрирована');
-
     } catch (error) {
       log('ошибка регистрации', error);
     }
@@ -194,7 +181,7 @@
     }
 
     if (attempt >= 100) {
-      log('библиотека не загрузилась');
+      log('EnvyCrmWidget не загрузилась');
       return;
     }
 
@@ -203,6 +190,7 @@
     }, 100);
   }
 
+  log('kp-widget.html запущен');
   waitForLibrary(0);
 })();
 </script>
