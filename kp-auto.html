@@ -1,606 +1,137 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-<meta charset="utf-8">
-<title>Конструктор КП</title>
-<style>
-  html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#070a10; }
-  #kp-frame { display:block; width:100%; height:100%; min-height:100vh; border:0; }
-
-  #kpPanel{
-    position:fixed; right:16px; bottom:16px; z-index:2147483000; display:none;
-    background:#101722; color:#e8edf5; border:1px solid #26324a; border-radius:14px;
-    padding:12px; width:380px; box-shadow:0 12px 40px rgba(0,0,0,.55);
-    font:14px/1.35 -apple-system,Segoe UI,Roboto,Arial,sans-serif;
-  }
-  #kpPanel.show{ display:block; }
-  #kpPanel .row{ display:flex; gap:8px; margin-bottom:8px; }
-  #kpPanel button{ flex:1; padding:12px 10px; font-size:14px; cursor:pointer;
-    border-radius:10px; border:1px solid #33415c; background:#182233; color:#e8edf5; }
-  #kpPanel button:hover{ background:#1f2b40; }
-  #kpPanel button.primary{ background:#2F6BFF; border-color:#2F6BFF; color:#fff; }
-  #kpPanel button.primary:hover{ background:#1f57e0; }
-  #kpPanel input{ flex:1; padding:10px; border-radius:10px; border:1px solid #33415c;
-    background:#0d1420; color:#e8edf5; font-size:14px; min-width:0; }
-  #kpNote{ font-size:13px; color:#9fb0c8; min-height:18px; margin-top:2px; word-break:break-word; }
-  #kpNote.err{ color:#ff8b8b; } #kpNote.ok{ color:#7ee0a0; }
-</style>
-</head>
+<head><meta charset="utf-8"><title>КП — виджет</title></head>
 <body>
-
-<iframe id="kp-frame" src="kp.html?v=34"></iframe>
-
-<div id="kpPanel">
-  <div class="row">
-    <button class="primary" data-mode="chat">📩 В чат сделки</button>
-    <button data-mode="email">✉️ На e-mail</button>
-  </div>
-  <div class="row">
-    <input id="kpEmail" type="text" placeholder="e-mail клиента">
-    <button data-mode="copy">📋 Текст</button>
-    <button data-mode="download">💾</button>
-    <button data-mode="fields">🔍 Поля</button>
-    <button data-mode="close">✕</button>
-  </div>
-  <div id="kpNote"></div>
-</div>
-
 <script>
 (function () {
   'use strict';
+  var VERSION = 'v36';
+  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=36';
+  var w = window.EnvyCrmWidget;
+  var dealId = '', clientId = '';
 
-  /* ================= НАСТРОЙКИ ================= */
-  var PROXY = 'https://script.google.com/macros/s/AKfycbwTIDBQvAu7q2WFEOr6F8AQ_gJdjnSxYAJrtrd04QODVyoVoR085ZdtsiwpXE7Z26AQ/exec';
-  var NUM_INPUT_ID = '';
-  var ACT = { client:'client', attach:'attachFile', number:'updateDealValue',
-              chat:'sendToChat', email:'sendToEmail' };
+  function log(m, d) { try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {} }
 
-  /* Писать телефон клиента в бланк? true — только если поле найдено по подписи */
-  var FILL_PHONE = true;
-
-  var PAGE_W_MM = 210, PAGE_H_MM = 297, DOC_PX = 794;
-
-  var params   = new URLSearchParams(location.search);
-  var dealId   = params.get('deal_id')   || '';
-  var clientId = params.get('client_id') || '';
-  var chatId   = params.get('chat_id')   || '';
-
-  var frame = document.getElementById('kp-frame');
-
-  var clientName = '', clientPhone = '', clientEmail = params.get('email') || '';
-  var dataReady = false, hooked = false, lastPdf = null, busy = false;
-
-  function log(m, d) { try { console.log('[KP AUTO v34] ' + m, d || ''); } catch (e) {} }
-
-  function doc() { try { return frame.contentDocument || frame.contentWindow.document || null; } catch (e) { return null; } }
-  function win() { try { return frame.contentWindow; } catch (e) { return null; } }
-
-  /* ---------- доступ к полям ---------- */
-  function isTextarea(el) { return el && el.tagName === 'TEXTAREA'; }
-
-  function writable(el) {
-    if (!el) return false;
-    if (el.matches && el.matches('[contenteditable="true"]')) return true;
-    if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return false;
-    var t = String(el.type || 'text').toLowerCase();
-    if (['file','color','checkbox','radio','hidden','button','submit','reset'].indexOf(t) !== -1) return false;
-    return !el.disabled;
-  }
-
-  /* только поля, куда безопасно писать короткие значения: input + contenteditable, БЕЗ textarea */
-  function shortControls(d) {
-    return Array.prototype.slice.call(
-      d.querySelectorAll('input, [contenteditable="true"]')
-    ).filter(function (el) {
-      if (!writable(el)) return false;
-      if (isTextarea(el)) return false;
-      if (el.matches && el.matches('[contenteditable="true"]')) return true;
-      var t = String(el.type || 'text').toLowerCase();
-      return ['text','tel','email','number','search','url',''].indexOf(t) !== -1;
-    });
-  }
-
-  function allControls(d) {
-    return Array.prototype.slice.call(
-      d.querySelectorAll('input, textarea, select, [contenteditable="true"]')
-    );
-  }
-
-  function getV(el) {
-    if (!el) return '';
-    if (el.matches && el.matches('[contenteditable="true"]')) return String(el.textContent || '').trim();
-    return String(el.value || '').trim();
-  }
-
-  function setV(el, value) {
-    if (!writable(el) || !value) return;
-    var proto = Object.getPrototypeOf(el);
-    var desc  = proto && Object.getOwnPropertyDescriptor(proto, 'value');
-
-    if (el.matches && el.matches('[contenteditable="true"]')) el.textContent = value;
-    else if (desc && desc.set) desc.set.call(el, value);
-    else el.value = value;
-
-    var w = el.ownerDocument.defaultView;
-    ['input','change','blur'].forEach(function (t) {
-      el.dispatchEvent(new w.Event(t, { bubbles: true }));
-    });
-  }
-
-  function ownLabel(el) {
-    if (!el) return '';
-    if (el.labels && el.labels.length) {
-      return String(el.labels[0].innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
-    }
-    if (el.closest) {
-      var l = el.closest('label, .field, .form-group, .row');
-      if (l) {
-        var t = String(l.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        if (t.length < 80) return t;
-      }
+  function getParam(params, names) {
+    params = params || {};
+    for (var i = 0; i < names.length; i++) {
+      var v = params[names[i]];
+      if (v !== undefined && v !== null && v !== '') return String(v);
     }
     return '';
   }
 
-  /* признаки «длинного текста» — туда короткие значения не пишем никогда */
-  function isLongText(el) {
-    if (isTextarea(el)) return true;
-    var hay = (ownLabel(el) + ' ' + (el.id || '') + ' ' + (el.getAttribute('name') || '') + ' ' +
-               (el.getAttribute('placeholder') || '')).toLowerCase();
-    return /текст|описан|услуг|каталог|реквизит|примечан|коммент/.test(hay);
-  }
+  function openConstructor(mode) {
+    var url = AUTO_URL +
+      '&deal_id=' + encodeURIComponent(dealId) +
+      '&client_id=' + encodeURIComponent(clientId) +
+      '&mode=' + encodeURIComponent(mode || '');
+    var html = '<iframe src="' + url + '" style="width:100%;height:80vh;border:0;display:block"></iframe>';
+    log('открываю конструктор', { deal_id: dealId, client_id: clientId, mode: mode });
 
-  /* поиск по подписи/id/name/placeholder с приоритетом INPUT */
-  function findByWords(d, words, opts) {
-    opts = opts || {};
-    var list = shortControls(d), i, j, hay;
-
-    for (i = 0; i < list.length; i++) {
-      if (isLongText(list[i])) continue;
-      hay = (ownLabel(list[i]) + ' ' + (list[i].id || '') + ' ' + (list[i].getAttribute('name') || '')).toLowerCase();
-      for (j = 0; j < words.length; j++) if (hay.indexOf(words[j]) !== -1) return list[i];
-    }
-    for (i = 0; i < list.length; i++) {
-      if (isLongText(list[i])) continue;
-      hay = String(list[i].getAttribute('placeholder') || '').toLowerCase();
-      for (j = 0; j < words.length; j++) if (hay.indexOf(words[j]) !== -1) return list[i];
-    }
-    if (opts.type) {
-      for (i = 0; i < list.length; i++) {
-        if (String(list[i].getAttribute('type') || '').toLowerCase() === opts.type) return list[i];
-      }
-    }
-    return null;
-  }
-
-  function fillOnce(el, value) {
-    if (!el || !value) return;
-    if (el.__kpFilled) return;
-    if (getV(el) === value) { el.__kpFilled = true; return; }
-    setV(el, value);
-    el.__kpFilled = true;
-  }
-
-  function proposalNumber() {
-    if (!dealId) return 'КП';
-    var d = new Date();
-    var p = function (n) { return String(n).padStart(2, '0'); };
-    return 'КП-' + dealId + '/' + p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
-  }
-
-  function hideSystemButtons(d) {
-    Array.prototype.forEach.call(d.querySelectorAll('button'), function (b) {
-      var t = String(b.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      if (t.indexOf('найти поля') !== -1 || t.indexOf('проверить api') !== -1 ||
-          t.indexOf('сохранить настройки') !== -1) b.style.display = 'none';
-    });
-  }
-
-  function normPhone(raw) {
-    var d = String(raw || '').replace(/\D/g, '');
-    if (d.length === 11 && d.charAt(0) === '8') d = '7' + d.slice(1);
-    if (d.length === 10) d = '7' + d;
-    return d;
-  }
-
-  /* ---------- заполнение бланка (безопасное) ---------- */
-  function applyData() {
-    var d = doc();
-    if (!d || !d.body) return;
-
-    hideSystemButtons(d);
-    renamePrintButton(d);
-
-    /* «Название платформы» — не трогаем вообще */
-    var platform = findByWords(d, ['название платформ']);
-    if (platform) platform.__kpFilled = true;
-
-    /* Номер КП */
-    fillOnce(findByWords(d, ['номер кп', 'номер кп', 'номер предложения']), proposalNumber());
-
-    if (!dataReady) return;
-
-    /* Кому (заказчик) */
-    if (clientName) {
-      fillOnce(findByWords(d, ['кому (заказчик)', 'кому', 'заказчик']), clientName);
-    }
-
-    /* Контакт (телефон) — только input, никогда textarea */
-    if (FILL_PHONE && clientPhone) {
-      var tel = findByWords(d, ['контакт (телефон)', 'телефон', 'тел.'], { type: 'tel' });
-      if (tel && !isLongText(tel)) fillOnce(tel, clientPhone);
-    }
-  }
-
-  /* ---------- кнопка печати: переименовать, а не дублировать ---------- */
-  function renamePrintButton(d) {
-    Array.prototype.forEach.call(d.querySelectorAll('button'), function (b) {
-      var t = String(b.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      if (b.__kpRenamed) return;
-      /* «печат» ловит и «Печать», и «Распечатать» */
-      if (t.indexOf('печат') !== -1 || t.indexOf('сформировать pdf') !== -1 ||
-          t.indexOf('скачать pdf') !== -1) {
-        b.__kpRenamed = true;
-        b.innerText = '📄 Сформировать КП';
-        b.style.background = '#2F6BFF';
-        b.style.color = '#fff';
-        b.style.borderColor = '#2F6BFF';
-        b.style.fontWeight = '600';
-      }
-    });
-  }
-
-  /* ---------- JSONP ---------- */
-  function gasGet(payload, timeoutMs) {
-    return new Promise(function (resolve, reject) {
-      var cb = 'kpj_' + Math.random().toString(36).slice(2);
-      var q = Object.keys(payload).map(function (k) {
-        return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] == null ? '' : payload[k]);
-      }).join('&');
-      var url = PROXY + '?' + q + '&callback=' + cb;
-      var s = document.createElement('script');
-      var done = false;
-      var timer = setTimeout(function () { finish(new Error('timeout')); }, timeoutMs || 15000);
-      function finish(err, data) {
-        if (done) return; done = true; clearTimeout(timer);
-        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
-        if (s.parentNode) s.parentNode.removeChild(s);
-        err ? reject(err) : resolve(data);
-      }
-      window[cb] = function (data) { finish(null, data); };
-      s.onerror = function () { finish(new Error('gas error')); };
-      s.src = url;
-      document.head.appendChild(s);
-    });
-  }
-
-  function gasPost(payload) {
-    var target = 'kpPost_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    var ifr = document.createElement('iframe');
-    ifr.name = target;
-    ifr.style.cssText = 'display:none;width:0;height:0;border:0';
-    document.body.appendChild(ifr);
-
-    var f = document.createElement('form');
-    f.method = 'POST'; f.action = PROXY; f.target = target; f.style.cssText = 'display:none';
-
-    Object.keys(payload).forEach(function (k) {
-      var i = document.createElement('input');
-      i.type = 'hidden'; i.name = k;
-      i.value = payload[k] == null ? '' : String(payload[k]);
-      f.appendChild(i);
-    });
-
-    document.body.appendChild(f);
-    f.submit();
-    setTimeout(function () { try { f.remove(); } catch (e) {} try { ifr.remove(); } catch (e) {} }, 30000);
-  }
-
-  function loadClient() {
-    if (!dealId && !clientId) { dataReady = true; applyData(); return; }
-    gasGet({ action: ACT.client, deal_id: dealId, client_id: clientId }).then(function (res) {
-      var c = (res && (res.client || res.data)) || res || {};
-      clientName  = c.name  || c.fio || c.client_name || clientName;
-      clientPhone = normPhone(c.phone || c.phone_main || clientPhone);
-      clientEmail = c.email || c.email_main || clientEmail;
-      if (res && res.deal_id)   dealId   = String(res.deal_id);
-      if (res && res.client_id) clientId = String(res.client_id);
-      if (res && res.chat_id)   chatId   = String(res.chat_id);
-      dataReady = true; applyData();
-      var inp = document.getElementById('kpEmail');
-      if (inp && clientEmail) inp.value = clientEmail;
-      log('клиент загружен', { name: clientName, phone: clientPhone, email: clientEmail });
-    }).catch(function (e) {
-      log('клиент не загружен', e && e.message);
-      dataReady = true; applyData();
-    });
-  }
-
-  /* ================= PDF ================= */
-  function ensureLibs() {
-    var w = win();
-    if (!w) return Promise.reject(new Error('нет доступа к фрейму'));
-    function inject(src) {
-      return new Promise(function (resolve) {
-        var s = w.document.createElement('script');
-        s.src = src; s.onload = resolve; s.onerror = resolve;
-        w.document.head.appendChild(s);
-      });
-    }
-    var chain = Promise.resolve();
-    if (!w.html2canvas) chain = chain.then(function () {
-      return inject('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'); });
-    if (!(w.jspdf && w.jspdf.jsPDF)) chain = chain.then(function () {
-      return inject('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); });
-    return chain;
-  }
-
-  /* реальный поиск документа КП: явные селекторы -> эвристика по площади */
-  function findDocEl(d) {
-    if (window.KP_DOC_SELECTOR) {
-      var forced = d.querySelector(window.KP_DOC_SELECTOR);
-      if (forced) return { el: forced, sel: window.KP_DOC_SELECTOR };
-    }
-    var cands = ['#kpDoc','#doc','#docPreview','#preview','#kpDocument','#kpDocPreview',
-                 '.kp-doc','.doc-page','.doc-preview','.preview','.paper','.sheet','.a4','[data-doc]'];
-    for (var i = 0; i < cands.length; i++) {
-      var el = d.querySelector(cands[i]);
-      if (el && el.offsetHeight > 300 && el.offsetWidth > 400) return { el: el, sel: cands[i] };
-    }
-    /* эвристика: самый большой блок в правой половине страницы */
-    var vw = d.documentElement.clientWidth || 1200;
-    var best = null, bestArea = 0;
-    Array.prototype.forEach.call(d.body.querySelectorAll('div,section,article,main'), function (el) {
-      var r = el.getBoundingClientRect();
-      if (r.width < 500 || r.height < 500) return;
-      if (r.left < vw * 0.18) return;
-      var a = r.width * r.height;
-      if (a > bestArea) { bestArea = a; best = el; }
-    });
-    return best ? { el: best, sel: 'эвристика (правый блок)' } : { el: d.body, sel: 'body' };
-  }
-
-  function docText(d) {
-    var t = String(d.body.innerText || d.body.textContent || '');
-    return t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-  }
-
-  function buildPdf() {
-    var d = doc(), w = win();
-    if (!d || !w) return Promise.reject(new Error('фрейм не готов'));
-
-    var found = findDocEl(d);
-    log('документ для PDF: ' + found.sel, found.el);
-
-    return ensureLibs().then(function () {
-      var hc = w.html2canvas;
-      var JsPDF = (w.jspdf && w.jspdf.jsPDF) || w.jsPDF;
-      if (!hc || !JsPDF) throw new Error('html2canvas/jsPDF недоступны');
-
-      var sandbox = d.createElement('div');
-      sandbox.style.cssText = 'position:fixed;left:-10000px;top:0;width:' + DOC_PX +
-        'px;background:#fff;padding:0;margin:0;box-sizing:border-box;z-index:-1';
-      sandbox.appendChild(found.el.cloneNode(true));
-      d.body.appendChild(sandbox);
-
-      return hc(sandbox, {
-        scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
-        width: DOC_PX, windowWidth: DOC_PX
-      }).then(function (canvas) {
-        try { d.body.removeChild(sandbox); } catch (e) {}
-        if (!canvas.width || !canvas.height) throw new Error('пустой canvas (элемент не найден)');
-
-        var pdf  = new JsPDF('p', 'mm', 'a4');
-        var img  = canvas.toDataURL('image/jpeg', 0.92);
-        var imgH = canvas.height * PAGE_W_MM / canvas.width;
-        var pages = Math.ceil(imgH / PAGE_H_MM);
-        if (pages > 1 && (imgH - (pages - 1) * PAGE_H_MM) < 5) pages -= 1;
-
-        for (var i = 0; i < pages; i++) {
-          if (i) pdf.addPage();
-          pdf.addImage(img, 'JPEG', 0, -i * PAGE_H_MM, PAGE_W_MM, imgH);
-        }
-        return { blob: pdf.output('blob'), text: docText(d), sel: found.sel };
-      }).catch(function (e) {
-        try { d.body.removeChild(sandbox); } catch (e2) {}
-        throw e;
-      });
-    });
-  }
-
-  function fileName() { return proposalNumber().replace(/[\\/:*?"<>|]/g, '_') + '.pdf'; }
-
-  function download(blob, name) {
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    document.body.appendChild(a); a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
-  }
-
-  function note(msg, cls) {
-    var n = document.getElementById('kpNote');
-    if (!n) return;
-    n.textContent = msg || ''; n.className = cls || '';
-  }
-
-  function blobToBase64(blob) {
-    return new Promise(function (resolve, reject) {
-      var r = new FileReader();
-      r.onload = function () { resolve(String(r.result).split(',')[1]); };
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-  }
-
-  /* ---------- диагностика полей ---------- */
-  function dumpFields() {
-    var d = doc(); if (!d) { note('Фрейм недоступен.', 'err'); return; }
-    var list = allControls(d);
-    var out = list.map(function (el, i) {
-      return { i: i, tag: el.tagName.toLowerCase(),
-        type: String(el.getAttribute('type') || '').toLowerCase(),
-        id: el.id || '', name: el.getAttribute('name') || '',
-        cls: String(el.className || '').slice(0, 50),
-        ph: el.getAttribute('placeholder') || '',
-        label: ownLabel(el).slice(0, 50),
-        val: getV(el).slice(0, 30) };
-    });
-    var json = JSON.stringify(out);
-    try { console.log('[KP AUTO] FIELDS', out); } catch (e) {}
     try {
-      navigator.clipboard.writeText(json).then(function () {
-        note('Скопировано полей: ' + out.length + '. Вставьте список в чат.', 'ok');
-      }, function () { note('Полей: ' + out.length + '. Список — в консоли (F12).', 'err'); });
-    } catch (e) { note('Полей: ' + out.length + '. Список — в консоли (F12).', 'err'); }
-  }
-
-  /* ---------- основной поток ---------- */
-  function run() {
-    if (busy) return;
-    busy = true;
-
-    document.getElementById('kpPanel').classList.add('show');
-    note('Формирую PDF…');
-
-    var w = win();
-    try { if (w) w.__kpPrintGuard = true; } catch (e) {}
-
-    buildPdf().then(function (res) {
-      lastPdf = { blob: res.blob, text: res.text, name: fileName() };
-      download(lastPdf.blob, lastPdf.name);
-      note('PDF скачан (источник: ' + res.sel + '). Куда отправить?', 'ok');
-      attachToDeal();
-      try {
-        navigator.clipboard.writeText(lastPdf.text).then(function () {
-          note('PDF скачан, текст в буфере. Куда отправить?', 'ok');
-        }, function () { note('PDF скачан. Для текста нажмите «📋 Текст».'); });
-      } catch (e) { note('PDF скачан. Для текста нажмите «📋 Текст».'); }
-    }).catch(function (e) {
-      note('Ошибка PDF: ' + (e && e.message ? e.message : e) + ' — нажмите «🔍 Поля» и пришлите список.', 'err');
-      log('ошибка PDF', e);
-    }).then(function () { busy = false; });
-  }
-
-  function attachToDeal() {
-    if (!dealId || !lastPdf) return;
-    blobToBase64(lastPdf.blob).then(function (b64) {
-      gasPost({ action: ACT.attach, deal_id: dealId, client_id: clientId,
-                fileName: lastPdf.name, file: b64, pdf: b64 });
-      if (NUM_INPUT_ID) gasPost({ action: ACT.number, deal_id: dealId,
-                                  input_id: NUM_INPUT_ID, value: proposalNumber() });
-      log('вложение отправлено в GAS');
-    }).catch(function (e) { log('вложение не отправлено', e && e.message); });
-  }
-
-  /* ---------- перехват кнопок внутри kp.html ---------- */
-  function hookInner(d, w) {
-    if (hooked) return;
-    hooked = true;
-
-    d.addEventListener('click', function (e) {
-      var el = e.target;
-      while (el && el !== d) {
-        if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button') {
-          var t = String(el.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
-          var blocked = t.indexOf('найти поля') !== -1 || t.indexOf('проверить api') !== -1 ||
-                        t.indexOf('сохранить настройки') !== -1 || t.indexOf('сохранить json') !== -1 ||
-                        t.indexOf('новый бланк') !== -1;
-          /* «печат» покрывает и «Печать», и «Распечатать», и «Сформировать КП» */
-          if (!blocked && (t.indexOf('печат') !== -1 || t.indexOf('pdf') !== -1 ||
-                           t.indexOf('скачать') !== -1 || t.indexOf('сформировать') !== -1)) {
-            e.preventDefault(); e.stopImmediatePropagation(); run(); return;
+      if (w && typeof w.openPage === 'function') {
+        w.openPage({ content: html }).catch(function (e) {
+          log('openPage не сработал', e);
+          if (w && typeof w.openModal === 'function') {
+            w.openModal({ title: 'Коммерческое предложение', content: html, width: 1250 });
           }
-        }
-        el = el.parentNode;
-      }
-    }, true);
-
-    ['makePdf','printPdf','doPdf','exportPdf','printDoc'].forEach(function (fn) {
-      try {
-        if (typeof w[fn] === 'function') {
-          var orig = w[fn];
-          w[fn] = function () { run(); return orig.apply(this, arguments); };
-        }
-      } catch (e) {}
-    });
-    try { w.__kpRun = run; } catch (e) {}
-  }
-
-  /* ---------- панель ---------- */
-  function bindPanel() {
-    var panel = document.getElementById('kpPanel');
-    var emailInp = document.getElementById('kpEmail');
-
-    panel.addEventListener('click', function (e) {
-      var b = e.target.closest ? e.target.closest('button[data-mode]') : null;
-      if (!b) return;
-      var mode = b.getAttribute('data-mode');
-
-      if (mode === 'close')  { panel.classList.remove('show'); return; }
-      if (mode === 'fields') { dumpFields(); return; }
-
-      if (mode === 'copy') {
-        if (!lastPdf) { note('Сначала сформируйте КП.', 'err'); return; }
-        navigator.clipboard.writeText(lastPdf.text).then(function () {
-          note('Текст КП скопирован.', 'ok');
-        }, function () { note('Браузер не дал доступ к буферу.', 'err'); });
-        return;
-      }
-      if (mode === 'download') {
-        if (!lastPdf) { note('Сначала сформируйте КП.', 'err'); return; }
-        download(lastPdf.blob, lastPdf.name); note('Файл скачан.', 'ok'); return;
-      }
-      if (!lastPdf) { note('Сначала сформируйте КП.', 'err'); return; }
-      if (!dealId)  { note('Нет deal_id — отправка в CRM невозможна.', 'err'); return; }
-
-      if (mode === 'email') {
-        var to = ((emailInp && emailInp.value) || clientEmail || '').trim();
-        if (!to) { note('Укажите e-mail клиента.', 'err'); return; }
-        clientEmail = to; note('Отправляю письмо…');
-        blobToBase64(lastPdf.blob).then(function (b64) {
-          gasPost({ action: ACT.email, deal_id: dealId, client_id: clientId, to: to,
-                    subject: 'Коммерческое предложение ' + proposalNumber(),
-                    text: lastPdf.text, fileName: lastPdf.name, file: b64, pdf: b64 });
-          note('Запрос на письмо ушёл на ' + to + '. PDF скачан.', 'ok');
         });
         return;
       }
-
-      if (mode === 'chat') {
-        note('Отправляю в чат сделки…');
-        blobToBase64(lastPdf.blob).then(function (b64) {
-          gasPost({ action: ACT.chat, deal_id: dealId, client_id: clientId, chat_id: chatId,
-                    text: lastPdf.text, fileName: lastPdf.name, file: b64, pdf: b64 });
-          note('Сообщение уходит в чат. PDF прикреплён к сделке и скачан.', 'ok');
-        });
+      if (w && typeof w.openModal === 'function') {
+        w.openModal({ title: 'Коммерческое предложение', content: html, width: 1250 });
+        return;
       }
-    });
+      window.open(url, '_blank');
+    } catch (e) {
+      log('ошибка открытия', e);
+      window.open(url, '_blank');
+    }
   }
 
-  /* ---------- старт ---------- */
-  frame.addEventListener('load', function () {
-    var d = doc(), w = win();
-    if (!d || !w) { log('фрейм недоступен'); return; }
+  function apiProbe() {
+    var lines = [];
+    lines.push('Страница виджета: ' + location.href);
+    lines.push('typeof EnvyCrmWidget: ' + typeof window.EnvyCrmWidget);
+    try {
+      var names = [];
+      for (var k in window.EnvyCrmWidget) names.push(k + ' [' + typeof window.EnvyCrmWidget[k] + ']');
+      lines.push('Свойства и методы: ' + (names.length ? names.join(', ') : '— не перечисляются'));
+    } catch (e) { lines.push('перечисление не удалось: ' + e); }
+    try {
+      var proto = Object.getOwnPropertyNames(Object.getPrototypeOf(window.EnvyCrmWidget));
+      lines.push('Прототип: ' + (proto.length ? proto.join(', ') : '— пусто'));
+    } catch (e) {}
+    try {
+      var pd = window.parent.document;
+      lines.push('Доступ к DOM CRM: ДА, элементов ' + pd.querySelectorAll('*').length);
+      var hits = [];
+      Array.prototype.forEach.call(pd.querySelectorAll('button,a,div,span,i,svg'), function (el) {
+        var s = ((el.getAttribute('title') || '') + ' ' + (el.getAttribute('aria-label') || '') + ' ' +
+                 String(el.className || '')).toLowerCase();
+        if (/chat|mail|email|dialog|сообщен|письм|чат/.test(s)) hits.push(s.replace(/\s+/g, ' ').slice(0, 70));
+      });
+      var uniq = hits.filter(function (v, i) { return hits.indexOf(v) === i; });
+      lines.push('Элементы чат/почта: ' + (uniq.slice(0, 25).join(' | ') || '— не найдены'));
+    } catch (e) {
+      lines.push('Доступ к DOM CRM: НЕТ (' + e.name + ') — браузер блокирует чужой домен');
+    }
+    var text = lines.join('\n');
+    try { navigator.clipboard.writeText(text); } catch (e) {}
+    var safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    try {
+      w.openModal({ title: 'Диагностика API виджета', width: 760,
+        content: '<pre style="white-space:pre-wrap;font:12px/1.5 monospace;max-height:60vh;overflow:auto;padding:8px">' +
+                 safe + '</pre>' });
+    } catch (e) { try { alert(text); } catch (e2) {} }
+  }
 
-    hookInner(d, w);
-    applyData();
-    loadClient();
+  function register() {
+    w = window.EnvyCrmWidget;
+    if (!w) { log('EnvyCrmWidget не найдена'); return; }
 
-    var tries = 0;
-    var iv = setInterval(function () {
-      tries++;
-      applyData();
-      if (tries > 20) clearInterval(iv);
-    }, 500);
-  });
+    window.addEventListener('message', function (e) {
+      var t = e.data && e.data.type;
+      if (t === 'kp:chat')  { openConstructor('chat');  return; }
+      if (t === 'kp:email') { openConstructor('email'); return; }
+      if (t === 'kp:pdf')   { openConstructor('pdf');   return; }
+      if (t === 'kp:api')   { apiProbe();               return; }
+      if (t === 'kp-btn:click') { openConstructor('');  return; }
+    }, false);
 
-  bindPanel();
+    try {
+      w.init({
+        'deal-btn': function (params) {
+          dealId   = getParam(params, ['dealID', 'deal_id', 'dealId']);
+          clientId = getParam(params, ['clientID', 'client_id', 'clientId']);
+          log('сделка', { deal_id: dealId, client_id: clientId });
+          return [
+            { title: 'В чат сделки', icon: 'md-chat',
+              styles: { color: '#fff', 'background-color': '#2F6BFF' },
+              clickEventName: 'kp:chat', position: ['first'], name: 'kp-btn-chat' },
+            { title: 'На e-mail', icon: 'md-email',
+              clickEventName: 'kp:email', position: ['first'], name: 'kp-btn-email' },
+            { title: 'Скачать КП', icon: 'md-download',
+              clickEventName: 'kp:pdf', position: ['first'], name: 'kp-btn-pdf' },
+            { title: '🔍 API', icon: 'md-info',
+              clickEventName: 'kp:api', position: ['first'], name: 'kp-btn-api' }
+          ];
+        }
+      });
+      log('кнопки зарегистрированы');
+    } catch (e) { log('ошибка регистрации', e); }
+  }
 
-  var emailNow = document.getElementById('kpEmail');
-  if (emailNow && clientEmail) emailNow.value = clientEmail;
+  function wait(n) {
+    n = n || 0;
+    if (window.EnvyCrmWidget) { register(); return; }
+    if (n >= 100) { log('библиотека не загрузилась'); return; }
+    setTimeout(function () { wait(n + 1); }, 100);
+  }
 
-  log('v34 запущен', { deal_id: dealId, client_id: clientId });
+  log('виджет ' + VERSION + ' запущен');
+  wait(0);
 })();
 </script>
 </body>
