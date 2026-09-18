@@ -13,189 +13,102 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v28';
-  var AUTO_URL =
-    'https://alenik9024-cell.github.io/kp/kp-auto.html?v=28';
+  var VERSION = 'v32';
+  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=32';
 
-  var widget = null;
+  var w = window.EnvyCrmWidget;
   var dealId = '';
   var clientId = '';
 
-  function log(message, data) {
-    try {
-      console.log(
-        '[KP ' + VERSION + '] ' + message,
-        data || ''
-      );
-    } catch (e) {}
+  function log(m, d) {
+    try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {}
   }
 
   function getParam(params, names) {
     params = params || {};
-
     for (var i = 0; i < names.length; i++) {
-      var value = params[names[i]];
-
-      if (
-        value !== undefined &&
-        value !== null &&
-        value !== ''
-      ) {
-        return String(value);
-      }
+      var v = params[names[i]];
+      if (v !== undefined && v !== null && v !== '') return String(v);
     }
-
     return '';
   }
 
   function openConstructor() {
-    var url =
-      AUTO_URL +
-      '&deal_id=' +
-      encodeURIComponent(dealId) +
-      '&client_id=' +
-      encodeURIComponent(clientId);
+    var url = AUTO_URL +
+      '&deal_id=' + encodeURIComponent(dealId) +
+      '&client_id=' + encodeURIComponent(clientId);
 
-    var html =
-      '<iframe src="' + url + '"' +
-      ' style="width:100%;height:calc(100vh - 60px);' +
-      'min-height:650px;border:0"' +
+    var html = '<iframe src="' + url + '"' +
+      ' style="width:100%;height:calc(100vh - 60px);min-height:650px;border:0"' +
       ' allowfullscreen></iframe>';
 
-    log('открываю автоматический конструктор', {
-      deal_id: dealId,
-      client_id: clientId
-    });
+    log('открываю kp-auto.html', { deal_id: dealId, client_id: clientId });
 
     try {
-      if (
-        widget &&
-        typeof widget.openPage === 'function'
-      ) {
-        widget.openPage({
-          content: html
-        }).catch(function (error) {
-          log('openPage не сработал', error);
-
-          if (
-            widget &&
-            typeof widget.openModal === 'function'
-          ) {
-            widget.openModal({
-              title: 'Конструктор КП',
-              content: html,
-              width: 1150
-            });
+      if (w && typeof w.openPage === 'function') {
+        w.openPage({ content: html }).catch(function (e) {
+          log('openPage не сработал', e);
+          if (w && typeof w.openModal === 'function') {
+            w.openModal({ title: 'Конструктор КП', content: html, width: 1150 });
           }
         });
-
         return;
       }
-
-      if (
-        widget &&
-        typeof widget.openModal === 'function'
-      ) {
-        widget.openModal({
-          title: 'Конструктор КП',
-          content: html,
-          width: 1150
-        });
-
+      if (w && typeof w.openModal === 'function') {
+        w.openModal({ title: 'Конструктор КП', content: html, width: 1150 });
         return;
       }
-
       window.open(url, '_blank');
-
-    } catch (error) {
-      log('ошибка открытия', error);
+    } catch (e) {
+      log('ошибка открытия', e);
       window.open(url, '_blank');
     }
   }
 
   function register() {
-    widget = window.EnvyCrmWidget;
-
-    if (!widget) {
-      log('EnvyCrmWidget не найдена');
-      return;
-    }
+    w = window.EnvyCrmWidget;
+    if (!w) { log('EnvyCrmWidget не найдена'); return; }
 
     log('библиотека найдена');
 
-    window.addEventListener(
-      'message',
-      function (event) {
-        if (
-          event.data &&
-          event.data.type === 'kp-btn:click'
-        ) {
-          log('кнопка нажата');
-          openConstructor();
-        }
-      },
-      false
-    );
+    window.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'kp-btn:click') {
+        log('кнопка нажата');
+        openConstructor();
+      }
+    }, false);
 
     try {
-      widget.init({
+      w.init({
         'deal-btn': function (params) {
-          dealId = getParam(
-            params,
-            ['dealID', 'deal_id', 'dealId']
-          );
-
-          clientId = getParam(
-            params,
-            ['clientID', 'client_id', 'clientId']
-          );
-
-          log('параметры сделки получены', {
-            deal_id: dealId,
-            client_id: clientId
-          });
-
+          dealId = getParam(params, ['dealID', 'deal_id', 'dealId']);
+          clientId = getParam(params, ['clientID', 'client_id', 'clientId']);
+          log('параметры сделки получены', { deal_id: dealId, client_id: clientId });
           return [{
             title: 'Сформировать КП',
-            styles: {
-              color: '#fff',
-              'background-color': '#2F6BFF'
-            },
+            styles: { color: '#fff', 'background-color': '#2F6BFF' },
             icon: 'md-description',
             clickEventName: 'kp-btn:click',
             position: ['first'],
-            name: 'kp-btn-final-28'
+            name: 'kp-btn-final-32'
           }];
         }
       });
-
       log('кнопка зарегистрирована');
-
-    } catch (error) {
-      log('ошибка регистрации', error);
+    } catch (e) {
+      log('ошибка регистрации', e);
     }
   }
 
-  function waitForLibrary(attempt) {
+  function wait(attempt) {
     attempt = attempt || 0;
-
-    if (window.EnvyCrmWidget) {
-      register();
-      return;
-    }
-
-    if (attempt >= 100) {
-      log('библиотека не загрузилась');
-      return;
-    }
-
-    setTimeout(function () {
-      waitForLibrary(attempt + 1);
-    }, 100);
+    if (window.EnvyCrmWidget) { register(); return; }
+    if (attempt >= 100) { log('библиотека не загрузилась'); return; }
+    setTimeout(function () { wait(attempt + 1); }, 100);
   }
 
-  log('kp-widget.html запущен');
-  waitForLibrary(0);
+  log('виджет v32 запущен');
+  wait(0);
 })();
 </script>
 
