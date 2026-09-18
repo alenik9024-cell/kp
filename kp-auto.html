@@ -1,68 +1,121 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Конструктор КП</title>
-  <style>
-    html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#070a10; }
-    #kp-frame { display:block; width:100%; height:100%; min-height:100vh; border:0; }
-  </style>
+<meta charset="utf-8">
+<title>Конструктор КП</title>
+<style>
+  html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#070a10; }
+  #kp-frame { display:block; width:100%; height:100%; min-height:100vh; border:0; }
+
+  /* ==== панель выбора канала (появляется после сборки PDF) ==== */
+  #kpPanel{
+    position:fixed; right:16px; bottom:16px; z-index:2147483000; display:none;
+    background:#101722; color:#e8edf5; border:1px solid #26324a; border-radius:14px;
+    padding:12px; width:380px; box-shadow:0 12px 40px rgba(0,0,0,.55);
+    font:14px/1.35 -apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  }
+  #kpPanel.show{ display:block; }
+  #kpPanel .row{ display:flex; gap:8px; margin-bottom:8px; }
+  #kpPanel button{
+    flex:1; padding:12px 10px; font-size:14px; cursor:pointer; border-radius:10px;
+    border:1px solid #33415c; background:#182233; color:#e8edf5;
+  }
+  #kpPanel button:hover{ background:#1f2b40; }
+  #kpPanel button.primary{ background:#2F6BFF; border-color:#2F6BFF; color:#fff; }
+  #kpPanel button.primary:hover{ background:#1f57e0; }
+  #kpPanel input{
+    flex:1; padding:10px; border-radius:10px; border:1px solid #33415c;
+    background:#0d1420; color:#e8edf5; font-size:14px; min-width:0;
+  }
+  #kpNote{ font-size:13px; color:#9fb0c8; min-height:18px; margin-top:2px; }
+  #kpNote.err{ color:#ff8b8b; } #kpNote.ok{ color:#7ee0a0; }
+
+  /* ==== запасная кнопка: работает, даже если кнопка печати в kp.html переименована ==== */
+  #kpFab{
+    position:fixed; right:16px; top:16px; z-index:2147483000;
+    padding:12px 18px; border-radius:12px; border:1px solid #2F6BFF;
+    background:#2F6BFF; color:#fff; font:600 14px -apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    cursor:pointer; box-shadow:0 6px 20px rgba(47,107,255,.4);
+  }
+  #kpFab:hover{ background:#1f57e0; }
+</style>
 </head>
 <body>
 
-<iframe id="kp-frame"
-        src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=32"
-        title="Конструктор КП"></iframe>
+<iframe id="kp-frame" src="kp.html?v=33"></iframe>
+
+<button id="kpFab">📄 Сформировать КП</button>
+
+<div id="kpPanel">
+  <div class="row">
+    <button class="primary" data-mode="chat">📩 В чат сделки</button>
+    <button data-mode="email">✉️ На e-mail</button>
+  </div>
+  <div class="row">
+    <input id="kpEmail" type="text" placeholder="e-mail клиента">
+    <button data-mode="copy">📋 Текст</button>
+    <button data-mode="download">💾</button>
+    <button data-mode="close">✕</button>
+  </div>
+  <div id="kpNote"></div>
+</div>
 
 <script>
 (function () {
   'use strict';
 
-  /* ====== НАСТРОЙКИ ====== */
+  /* ================= НАСТРОЙКИ ================= */
 
-  /* URL веб-приложения Google Apps Script (заканчивается на /exec) */
+  /* URL веб-приложения Google Apps Script */
   var PROXY = 'https://script.google.com/macros/s/AKfycbwTIDBQvAu7q2WFEOr6F8AQ_gJdjnSxYAJrtrd04QODVyoVoR085ZdtsiwpXE7Z26AQ/exec';
 
-  /* input_id поля сделки «КП» (текстовое). Пусто — номер в CRM не пишем. */
+  /* input_id поля сделки «КП» (текстовое). Пусто — номер в CRM не пишем.
+     Заполнится само после действия action=fields (см. GAS ниже). */
   var NUM_INPUT_ID = '';
 
-  /* ====== ДАЛЬШЕ МЕНЯТЬ НЕ НУЖНО ====== */
+  /* Имена действий в doPost/doGet вашего GAS.
+     В GAS добавлены псевдонимы, поэтому менять здесь обычно не нужно. */
+  var ACT = {
+    client: 'client',            /* GET  -> данные клиента (JSONP)      */
+    attach: 'attachFile',        /* POST -> вложение в сделку           */
+    number: 'updateDealValue',   /* POST -> запись номера КП            */
+    chat:   'sendToChat',        /* POST -> сообщение в чат сделки      */
+    email:  'sendToEmail'        /* POST -> письмо клиенту              */
+  };
 
+  /* ================= КОНСТАНТЫ (как в v32) ================= */
   var PAGE_W_MM = 210;
   var PAGE_H_MM = 297;
-  var DOC_PX = 794;
+  var DOC_PX    = 794;
   var PX_PER_MM = DOC_PX / PAGE_W_MM;
-  var PAGE_PX = Math.round(PAGE_H_MM * PX_PER_MM);
+  var PAGE_PX   = Math.round(PAGE_H_MM * PX_PER_MM);
 
-  var params = new URLSearchParams(location.search);
-  var dealId = params.get('deal_id') || '';
+  var params   = new URLSearchParams(location.search);
+  var dealId   = params.get('deal_id')   || '';
   var clientId = params.get('client_id') || '';
+  var chatId   = params.get('chat_id')   || '';
 
   var frame = document.getElementById('kp-frame');
 
-  var clientName = '';
+  var clientName  = '';
   var clientPhone = '';
-  var dataReady = false;
+  var clientEmail = params.get('email') || '';
+  var dataReady   = false;
+  var hooked      = false;
+  var lastPdf     = null;   /* { blob, text, name } */
+  var busy        = false;
 
   function log(m, d) {
-    try { console.log('[KP AUTO v32] ' + m, d || ''); } catch (e) {}
+    try { console.log('[KP AUTO v33] ' + m, d || ''); } catch (e) {}
   }
 
   /* ---------- доступ к внутреннему документу ---------- */
-  function doc() {
-    try { return frame.contentDocument || frame.contentWindow.document || null; }
-    catch (e) { return null; }
-  }
-  function win() {
-    try { return frame.contentWindow; } catch (e) { return null; }
-  }
+  function doc() { try { return frame.contentDocument || frame.contentWindow.document || null; } catch (e) { return null; } }
+  function win() { try { return frame.contentWindow; } catch (e) { return null; } }
 
   /* ---------- поля ---------- */
   function controls(d) {
-    return Array.prototype.slice.call(
-      d.querySelectorAll('input, textarea, select, [contenteditable="true"]')
-    );
+    return Array.prototype.slice.call(d.querySelectorAll('input, textarea, select, [contenteditable="true"]'));
   }
   function byIndex(d, i) { return controls(d)[i] || null; }
 
@@ -77,27 +130,21 @@
 
   function getV(el) {
     if (!el) return '';
-    if (el.matches && el.matches('[contenteditable="true"]')) {
-      return String(el.textContent || '').trim();
-    }
+    if (el.matches && el.matches('[contenteditable="true"]')) return String(el.textContent || '').trim();
     return String(el.value || '').trim();
   }
 
   function setV(el, value) {
     if (!writable(el) || !value) return;
     var proto = Object.getPrototypeOf(el);
-    var desc = proto && Object.getOwnPropertyDescriptor(proto, 'value');
+    var desc  = proto && Object.getOwnPropertyDescriptor(proto, 'value');
 
-    if (el.matches && el.matches('[contenteditable="true"]')) {
-      el.textContent = value;
-    } else if (desc && desc.set) {
-      desc.set.call(el, value);
-    } else {
-      el.value = value;
-    }
+    if (el.matches && el.matches('[contenteditable="true"]')) el.textContent = value;
+    else if (desc && desc.set) desc.set.call(el, value);
+    else el.value = value;
 
     var w = el.ownerDocument.defaultView;
-    ['input', 'change', 'blur'].forEach(function (type) {
+    ['input','change','blur'].forEach(function (type) {
       el.dispatchEvent(new w.Event(type, { bubbles: true }));
     });
   }
@@ -114,20 +161,13 @@
     return '';
   }
 
-  /* ищем поле по подписи, при неудаче — по индексу */
   function findField(d, exact, index) {
     var list = controls(d), i;
-
-    for (i = 0; i < list.length; i++) {
-      if (ownLabel(list[i]) === exact) return list[i];
-    }
-    for (i = 0; i < list.length; i++) {
-      if (ownLabel(list[i]).indexOf(exact) !== -1) return list[i];
-    }
+    for (i = 0; i < list.length; i++) if (ownLabel(list[i]) === exact) return list[i];
+    for (i = 0; i < list.length; i++) if (ownLabel(list[i]).indexOf(exact) !== -1) return list[i];
     return byIndex(d, index);
   }
 
-  /* одноразовое заполнение: после ручной правки значение не перезаписывается */
   function fillOnce(el, value) {
     if (!el || !value) return;
     if (el.__kpFilled) return;
@@ -154,6 +194,13 @@
     });
   }
 
+  function normPhone(raw) {
+    var d = String(raw || '').replace(/\D/g, '');
+    if (d.length === 11 && d.charAt(0) === '8') d = '7' + d.slice(1);
+    if (d.length === 10) d = '7' + d;
+    return d;
+  }
+
   /* ---------- заполнение документа ---------- */
   function applyData() {
     var d = doc();
@@ -161,282 +208,379 @@
 
     hideSystemButtons(d);
 
-    var platform = byIndex(d, 10);
-    var number = findField(d, 'номер кп', 13);
-    var name = findField(d, 'кому (заказчик)', 16);
-    var contact = findField(d, 'контакт (телефон)', 17);
-    var phone = d.querySelector('#kpPhone');
+    var platform = byIndex(d, 10);                        /* «Название платформы» — не трогаем */
+    var number   = findField(d, 'номер кп', 13);
+    var name     = findField(d, 'кому (заказчик)', 16);
+    var contact  = findField(d, 'контакт (телефон)', 17);
+    var phone    = d.querySelector('#kpPhone');
 
-    /* «Название платформы» не заполняем новыми данными.
-       Только убираем старое загрязнение телефоном. */
-    if (platform && writable(platform)) {
-      var pv = getV(platform);
-      if (pv.replace(/\D/g, '').length >= 7) setV(platform, 'Платформа');
-    }
+    if (platform) platform.__kpFilled = true;
+    fillOnce(number, proposalNumber());
 
-    if (clientPhone) {
-      fillOnce(phone, clientPhone);
+    if (dataReady) {
+      fillOnce(name, clientName);
       fillOnce(contact, clientPhone);
+      if (phone && !getV(phone) && clientPhone) setV(phone, clientPhone);
     }
-    if (clientName) fillOnce(name, clientName);
-    if (dealId) fillOnce(number, proposalNumber());
   }
 
-  /* ---------- получение имени и телефона через прокси ---------- */
-  function loadData() {
-    if (!dealId && !clientId) {
-      dataReady = true;
-      return Promise.resolve();
-    }
+  /* ---------- JSONP к GAS ---------- */
+  function gasGet(payload, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var cb = 'kpj_' + Math.random().toString(36).slice(2);
+      var q = Object.keys(payload).map(function (k) {
+        return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] == null ? '' : payload[k]);
+      }).join('&');
+      var url = PROXY + '?' + q + '&callback=' + cb;
 
-    return new Promise(function (resolve) {
-      var cb = '__kp_d_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
-      var script = document.createElement('script');
+      var s = document.createElement('script');
+      var done = false;
+      var timer = setTimeout(function () { finish(new Error('timeout')); }, timeoutMs || 15000);
 
-      var timer = setTimeout(function () { cleanup(); resolve(); }, 15000);
-
-      function cleanup() {
+      function finish(err, data) {
+        if (done) return;
+        done = true;
         clearTimeout(timer);
         try { delete window[cb]; } catch (e) { window[cb] = undefined; }
-        if (script.parentNode) script.parentNode.removeChild(script);
+        if (s.parentNode) s.parentNode.removeChild(s);
+        err ? reject(err) : resolve(data);
       }
-
-      window[cb] = function (data) {
-        cleanup();
-        dataReady = true;
-
-        if (data && data.ok) {
-          clientName = String(data.clientName || '');
-          clientPhone = String(data.phone || '');
-          log('данные клиента получены', { clientName: clientName, phone: clientPhone });
-        } else {
-          log('прокси вернул ошибку', data && data.error);
-        }
-        resolve();
-      };
-
-      script.onerror = function () { cleanup(); dataReady = true; resolve(); };
-
-      script.src = PROXY +
-        '?deal_id=' + encodeURIComponent(dealId) +
-        '&client_id=' + encodeURIComponent(clientId) +
-        '&callback=' + encodeURIComponent(cb);
-
-      document.head.appendChild(script);
+      window[cb] = function (data) { finish(null, data); };
+      s.onerror = function () { finish(new Error('gas error')); };
+      s.src = url;
+      document.head.appendChild(s);
     });
   }
 
-  /* ---------- сборка PDF с фиксированной шириной A4 ---------- */
-  function buildPdf() {
-    var d = doc();
-    var w = win();
+  /* ---------- POST к GAS без CORS: скрытая форма + iframe ---------- */
+  function gasPost(payload) {
+    var target = 'kpPost_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    var ifr = document.createElement('iframe');
+    ifr.name = target;
+    ifr.style.cssText = 'display:none;width:0;height:0;border:0';
+    document.body.appendChild(ifr);
 
-    if (!d || !w) return Promise.reject(new Error('нет доступа к документу конструктора'));
-    if (typeof w.html2canvas === 'undefined') return Promise.reject(new Error('html2canvas не загрузился'));
+    var f = document.createElement('form');
+    f.method = 'POST';
+    f.action = PROXY;
+    f.target = target;
+    f.style.cssText = 'display:none';
 
-    var jsPDFCtor = (w.jspdf && w.jspdf.jsPDF) || w.jsPDF;
-    if (!jsPDFCtor) return Promise.reject(new Error('jsPDF не загрузился'));
-
-    var source = d.getElementById('doc');
-    if (!source) return Promise.reject(new Error('блок #doc не найден'));
-
-    /* копия документа вне панели — фиксированная ширина, без прокрутки */
-    var sandbox = d.createElement('div');
-    sandbox.style.cssText =
-      'position:fixed;left:-20000px;top:0;width:' + DOC_PX + 'px;' +
-      'background:#ffffff;z-index:-1;padding:0;margin:0;';
-
-    var copy = source.cloneNode(true);
-    copy.removeAttribute('id');
-    copy.style.cssText += ';width:' + DOC_PX + 'px;min-height:0;height:auto;' +
-      'margin:0;border:0;border-radius:0;box-shadow:none;overflow:visible;background:#ffffff;';
-
-    sandbox.appendChild(copy);
-    d.body.appendChild(sandbox);
-
-    return w.html2canvas(copy, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      width: DOC_PX,
-      windowWidth: DOC_PX,
-      scrollX: 0,
-      scrollY: 0,
-      logging: false
-    }).then(function (canvas) {
-      if (sandbox.parentNode) sandbox.parentNode.removeChild(sandbox);
-
-      var pdf = new jsPDFCtor({
-        unit: 'mm',
-        format: 'a4',
-        orientation: 'portrait',
-        compress: true
-      });
-
-      var pages = Math.max(1, Math.ceil((canvas.height - 8) / PAGE_PX));
-      var slicePx = Math.round(PAGE_PX);
-
-      for (var p = 0; p < pages; p++) {
-        var top = p * slicePx;
-        var h = Math.min(slicePx, canvas.height - top);
-        if (h < 20) break;
-
-        var c = d.createElement('canvas');
-        c.width = canvas.width;
-        c.height = h;
-
-        var ctx = c.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(canvas, 0, -top);
-
-        if (p > 0) pdf.addPage();
-        pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, PAGE_W_MM, h / PX_PER_MM);
-      }
-
-      return pdf.output('blob');
-
-    }).catch(function (e) {
-      if (sandbox.parentNode) sandbox.parentNode.removeChild(sandbox);
-      throw e;
+    Object.keys(payload).forEach(function (k) {
+      var i = document.createElement('input');
+      i.type = 'hidden';
+      i.name = k;
+      i.value = payload[k] == null ? '' : String(payload[k]);
+      f.appendChild(i);
     });
-  }
 
-  /* ---------- скачивание ---------- */
-  function download(blob, filename) {
-    var a = document.createElement('a');
-    var url = URL.createObjectURL(blob);
-
-    a.href = url;
-    a.download = filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
+    document.body.appendChild(f);
+    f.submit();
 
     setTimeout(function () {
-      URL.revokeObjectURL(url);
-      if (a.parentNode) a.parentNode.removeChild(a);
-    }, 4000);
+      try { f.remove(); } catch (e) {}
+      try { ifr.remove(); } catch (e) {}
+    }, 30000);
   }
 
-  /* ---------- отправка в сделку через прокси ---------- */
-  function sendToCrm(blob, filename) {
-    if (!PROXY || PROXY.indexOf('http') !== 0 || PROXY.indexOf('ВСТАВЬТЕ') !== -1) {
-      log('URL прокси не задан — файл только скачан');
-      return;
-    }
-    if (!dealId) {
-      log('нет deal_id — в сделку не отправляю');
-      return;
-    }
+  function loadClient() {
+    if (!dealId && !clientId) { dataReady = true; applyData(); return; }
 
-    var reader = new FileReader();
-
-    reader.onload = function () {
-      var dataUrl = String(reader.result || '');
-      var comma = dataUrl.indexOf(',');
-      if (comma < 0) { log('не удалось прочитать PDF'); return; }
-
-      var body =
-        'deal_id=' + encodeURIComponent(dealId) +
-        '&filename=' + encodeURIComponent(filename) +
-        '&comment=' + encodeURIComponent('Коммерческое предложение ' + proposalNumber()) +
-        '&num_input_id=' + encodeURIComponent(NUM_INPUT_ID) +
-        '&num_value=' + encodeURIComponent(proposalNumber()) +
-        '&client_id=' + encodeURIComponent(clientId) +
-        '&base64=' + encodeURIComponent(dataUrl.slice(comma + 1));
-
-      fetch(PROXY, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body
-      })
-        .then(function () { log('PDF отправлен в сделку №' + dealId); })
-        .catch(function (e) { log('отправка в сделку не удалась', e); });
-    };
-
-    reader.onerror = function () { log('PDF не прочитался'); };
-    reader.readAsDataURL(blob);
+    gasGet({ action: ACT.client, deal_id: dealId, client_id: clientId }).then(function (res) {
+      var c = (res && (res.client || res.data)) || res || {};
+      clientName  = c.name  || c.fio || c.client_name || clientName;
+      clientPhone = normPhone(c.phone || c.phone_main || clientPhone);
+      clientEmail = c.email || c.email_main || clientEmail;
+      if (res && res.deal_id)   dealId   = String(res.deal_id);
+      if (res && res.client_id) clientId = String(res.client_id);
+      if (res && res.chat_id)   chatId   = String(res.chat_id);
+      dataReady = true;
+      applyData();
+      var inp = document.getElementById('kpEmail');
+      if (inp && clientEmail) inp.value = clientEmail;
+      log('клиент загружен', { name: clientName, phone: clientPhone, email: clientEmail });
+    }).catch(function (e) {
+      log('клиент не загружен', e && e.message);
+      dataReady = true;
+      applyData();
+    });
   }
 
-  /* ---------- главный сценарий ---------- */
-  function generate() {
+  /* ================= PDF ================= */
+  function ensureLibs() {
     var w = win();
+    if (!w) return Promise.reject(new Error('нет доступа к фрейму'));
 
-    try {
-      if (w && typeof w.renderDoc === 'function') w.renderDoc();
-    } catch (e) {}
-
-    buildPdf()
-      .then(function (blob) {
-        var filename = proposalNumber().replace(/[^\wа-яА-ЯёЁ-]+/g, '_') + '.pdf';
-
-        download(blob, filename);
-        log('PDF скачан', filename);
-
-        sendToCrm(blob, filename);
-      })
-      .catch(function (e) {
-        log('ошибка сборки PDF', e);
+    function inject(src) {
+      return new Promise(function (resolve) {
+        var s = w.document.createElement('script');
+        s.src = src; s.onload = resolve; s.onerror = resolve;
+        w.document.head.appendChild(s);
       });
+    }
+
+    var chain = Promise.resolve();
+    if (!w.html2canvas) chain = chain.then(function () {
+      return inject('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    });
+    if (!(w.jspdf && w.jspdf.jsPDF)) chain = chain.then(function () {
+      return inject('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    });
+    return chain;
   }
 
-  /* ---------- своя кнопка вместо штатной ---------- */
-  function bindRunButton() {
-    var d = doc();
-    if (!d) return;
+  function docText(d) {
+    var t = String(d.body.innerText || d.body.textContent || '');
+    return t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
 
-    var old = d.getElementById('kpRun');
-    if (!old || old.__kpBound32) return;
+  function buildPdf() {
+    var d = doc(), w = win();
+    if (!d || !w) return Promise.reject(new Error('фрейм не готов'));
 
-    var nw = old.cloneNode(true);   /* клон снимает все прежние обработчики */
-    nw.__kpBound32 = true;
+    /* именно документ КП, а не страница конструктора */
+    var src = d.querySelector('#kpDoc, #doc, .kp-doc, .doc-page, #kpDocument, #docPreview, .preview');
+    var target = src || d.body;
 
-    old.parentNode.replaceChild(nw, old);
+    return ensureLibs().then(function () {
+      var hc = w.html2canvas;
+      var JsPDF = (w.jspdf && w.jspdf.jsPDF) || w.jsPDF;
+      if (!hc || !JsPDF) throw new Error('html2canvas/jsPDF недоступны');
 
-    nw.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      generate();
+      var sandbox = d.createElement('div');
+      sandbox.style.cssText =
+        'position:fixed;left:-10000px;top:0;width:' + DOC_PX + 'px;background:#fff;' +
+        'padding:0;margin:0;box-sizing:border-box;z-index:-1';
+      sandbox.appendChild(target.cloneNode(true));
+      d.body.appendChild(sandbox);
+
+      return hc(sandbox, {
+        scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
+        width: DOC_PX, windowWidth: DOC_PX
+      }).then(function (canvas) {
+        try { d.body.removeChild(sandbox); } catch (e) {}
+
+        var pdf  = new JsPDF('p', 'mm', 'a4');
+        var img  = canvas.toDataURL('image/jpeg', 0.92);
+        var imgH = canvas.height * PAGE_W_MM / canvas.width;
+
+        /* не создаём пустой последний лист из-за остатка пары миллиметров */
+        var pages = Math.ceil(imgH / PAGE_H_MM);
+        if (pages > 1 && (imgH - (pages - 1) * PAGE_H_MM) < 5) pages -= 1;
+
+        for (var i = 0; i < pages; i++) {
+          if (i) pdf.addPage();
+          pdf.addImage(img, 'JPEG', 0, -i * PAGE_H_MM, PAGE_W_MM, imgH);
+        }
+
+        return { blob: pdf.output('blob'), text: docText(d) };
+      });
+    });
+  }
+
+  function fileName() { return proposalNumber().replace(/[\\/:*?"<>|]/g, '_') + '.pdf'; }
+
+  function download(blob, name) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+
+  function note(msg, cls) {
+    var n = document.getElementById('kpNote');
+    if (!n) return;
+    n.textContent = msg || '';
+    n.className = cls || '';
+  }
+
+  function blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(String(r.result).split(',')[1]); };
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  /* ================= основной поток ================= */
+  function run() {
+    if (busy) return;
+    busy = true;
+
+    document.getElementById('kpPanel').classList.add('show');
+    note('Формирую PDF…');
+
+    var w = win();
+    try { if (w) w.print = function () {}; } catch (e) {}
+
+    buildPdf().then(function (res) {
+      lastPdf = { blob: res.blob, text: res.text, name: fileName() };
+
+      download(lastPdf.blob, lastPdf.name);      /* локально сразу — файл не потеряется */
+      note('PDF скачан. Куда отправить?');
+
+      attachToDeal();                            /* вложение в сделку — не ждём выбора */
+
+      try {
+        navigator.clipboard.writeText(lastPdf.text).then(function () {
+          note('PDF скачан, текст КП в буфере. Куда отправить?', 'ok');
+        }, function () {
+          note('PDF скачан. Для текста нажмите «📋 Текст».');
+        });
+      } catch (e) {
+        note('PDF скачан. Для текста нажмите «📋 Текст».');
+      }
+    }).catch(function (e) {
+      note('Ошибка сборки PDF: ' + (e && e.message ? e.message : e), 'err');
+      log('ошибка PDF', e);
+    }).then(function () { busy = false; });
+  }
+
+  function attachToDeal() {
+    if (!dealId || !lastPdf) return;
+    blobToBase64(lastPdf.blob).then(function (b64) {
+      gasPost({
+        action: ACT.attach, deal_id: dealId, client_id: clientId,
+        fileName: lastPdf.name, file: b64, pdf: b64
+      });
+      if (NUM_INPUT_ID) {
+        gasPost({
+          action: ACT.number, deal_id: dealId,
+          input_id: NUM_INPUT_ID, value: proposalNumber()
+        });
+      }
+      log('вложение отправлено в GAS');
+    }).catch(function (e) { log('вложение не отправлено', e && e.message); });
+  }
+
+  /* ---------- перехват штатной кнопки печати ---------- */
+  function hookInner(d, w) {
+    if (hooked) return;
+    hooked = true;
+
+    /* 1) по подписи кнопки внутри kp.html */
+    d.addEventListener('click', function (e) {
+      var el = e.target;
+      while (el && el !== d) {
+        if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button') {
+          var t = String(el.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
+          if (t.indexOf('найти поля') === -1 && t.indexOf('проверить api') === -1 &&
+              (t.indexOf('печать') !== -1 || t.indexOf('pdf') !== -1 ||
+               t.indexOf('скачать') !== -1 || t.indexOf('сформировать') !== -1 ||
+               t.indexOf('готово') !== -1)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            run();
+            return;
+          }
+        }
+        el = el.parentNode;
+      }
     }, true);
 
-    log('кнопка «Сформировать КП» переназначена');
+    /* 2) программный вызов сборки/печати в kp.html */
+    ['makePdf','printPdf','doPdf','exportPdf','printDoc'].forEach(function (fn) {
+      try {
+        if (typeof w[fn] === 'function') {
+          var orig = w[fn];
+          w[fn] = function () { run(); return orig.apply(this, arguments); };
+        }
+      } catch (e) {}
+    });
+
+    try { w.print = function () {}; } catch (e) {}
+    try { w.__kpRun = run; } catch (e) {}
   }
 
-  /* ---------- цикл ---------- */
-  frame.addEventListener('load', function () {
-    applyData();
-    bindRunButton();
-  }, false);
+  /* ---------- панель ---------- */
+  function bindPanel() {
+    var panel    = document.getElementById('kpPanel');
+    var emailInp = document.getElementById('kpEmail');
 
-  loadData().then(function () {
+    panel.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button[data-mode]') : null;
+      if (!b) return;
+      var mode = b.getAttribute('data-mode');
+
+      if (mode === 'close') { panel.classList.remove('show'); return; }
+
+      if (mode === 'copy') {
+        if (!lastPdf) { note('Сначала сформируйте КП.', 'err'); return; }
+        navigator.clipboard.writeText(lastPdf.text).then(function () {
+          note('Текст КП скопирован.', 'ok');
+        }, function () { note('Браузер не дал доступ к буферу.', 'err'); });
+        return;
+      }
+
+      if (mode === 'download') {
+        if (!lastPdf) { note('Сначала сформируйте КП.', 'err'); return; }
+        download(lastPdf.blob, lastPdf.name);
+        note('Файл скачан.', 'ok');
+        return;
+      }
+
+      if (!lastPdf) { note('Сначала сформируйте КП.', 'err'); return; }
+      if (!dealId)  { note('Нет deal_id — отправка в CRM невозможна.', 'err'); return; }
+
+      if (mode === 'email') {
+        var to = ((emailInp && emailInp.value) || clientEmail || '').trim();
+        if (!to) { note('Укажите e-mail клиента.', 'err'); return; }
+        clientEmail = to;
+        note('Отправляю письмо…');
+        blobToBase64(lastPdf.blob).then(function (b64) {
+          gasPost({
+            action: ACT.email, deal_id: dealId, client_id: clientId,
+            to: to, subject: 'Коммерческое предложение ' + proposalNumber(),
+            text: lastPdf.text, fileName: lastPdf.name, file: b64, pdf: b64
+          });
+          note('Запрос на отправку письма ушёл на ' + to + '. PDF уже скачан.', 'ok');
+        });
+        return;
+      }
+
+      if (mode === 'chat') {
+        note('Отправляю в чат сделки…');
+        blobToBase64(lastPdf.blob).then(function (b64) {
+          gasPost({
+            action: ACT.chat, deal_id: dealId, client_id: clientId, chat_id: chatId,
+            text: lastPdf.text, fileName: lastPdf.name, file: b64, pdf: b64
+          });
+          note('Сообщение уходит в чат. PDF прикреплён к сделке и скачан.', 'ok');
+        });
+      }
+    });
+  }
+
+  /* ---------- старт ---------- */
+  document.getElementById('kpFab').addEventListener('click', run);
+
+  frame.addEventListener('load', function () {
+    var d = doc(), w = win();
+    if (!d || !w) { log('фрейм недоступен'); return; }
+
+    hookInner(d, w);
     applyData();
-    bindRunButton();
+    loadClient();
+
+    /* повторное заполнение, пока конструктор дорисовывает форму */
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      applyData();
+      if (tries > 20) clearInterval(iv);
+    }, 500);
   });
 
-  var ticks = 0;
-  var timer = setInterval(function () {
-    applyData();
-    bindRunButton();
-    if (++ticks > 200) clearInterval(timer);
-  }, 250);
+  bindPanel();
 
-  if (window.MutationObserver) {
-    var obsTimer = setInterval(function () {
-      var d = doc();
-      if (!d || !d.body || d.body.__kpObs32) return;
-      d.body.__kpObs32 = true;
-      new MutationObserver(function () { applyData(); bindRunButton(); })
-        .observe(d.body, { childList: true, subtree: true });
-    }, 500);
-    setTimeout(function () { clearInterval(obsTimer); }, 60000);
-  }
+  var emailNow = document.getElementById('kpEmail');
+  if (emailNow && clientEmail) emailNow.value = clientEmail;
 
-  applyData();
-  bindRunButton();
+  log('v33 запущен', { deal_id: dealId, client_id: clientId });
 })();
 </script>
-
 </body>
 </html>
