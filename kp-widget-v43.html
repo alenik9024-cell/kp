@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>КП — виджет</title>
+<style>
+  body{margin:0;padding:14px;box-sizing:border-box;background:#fff;color:#2b2b2b;
+       font:13px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  #kpBtn{display:block;width:100%;padding:14px 16px;border:0;border-radius:10px;
+         background:#2F6BFF;color:#fff;font:600 15px/1 inherit;cursor:pointer}
+  #kpBtn:hover{background:#1f57e0}
+  #kpBtn[disabled]{opacity:.6;cursor:default}
+  #st{margin-top:12px;font-size:12px;line-height:1.6;color:#666}
+  #st b{color:#2b2b2b}
+  .ok{color:#0a7d33;font-weight:600}
+  .err{color:#c0392b;font-weight:600}
+  .warn{color:#b8860b;font-weight:600}
+</style>
+</head>
+<body>
+
+<button id="kpBtn" type="button">📄 Сформировать КП</button>
+<div id="st">КП v43 · запуск…</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var VERSION = 'v43';
+  var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp-constructor.html';
+
+  var st  = document.getElementById('st');
+  var btn = document.getElementById('kpBtn');
+
+  var dealId = '', clientId = '';
+  var initState = 'не вызывался';
+
+  function log(m, d) { try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {} }
+  function say(h) { st.innerHTML = h; }
+  function W() { return window.EnvyCrmWidget; }
+
+  function getParam(p, names) {
+    p = p || {};
+    for (var i = 0; i < names.length; i++) {
+      var v = p[names[i]];
+      if (v !== undefined && v !== null && v !== '') return String(v);
+    }
+    return '';
+  }
+
+  function pullDeal() {
+    return new Promise(function (resolve) {
+      if (dealId) { resolve(); return; }
+      var w = W();
+      try {
+        if (!w || typeof w.getDeal !== 'function') { resolve(); return; }
+        var r = w.getDeal();
+        if (r && typeof r.then === 'function') {
+          r.then(function (d) {
+            d = d && d.result ? d.result : (d || {});
+            dealId   = String(d.id || d.deal_id || dealId || '');
+            clientId = String(d.client_id || d.clientId || clientId || '');
+            log('getDeal', d);
+            resolve();
+          }).catch(function (e) { log('getDeal ошибка', e); resolve(); });
+        } else { resolve(); }
+      } catch (e) { log('getDeal исключение', e); resolve(); }
+    });
+  }
+
+  function openConstructor() {
+    var w = W();
+    var url = CONSTRUCTOR_URL +
+      (dealId   ? '?deal_id='   + encodeURIComponent(dealId)   : '?') +
+      (clientId ? '&client_id=' + encodeURIComponent(clientId) : '');
+
+    var html = '<iframe src="' + url + '" style="width:100%;height:80vh;border:0;display:block"></iframe>';
+    log('открываю конструктор', url);
+
+    try {
+      if (w && typeof w.openPage === 'function') {
+        w.openPage({ content: html }).catch(function (e) {
+          log('openPage не сработал', e);
+          if (w && typeof w.openModal === 'function') {
+            w.openModal({ title: 'Коммерческое предложение', content: html, width: 1250 });
+          } else { window.open(url, '_blank'); }
+        });
+        return;
+      }
+      if (w && typeof w.openModal === 'function') {
+        w.openModal({ title: 'Коммерческое предложение', content: html, width: 1250 });
+        return;
+      }
+    } catch (e) { log('ошибка открытия', e); }
+
+    window.open(url, '_blank');
+  }
+
+  /* кнопка В ПАНЕЛИ — работает даже если регистрация в шапке не прошла */
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    pullDeal().then(function () { btn.disabled = false; openConstructor(); });
+  });
+
+  function register() {
+    var w = W();
+    if (!w) { initState = 'библиотеки нет'; return; }
+
+    window.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'kp-btn:click') {
+        log('кнопка в шапке нажата');
+        pullDeal().then(openConstructor);
+      }
+    }, false);
+
+    try {
+      var res = w.init({
+        'deal-btn': function (params) {
+          dealId   = getParam(params, ['dealID', 'deal_id', 'dealId'])       || dealId;
+          clientId = getParam(params, ['clientID', 'client_id', 'clientId']) || clientId;
+          log('params', { deal_id: dealId, client_id: clientId });
+
+          return [{
+            title: 'Сформировать КП',
+            styles: { color: '#fff', 'background-color': '#2F6BFF' },
+            icon: 'md-description',
+            clickEventName: 'kp-btn:click',
+            position: ['first'],
+            name: 'kp-btn-final-32'
+          }];
+        }
+      });
+
+      initState = 'вызван';
+      if (res && typeof res.then === 'function') {
+        res.then(function () { initState = 'принят'; log('init resolved'); })
+           .catch(function (e) { initState = 'ОТКЛОНЁН: ' + e; log('init rejected', e); });
+      }
+    } catch (e) { initState = 'ОШИБКА: ' + e; log('ошибка регистрации', e); }
+  }
+
+  function wait(n) {
+    n = n || 0;
+    if (W()) {
+      register();
+      pullDeal().then(function () {
+        say('<b>КП ' + VERSION + '</b><br>' +
+            'Библиотека CRM: <span class="ok">загружена</span><br>' +
+            'Кнопка в шапке: <b>' + initState + '</b><br>' +
+            'Сделка: <b>' + (dealId || '—') + '</b> · Клиент: <b>' + (clientId || '—') + '</b><br><br>' +
+            'Кнопка выше рабочая — нажмите её.');
+      });
+      return;
+    }
+    if (n === 0) say('<b>КП ' + VERSION + '</b><br>Библиотека CRM: <span class="warn">ожидание…</span>');
+    if (n >= 60) {
+      say('<b>КП ' + VERSION + '</b><br>' +
+          'Библиотека CRM: <span class="err">НЕ загрузилась</span><br>' +
+          'Кнопка выше рабочая — откроет конструктор в новой вкладке.');
+      log('библиотека не загрузилась');
+      return;
+    }
+    setTimeout(function () { wait(n + 1); }, 100);
+  }
+
+  log('виджет ' + VERSION + ' запущен');
+  wait(0);
+})();
+</script>
+</body>
+</html>
