@@ -13,16 +13,17 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v22';
+  var VERSION = 'v23';
 
   var AUTO_URL =
     'https://alenik9024-cell.github.io/kp/kp-auto.html?v=21';
-var PROXY_URL =
-  'https://script.google.com/macros/s/AKfycbxxi10GiEDFroquS0VwwUH4eJ3v0NuR5GlUiIdOvynZFukhRKkOhRkPVrCFgsBg-pV9/exec';
+
+  var PROXY_URL =
+    'https://script.google.com/macros/s/AKfycbxxi10GiEDFroquS0VwwUH4eJ3v0NuR5GlUiIdOvynZFukhRKkOhRkPVrCFgsBg-pV9/exec';
 
   var STORAGE_KEY = 'kp_context_v20';
 
-  var w = window.EnvyCrmWidget;
+  var widget = null;
 
   var dealContext = {
     dealId: '',
@@ -32,16 +33,15 @@ var PROXY_URL =
   };
 
   function log(message, data) {
-    console.log(
-      '[KP ' + VERSION + '] ' + message,
-      data || ''
-    );
+    try {
+      console.log(
+        '[KP ' + VERSION + '] ' + message,
+        data || ''
+      );
+    } catch (error) {}
   }
 
-  if (!w) {
-    log('EnvyCrmWidget не загрузилась');
-    return;
-  }
+  log('скрипт kp-widget.html запущен');
 
   function getParam(params, names) {
     params = params || {};
@@ -61,7 +61,7 @@ var PROXY_URL =
     return '';
   }
 
-  function makeProposalNumber(dealId) {
+  function proposalNumber(dealId) {
     var date = new Date();
 
     var day = String(date.getDate())
@@ -83,7 +83,7 @@ var PROXY_URL =
       clientId: dealContext.clientId,
       clientName: dealContext.clientName,
       phone: dealContext.phone,
-      proposalNumber: makeProposalNumber(
+      proposalNumber: proposalNumber(
         dealContext.dealId
       ),
       updatedAt: Date.now()
@@ -97,139 +97,107 @@ var PROXY_URL =
 
       log('контекст сохранён', context);
     } catch (error) {
-      log('ошибка сохранения контекста', error);
+      log('ошибка localStorage', error);
     }
   }
 
-  /*
-   * Получение имени и телефона через Google Apps Script.
-   * Прямых запросов из браузера в EnvyCRM нет.
-   */
-  function loadClientData() {
+  function getProxyData(token) {
     var dealId = dealContext.dealId;
     var clientId = dealContext.clientId;
 
     if (!dealId && !clientId) {
-      return Promise.reject(
-        new Error(
-          'CRM не передала dealID и clientID'
-        )
-      );
+      log('нет dealID/clientID для прокси');
+      return;
     }
 
-    return new Promise(function (resolve, reject) {
-      var callbackName =
-        '__kp_proxy_callback_' +
-        Date.now() +
-        '_' +
-        Math.floor(Math.random() * 100000);
+    var callbackName =
+      '__kp_proxy_' +
+      Date.now() +
+      '_' +
+      Math.floor(Math.random() * 100000);
 
-      var script = document.createElement('script');
+    var script = document.createElement('script');
+    var finished = false;
 
-      var finished = false;
+    var timer = setTimeout(function () {
+      finish('тайм-аут Google Apps Script');
+    }, 15000);
 
-      var timer = setTimeout(function () {
-        finishError(
-          new Error(
-            'Google Apps Script не ответил за 15 секунд'
-          )
-        );
-      }, 15000);
+    function cleanup() {
+      clearTimeout(timer);
 
-      function removeScript() {
-        if (
-          script &&
-          script.parentNode
-        ) {
-          script.parentNode.removeChild(script);
-        }
+      try {
+        delete window[callbackName];
+      } catch (error) {
+        window[callbackName] = undefined;
       }
 
-      function cleanup() {
-        clearTimeout(timer);
-        removeScript();
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    }
 
-        try {
-          delete window[callbackName];
-        } catch (error) {
-          window[callbackName] = undefined;
-        }
+    function finish(message) {
+      if (finished) {
+        return;
       }
 
-      function finishError(error) {
-        if (finished) {
-          return;
-        }
+      finished = true;
+      cleanup();
 
-        finished = true;
-        cleanup();
-        reject(error);
+      if (message) {
+        log(message);
+      }
+    }
+
+    window[callbackName] = function (data) {
+      if (finished) {
+        return;
       }
 
-      window[callbackName] = function (data) {
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-        cleanup();
-
-        if (!data || !data.ok) {
-          reject(new Error(
-            data && data.error
-              ? data.error
-              : 'Google Apps Script вернул ошибку'
-          ));
-
-          return;
-        }
-
-        dealContext.clientName =
-          String(data.clientName || '');
-
-        dealContext.phone =
-          String(data.phone || '');
-
-        log(
-          'данные получены через Google Apps Script',
-          {
-            dealId: dealId,
-            clientId: clientId,
-            clientName: dealContext.clientName,
-            phone: dealContext.phone
-          }
+      if (!data || !data.ok) {
+        finish(
+          'прокси вернул ошибку: ' +
+          (data && data.error
+            ? data.error
+            : 'неизвестная ошибка')
         );
 
-        resolve(dealContext);
-      };
+        return;
+      }
 
-      script.onerror = function () {
-        finishError(
-          new Error(
-            'Не удалось загрузить Google Apps Script'
-          )
-        );
-      };
+      dealContext.clientName =
+        String(data.clientName || '');
 
-      script.src =
-        PROXY_URL +
-        '?deal_id=' +
-        encodeURIComponent(dealId) +
-        '&client_id=' +
-        encodeURIComponent(clientId) +
-        '&callback=' +
-        encodeURIComponent(callbackName);
+      dealContext.phone =
+        String(data.phone || '');
 
-      document.head.appendChild(script);
-    });
+      saveContext(token);
+
+      finish('данные получены через Google Apps Script');
+    };
+
+    script.onerror = function () {
+      finish('Google Apps Script недоступен');
+    };
+
+    script.src =
+      PROXY_URL +
+      '?deal_id=' +
+      encodeURIComponent(dealId) +
+      '&client_id=' +
+      encodeURIComponent(clientId) +
+      '&callback=' +
+      encodeURIComponent(callbackName);
+
+    document.head.appendChild(script);
   }
 
   function openConstructor() {
     var token = 'kp_' + Date.now();
 
     /*
-     * Сохраняем ID сразу, чтобы конструктор открылся
-     * даже до ответа Google Apps Script.
+     * Сохраняем ID сделки до ответа прокси.
      */
     saveContext(token);
 
@@ -238,7 +206,7 @@ var PROXY_URL =
       '&token=' +
       encodeURIComponent(token);
 
-    var iframe =
+    var content =
       '<iframe src="' + url + '" ' +
       'style="width:100%;height:calc(100vh - 60px);' +
       'min-height:650px;border:0" ' +
@@ -246,14 +214,16 @@ var PROXY_URL =
 
     log('открываю конструктор', {
       dealId: dealContext.dealId,
-      clientId: dealContext.clientId,
-      url: url
+      clientId: dealContext.clientId
     });
 
     try {
-      if (w.openPage) {
-        var page = w.openPage({
-          content: iframe
+      if (
+        widget.openPage &&
+        typeof widget.openPage === 'function'
+      ) {
+        var page = widget.openPage({
+          content: content
         });
 
         if (
@@ -263,19 +233,25 @@ var PROXY_URL =
           page.catch(function (error) {
             log('openPage не сработал', error);
 
-            if (w.openModal) {
-              w.openModal({
+            if (
+              widget.openModal &&
+              typeof widget.openModal === 'function'
+            ) {
+              widget.openModal({
                 title: 'Конструктор КП',
-                content: iframe,
+                content: content,
                 width: 1150
               });
             }
           });
         }
-      } else if (w.openModal) {
-        w.openModal({
+      } else if (
+        widget.openModal &&
+        typeof widget.openModal === 'function'
+      ) {
+        widget.openModal({
           title: 'Конструктор КП',
-          content: iframe,
+          content: content,
           width: 1150
         });
       } else {
@@ -287,112 +263,102 @@ var PROXY_URL =
     }
 
     /*
-     * После открытия получаем имя и телефон
-     * через серверный прокси.
+     * Прокси запускается после открытия
+     * и не влияет на появление кнопки.
      */
-    loadClientData()
-      .then(function () {
-        saveContext(token);
-      })
-      .catch(function (error) {
-        log(
-          'не удалось получить имя и телефон',
-          error
-        );
-
-        /*
-         * ID сделки всё равно остаётся доступен,
-         * поэтому номер КП продолжит формироваться.
-         */
-        saveContext(token);
-      });
+    getProxyData(token);
   }
 
-  /*
-   * CRM передаёт параметры текущей сделки
-   * именно в callback типа deal-btn.
-   */
-  try {
-    var initResult = w.init({
-      'deal-btn': function (params) {
-        dealContext.dealId = getParam(
-          params,
-          [
-            'dealID',
-            'deal_id',
-            'dealId'
-          ]
-        );
+  function register() {
+    widget = window.EnvyCrmWidget;
 
-        dealContext.clientId = getParam(
-          params,
-          [
-            'clientID',
-            'client_id',
-            'clientId'
-          ]
-        );
-
-        log(
-          'параметры сделки получены',
-          {
-            params: params,
-            dealId: dealContext.dealId,
-            clientId: dealContext.clientId
-          }
-        );
-
-        /*
-         * Здесь запрос НЕ запускаем.
-         * Он запускается только после нажатия кнопки.
-         */
-        return [{
-          title: 'Сформировать КП',
-          styles: {
-            color: '#fff',
-            'background-color': '#2F6BFF'
-          },
-          icon: 'md-description',
-          clickEventName: 'kp-btn:click',
-          position: ['first'],
-          name: 'kp-btn-1'
-        }];
-      }
-    });
-
-    if (
-      initResult &&
-      typeof initResult.catch === 'function'
-    ) {
-      initResult.catch(function (error) {
-        log('ошибка init', error);
-      });
+    if (!widget) {
+      log('EnvyCrmWidget не найдена');
+      return;
     }
 
-    log('виджет зарегистрирован');
-  } catch (error) {
-    log(
-      'ошибка регистрации кнопки',
-      error
+    log('библиотека найдена');
+
+    window.addEventListener(
+      'message',
+      function (event) {
+        if (
+          event.data &&
+          event.data.type === 'kp-btn:click'
+        ) {
+          log('кнопка нажата');
+          openConstructor();
+        }
+      },
+      false
     );
+
+    try {
+      var result = widget.init({
+        'deal-btn': function (params) {
+          dealContext.dealId = getParam(
+            params,
+            ['dealID', 'deal_id', 'dealId']
+          );
+
+          dealContext.clientId = getParam(
+            params,
+            ['clientID', 'client_id', 'clientId']
+          );
+
+          log('параметры сделки получены', {
+            dealId: dealContext.dealId,
+            clientId: dealContext.clientId
+          });
+
+          return [{
+            title: 'Сформировать КП',
+            styles: {
+              color: '#fff',
+              'background-color': '#2F6BFF'
+            },
+            icon: 'md-description',
+            clickEventName: 'kp-btn:click',
+            position: ['first'],
+            name: 'kp-btn-1'
+          }];
+        }
+      });
+
+      if (
+        result &&
+        typeof result.catch === 'function'
+      ) {
+        result.catch(function (error) {
+          log('init вернул ошибку', error);
+        });
+      }
+
+      log('виджет зарегистрирован');
+    } catch (error) {
+      log('ошибка регистрации', error);
+    }
   }
 
-  /*
-   * Обработка клика по кнопке.
-   */
-  window.addEventListener(
-    'message',
-    function (event) {
-      if (
-        event.data &&
-        event.data.type === 'kp-btn:click'
-      ) {
-        log('кнопка нажата');
-        openConstructor();
-      }
-    },
-    false
-  );
+  function waitForLibrary(attempt) {
+    attempt = attempt || 0;
+
+    if (window.EnvyCrmWidget) {
+      register();
+      return;
+    }
+
+    if (attempt >= 100) {
+      log('EnvyCrmWidget не загрузилась за 10 секунд');
+      return;
+    }
+
+    setTimeout(function () {
+      waitForLibrary(attempt + 1);
+    }, 100);
+  }
+
+  waitForLibrary(0);
 })();
 </script>
 
