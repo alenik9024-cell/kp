@@ -1,95 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head><meta charset="utf-8"><title>КП — виджет</title></head>
+<head><meta charset="utf-8"><title>КП</title></head>
 <body>
 <script>
-(function () {
-  'use strict';
-
-  var VERSION = 'v38';
-  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=38';
-
-  var w = window.EnvyCrmWidget;
-  var dealId = '', clientId = '';
-
-  function log(m, d) { try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {} }
-
-  function getParam(p, names) {
-    p = p || {};
-    for (var i = 0; i < names.length; i++) {
-      var v = p[names[i]];
-      if (v !== undefined && v !== null && v !== '') return String(v);
-    }
-    return '';
-  }
-
-  function openConstructor() {
-    var url = AUTO_URL +
-      '&deal_id=' + encodeURIComponent(dealId) +
-      '&client_id=' + encodeURIComponent(clientId);
-
-    var html = '<iframe src="' + url + '" style="width:100%;height:80vh;border:0;display:block"></iframe>';
-    log('открываю конструктор', { deal_id: dealId, client_id: clientId });
-
-    try {
-      if (w && typeof w.openPage === 'function') {
-        w.openPage({ content: html }).catch(function (e) {
-          log('openPage не сработал', e);
-          if (w && typeof w.openModal === 'function') {
-            w.openModal({ title: 'Коммерческое предложение', content: html, width: 1250 });
-          }
-        });
-        return;
-      }
-      if (w && typeof w.openModal === 'function') {
-        w.openModal({ title: 'Коммерческое предложение', content: html, width: 1250 });
-        return;
-      }
-      window.open(url, '_blank');
-    } catch (e) { window.open(url, '_blank'); }
-  }
-
-  function register() {
-    w = window.EnvyCrmWidget;
-    if (!w) { log('EnvyCrmWidget не найдена'); return; }
-
-    window.addEventListener('message', function (e) {
-      if (e.data && e.data.type === 'kp-btn:click') openConstructor();
-    }, false);
-
-    try {
-      /* ОДНА кнопка. Имя и заголовок — как в рабочей v32.
-         Несколько кнопок в одном слоте position гасят друг друга. */
-      w.init({
-        'deal-btn': function (params) {
-          dealId   = getParam(params, ['dealID', 'deal_id', 'dealId']);
-          clientId = getParam(params, ['clientID', 'client_id', 'clientId']);
-          log('сделка', { deal_id: dealId, client_id: clientId });
-
-          return [{
-            title: 'Сформировать КП',
-            styles: { color: '#fff', 'background-color': '#2F6BFF' },
-            icon: 'md-description',
-            clickEventName: 'kp-btn:click',
-            position: ['first'],
-            name: 'kp-btn-final-32'
-          }];
-        }
-      });
-      log('кнопка зарегистрирована');
-    } catch (e) { log('ошибка регистрации', e); }
-  }
-
-  function wait(n) {
-    n = n || 0;
-    if (window.EnvyCrmWidget) { register(); return; }
-    if (n >= 100) { log('библиотека не загрузилась'); return; }
-    setTimeout(function () { wait(n + 1); }, 100);
-  }
-
-  log('виджет ' + VERSION + ' запущен');
-  wait(0);
-})();
+  /* перенаправление на конструктор с сохранением deal_id и client_id */
+  location.replace('kp-constructor.html' + location.search);
 </script>
 </body>
 </html>
