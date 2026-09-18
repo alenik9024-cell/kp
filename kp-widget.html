@@ -13,10 +13,9 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v27';
-
+  var VERSION = 'v28';
   var AUTO_URL =
-    'https://alenik9024-cell.github.io/kp/kp-auto.html?v=27';
+    'https://alenik9024-cell.github.io/kp/kp-auto.html?v=28';
 
   var widget = null;
   var dealId = '';
@@ -49,27 +48,6 @@
     return '';
   }
 
-  function closeOldWidgets() {
-    if (!widget || !widget.closeWidget) {
-      return;
-    }
-
-    [
-      ['deal-btn', 'kp-btn-1'],
-      ['deal-btn', 'kp-btn-final-1'],
-      ['deal-btn', 'kp-btn-final-27'],
-      ['sidebar-item', 'kp-sidebar-1'],
-      ['sidebar-item', 'kp-side-1']
-    ].forEach(function (item) {
-      try {
-        widget.closeWidget({
-          type: item[0],
-          name: item[1]
-        });
-      } catch (e) {}
-    });
-  }
-
   function openConstructor() {
     var url =
       AUTO_URL +
@@ -78,7 +56,7 @@
       '&client_id=' +
       encodeURIComponent(clientId);
 
-    var iframe =
+    var html =
       '<iframe src="' + url + '"' +
       ' style="width:100%;height:calc(100vh - 60px);' +
       'min-height:650px;border:0"' +
@@ -95,7 +73,7 @@
         typeof widget.openPage === 'function'
       ) {
         widget.openPage({
-          content: iframe
+          content: html
         }).catch(function (error) {
           log('openPage не сработал', error);
 
@@ -105,7 +83,7 @@
           ) {
             widget.openModal({
               title: 'Конструктор КП',
-              content: iframe,
+              content: html,
               width: 1150
             });
           }
@@ -120,7 +98,7 @@
       ) {
         widget.openModal({
           title: 'Конструктор КП',
-          content: iframe,
+          content: html,
           width: 1150
         });
 
@@ -128,6 +106,7 @@
       }
 
       window.open(url, '_blank');
+
     } catch (error) {
       log('ошибка открытия', error);
       window.open(url, '_blank');
@@ -143,7 +122,6 @@
     }
 
     log('библиотека найдена');
-    closeOldWidgets();
 
     window.addEventListener(
       'message',
@@ -186,12 +164,13 @@
             icon: 'md-description',
             clickEventName: 'kp-btn:click',
             position: ['first'],
-            name: 'kp-btn-final-27'
+            name: 'kp-btn-final-28'
           }];
         }
       });
 
       log('кнопка зарегистрирована');
+
     } catch (error) {
       log('ошибка регистрации', error);
     }
