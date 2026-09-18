@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <title>КП — виджет</title>
 
-<!-- ОБЯЗАТЕЛЬНО: путь подключения библиотеки из документации EnvyCRM.
-     Должен стоять ДО нашего кода. -->
+<!-- Путь подключения библиотеки из документации EnvyCRM.
+     Без этой строки window.EnvyCrmWidget отсутствует и init() не работает. -->
 <script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 
 <style>
@@ -32,27 +32,46 @@
   var st  = document.getElementById('st');
   var btn = document.getElementById('kpBtn');
 
-  var dealId = '', clientId = '', state = '—';
+  var dealId = '', clientId = '';
+  var registered = false, libSeen = false;
 
-  function log(m, d) { try { console.log('[KP v50] ' + m, d || ''); } catch (e) {} }
+  function log(m, d) { try { console.log('[KP v51] ' + m, d || ''); } catch (e) {} }
   function W() { return window.EnvyCrmWidget; }
 
-  /* ---------- открытие конструктора ---------- */
-  function open() {
-    /* getDeal() — метод из документации, без параметров */
-    var p = Promise.resolve();
-    try {
-      if (W() && typeof W().getDeal === 'function') {
-        p = W().getDeal().then(function (deal) {
-          deal = deal || {};
-          dealId   = String(deal.id || deal.deal_id || dealId || '');
-          clientId = String(deal.client_id || deal.clientId || clientId || '');
-          log('getDeal', deal);
-        }).catch(function (e) { log('getDeal ошибка', e); });
-      }
-    } catch (e) { log('getDeal исключение', e); }
+  /* ---------- ID сделки: getDeal() из документации ---------- */
+  function readIds() {
+    return new Promise(function (res) {
+      var w = W();
+      if (!w || typeof w.getDeal !== 'function') { res(); return; }
+      try {
+        var r = w.getDeal();
+        if (r && typeof r.then === 'function') {
+          r.then(function (d) {
+            d = d || {};
+            dealId   = String(d.id || d.deal_id || dealId || '');
+            clientId = String(d.client_id || d.clientId || clientId || '');
+            log('getDeal', { deal_id: dealId, client_id: clientId });
+            res();
+          }).catch(function (e) { log('getDeal ошибка', e); res(); });
+        } else res();
+      } catch (e) { log('getDeal исключение', e); res(); }
+    });
+  }
 
-    p.then(function () {
+  /* ---------- открытие конструктора ---------- */
+  function fallback(content, url) {
+    var w = W();
+    try {
+      if (w && typeof w.openModal === 'function') {
+        w.openModal({ title: 'Коммерческое предложение', content: content, width: 1250 });
+        return;
+      }
+    } catch (e) { log('openModal исключение', e); }
+    window.open(url, '_blank');
+  }
+
+  function open() {
+    readIds().then(function () {
       var url = CONSTRUCTOR_URL +
         (dealId   ? '?deal_id='   + encodeURIComponent(dealId)   : '?') +
         (clientId ? '&client_id=' + encodeURIComponent(clientId) : '');
@@ -62,45 +81,36 @@
 
       log('открываю конструктор', url);
 
+      var w = W();
       try {
-        /* openPage — режим страницы (из документации) */
-        if (W() && typeof W().openPage === 'function') {
-          var r = W().openPage({ content: content });
+        if (w && typeof w.openPage === 'function') {
+          var r = w.openPage({ content: content });
           if (r && typeof r.catch === 'function') {
-            r.catch(function (e) {
-              log('openPage не сработал', e);
-              if (W() && typeof W().openModal === 'function') {
-                W().openModal({ title: 'Коммерческое предложение', content: content, width: 1250 });
-              } else { window.open(url, '_blank'); }
-            });
+            r.catch(function (e) { log('openPage не сработал', e); fallback(content, url); });
           }
           return;
         }
-        if (W() && typeof W().openModal === 'function') {
-          W().openModal({ title: 'Коммерческое предложение', content: content, width: 1250 });
-          return;
-        }
-      } catch (e) { log('ошибка открытия', e); }
+      } catch (e) { log('openPage исключение', e); }
 
-      window.open(url, '_blank');
+      fallback(content, url);
     });
   }
 
-  /* кнопка внутри панели расширения */
   btn.addEventListener('click', open);
 
-  /* ---------- события клика: как в документации ---------- */
-  window.addEventListener('message', function (event) {
-    if (event.data && event.data.hasOwnProperty('type') && event.data.type === 'kp-btn:click') {
-      log('кнопка в шапке нажата');
+  /* ---------- событие клика по кнопке в шапке ---------- */
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'kp-btn:click') {
+      log('кнопка нажата');
       open();
     }
   }, false);
 
-  /* ---------- регистрация кнопки сделки ---------- */
+  /* ---------- регистрация кнопки ---------- */
   function register() {
     var w = W();
-    if (!w || typeof w.init !== 'function') { state = 'библиотеки нет'; return; }
+    if (!w || typeof w.init !== 'function') return false;
+    if (registered) return true;
 
     try {
       w.init({
@@ -108,7 +118,7 @@
           params = params || {};
           dealId   = String(params.dealID   || params.deal_id   || params.dealId   || dealId   || '');
           clientId = String(params.clientID || params.client_id || params.clientId || clientId || '');
-          log('params кнопки', params);
+          log('params', { deal_id: dealId, client_id: clientId });
 
           return [{
             title: 'Сформировать КП',
@@ -120,29 +130,34 @@
           }];
         }
       });
-      state = 'init вызван';
+      registered = true;
       log('кнопка зарегистрирована');
-    } catch (e) { state = 'ошибка init: ' + e; log('ошибка init', e); }
+      return true;
+    } catch (e) { log('ошибка init', e); return false; }
   }
 
-  /* ---------- состояние на экране ---------- */
   function show() {
     st.innerHTML =
-      'Библиотека: <b class="' + (W() ? 'ok' : 'err') + '">' + (W() ? 'загружена' : 'НЕ загружена') + '</b><br>' +
-      'init: <b>' + state + '</b><br>' +
+      'Библиотека: <b class="' + (W() ? 'ok' : 'err') + '">' + (W() ? 'загружена' : 'ожидание…') + '</b><br>' +
+      'Кнопка в шапке: <b>' + (registered ? 'зарегистрирована' : 'нет') + '</b><br>' +
       'Сделка: <b>' + (dealId || '—') + '</b> · Клиент: <b>' + (clientId || '—') + '</b>';
   }
 
-  function wait(n) {
-    n = n || 0;
-    if (W()) { register(); show(); return; }
-    if (n >= 60) { state = 'библиотека не загрузилась'; show(); return; }
-    setTimeout(function () { wait(n + 1); }, 100);
-  }
+  /* библиотека грузится с задержкой — ждём до 120 секунд, регистрируем при появлении */
+  var tries = 0;
+  var iv = setInterval(function () {
+    tries++;
+    if (W()) {
+      if (!libSeen) { libSeen = true; log('библиотека появилась, попытка ' + tries); }
+      register();
+      if (registered) { readIds().then(show); clearInterval(iv); return; }
+    }
+    if (tries % 10 === 0) show();
+    if (tries > 1200) { clearInterval(iv); log('библиотека не появилась за 120 с'); show(); }
+  }, 100);
 
+  setTimeout(show, 300);
   log('запуск', { lib: !!W() });
-  wait(0);
-  setInterval(show, 2000);
 })();
 </script>
 </body>
