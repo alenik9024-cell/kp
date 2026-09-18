@@ -18,6 +18,7 @@
 html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--txt);font:14px/1.5 "Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif;-webkit-font-smoothing:antialiased}
 .app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
 .appbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 18px;
   background:linear-gradient(90deg,#0B1220,#0E1729);border-bottom:1px solid var(--line)}
 .appbrand{display:flex;align-items:center;gap:12px}
@@ -34,10 +35,12 @@ body{background:var(--bg);color:var(--txt);font:14px/1.5 "Inter","Segoe UI",syst
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.dashed{border-style:dashed;width:100%;margin-top:8px;background:transparent;color:var(--blue-l)}
 .btn.mini{padding:4px 8px;font-size:12px;line-height:1}
+
 .main{flex:1;display:grid;grid-template-columns:470px 1fr;min-height:0}
 .editor{overflow:auto;padding:16px;background:var(--panel);border-right:1px solid var(--line)}
 .preview{overflow:auto;padding:26px 20px 60px;background:radial-gradient(1200px 520px at 70% -10%,rgba(47,107,255,.16),transparent 60%),#080C13}
 @media(max-width:1180px){.main{grid-template-columns:1fr}.editor{max-height:52vh;border-right:0;border-bottom:1px solid var(--line)}}
+
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden}
 .card>summary{cursor:pointer;list-style:none;padding:12px 14px;font-weight:600;font-size:13px;
   display:flex;align-items:center;gap:8px;background:#111A28}
@@ -55,6 +58,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 textarea{resize:vertical;min-height:62px;line-height:1.5}
 textarea.big{min-height:130px}
 .hint{font-size:11.5px;color:var(--mut);margin:0 0 10px;line-height:1.5}
+
 .row{background:#0E1725;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
 .row-head{display:flex;gap:8px;align-items:center;margin-bottom:8px}
 .row-head .n{width:22px;height:22px;border-radius:6px;background:#16233A;color:var(--blue-l);
@@ -64,6 +68,8 @@ textarea.big{min-height:130px}
 .ctrl.c3{grid-template-columns:1.1fr 1fr 1.1fr}
 .ctrl .full{grid-column:1/-1}
 .ctrl .cell label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);margin-bottom:3px}
+select.period.on{color:#7FE0B0;border-color:#2C6A52;background:#0E2119}
+select.period.yr{color:#FFD98A;border-color:#6A5725;background:#211D0E}
 .picker{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px}
 .packs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 .packs button{font-size:11.5px;padding:6px 10px;border-radius:20px;border:1px solid #24406F;
@@ -73,11 +79,14 @@ textarea.big{min-height:130px}
   border-bottom:1px solid #18233A}
 .chk:last-of-type{border-bottom:0}
 .chk input{width:auto;accent-color:var(--blue)}
+
+/* ---- внешний вид ---- */
 .themes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .themes button{display:flex;gap:9px;align-items:center;padding:7px;border-radius:10px;border:1px solid var(--line);
   background:#0E1725;color:#C6D2E6;cursor:pointer;font:inherit;font-size:11.5px;text-align:left}
 .themes button.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(47,107,255,.22);color:#fff}
 .themes .sw{width:38px;height:30px;border-radius:7px;flex:0 0 auto;border:1px solid rgba(255,255,255,.14)}
+
 .bgs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:4px}
 .bgs button{border:1px solid var(--line);border-radius:9px;padding:0;cursor:pointer;height:54px;position:relative;
   overflow:hidden;background:#0E1725}
@@ -85,11 +94,15 @@ textarea.big{min-height:130px}
 .bgs button i{display:block;position:absolute;inset:0}
 .bgs button b{position:relative;z-index:2;font-size:9px;font-weight:700;color:#fff;height:100%;
   display:grid;place-items:end center;padding:0 3px 5px;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.bgs button.darklabel b{color:#1A2438;text-shadow:0 1px 2px rgba(255,255,255,.8)}
 .bgs .delbg{position:absolute;top:3px;right:3px;z-index:3;width:17px;height:17px;border-radius:5px;
   border:1px solid rgba(255,255,255,.35);background:rgba(10,16,28,.72);color:#fff;font-size:11px;line-height:1;
   cursor:pointer;display:grid;place-items:center;padding:0}
+.bgs .delbg:hover{background:#C0392B;border-color:#C0392B}
 .colorbar{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
 .colorbar input[type=color]{height:36px;padding:3px;cursor:pointer}
+
+/* ---- пользовательский каталог ---- */
 .ucat-grp{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin:10px 0 5px}
 .ucat-row{display:flex;flex-wrap:wrap;gap:5px}
 .chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:4px 4px 4px 9px;border-radius:20px;
@@ -97,28 +110,34 @@ textarea.big{min-height:130px}
 .chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
 .chip button{border:0;background:transparent;color:var(--mut);cursor:pointer;font-size:13px;line-height:1;padding:0 4px}
 .chip button:hover{color:#FF8A8A}
-.log{margin-top:10px;font-size:11.5px;color:var(--mut);white-space:pre-wrap;word-break:break-word;
-  background:#0A111C;border:1px solid var(--line);border-radius:8px;padding:9px;max-height:220px;
-  overflow:auto;font-family:ui-monospace,Consolas,monospace}
-.log b{color:#7FE0B0;font-weight:400}
-.log i{color:#FF9E9E;font-style:normal}
+
+/* тост */
 .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,26px);opacity:0;pointer-events:none;
   background:linear-gradient(135deg,#17B978,#0E8A58);color:#fff;font-size:12.5px;font-weight:600;
   padding:10px 18px;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.45);transition:.25s;z-index:99}
 .toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ================= ДОКУМЕНТ ================= */
 .doc{width:210mm;min-height:297mm;margin:0 auto;padding:12mm;position:relative;overflow:hidden;
   color:var(--dtxt);background:linear-gradient(160deg,var(--doc1),var(--doc2) 52%,var(--doc3));
   border:1px solid rgba(var(--lineRgb),.26);border-radius:10px;box-shadow:0 34px 90px rgba(0,0,0,.65);
   -webkit-print-color-adjust:exact;print-color-adjust:exact}
 .doc::before{content:"";position:absolute;inset:0 0 auto 0;height:6px;background:var(--stripe)}
 .doc > *{position:relative;z-index:1}
+
 .dhead{position:relative;overflow:hidden;border:1px solid rgba(var(--lineRgb),.26);border-radius:16px;
   padding:22px 24px 18px;display:grid;grid-template-columns:1fr auto;gap:18px 22px;
   background:linear-gradient(120deg,rgba(var(--accRgb),.20),var(--surf2))}
+.dhead::before{content:"";position:absolute;left:-12%;top:-120%;width:52%;height:320%;
+  background:radial-gradient(circle,rgba(var(--liteRgb),.55),rgba(var(--liteRgb),0) 68%);
+  filter:blur(46px);opacity:var(--glow);pointer-events:none}
+.dhead::after{content:"";position:absolute;right:-10%;bottom:-160%;width:46%;height:300%;
+  background:radial-gradient(circle,rgba(var(--accRgb),.42),rgba(var(--accRgb),0) 70%);
+  filter:blur(52px);opacity:var(--glow);pointer-events:none}
 .dhead>*{position:relative;z-index:2}
 .brand{display:flex;gap:16px;align-items:center}
 .brand .logo{width:64px;height:64px;border-radius:16px;display:grid;place-items:center;font-weight:800;font-size:28px;color:#fff;
-  background:linear-gradient(135deg,var(--blue),var(--blue-d))}
+  background:linear-gradient(135deg,var(--blue),var(--blue-d));box-shadow:0 12px 30px rgba(var(--accRgb),.42)}
 .brand h1{margin:0;font-size:27px;line-height:1.15;color:var(--dhtxt)}
 .brand p{margin:5px 0 0;font-size:12px;color:var(--dmut);max-width:330px;line-height:1.4}
 .dmeta{text-align:right;font-size:12px;color:var(--dmut);line-height:1.7}
@@ -127,10 +146,12 @@ textarea.big{min-height:130px}
 .hline{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;padding-top:14px;border-top:1px solid var(--dline)}
 .hline span{font-size:11px;font-weight:600;color:var(--dtxt);background:rgba(var(--accRgb),.14);
   border:1px solid rgba(var(--lineRgb),.28);border-radius:20px;padding:5px 11px}
+
 .recip{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;font-size:12px}
 .recip>div{border:1px solid var(--dline);border-radius:10px;padding:10px 12px;background:var(--surf)}
 .recip .l{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--dmut);margin-bottom:3px}
 .intro{margin-top:16px;font-size:12.5px;color:var(--dbody);white-space:pre-line}
+
 .sec{margin-top:22px}
 .sec>h2{margin:0 0 11px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--dhtxt);
   display:flex;align-items:center;gap:9px}
@@ -138,10 +159,18 @@ textarea.big{min-height:130px}
 .sec>h2 span{color:var(--dmut);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px}
 .empty{border:1px dashed rgba(var(--lineRgb),.35);border-radius:12px;padding:16px;font-size:12px;color:var(--dmut);
   background:var(--surf);text-align:center}
+
 .svc{position:relative;overflow:hidden;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:flex-start;
   border:1px solid rgba(var(--lineRgb),.24);border-radius:14px;padding:14px 16px;margin-bottom:10px;
   background:linear-gradient(100deg,rgba(var(--accRgb),.12),var(--surf));break-inside:avoid}
 .svc.prt{border-color:rgba(var(--acc2Rgb),.34);background:linear-gradient(100deg,rgba(var(--acc2Rgb),.12),var(--surf2))}
+.svc::before{content:"";position:absolute;left:-14%;top:-130%;width:58%;height:330%;
+  background:radial-gradient(circle,rgba(var(--liteRgb),.60),rgba(var(--liteRgb),0) 66%);
+  filter:blur(38px);opacity:var(--glow);pointer-events:none}
+.svc::after{content:"";position:absolute;right:-12%;bottom:-170%;width:50%;height:320%;
+  background:radial-gradient(circle,rgba(var(--accRgb),.42),rgba(var(--accRgb),0) 70%);
+  filter:blur(44px);opacity:var(--glow);pointer-events:none}
+.svc.prt::before{background:radial-gradient(circle,rgba(var(--acc2Rgb),.5),rgba(var(--acc2Rgb),0) 66%)}
 .svc>*{position:relative;z-index:2}
 .svc .t{font-weight:650;font-size:13.5px;color:var(--dhtxt);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
 .svc .n{font-size:10.5px;color:var(--blue-l);border:1px solid rgba(var(--lineRgb),.45);background:var(--surf2);
@@ -158,20 +187,29 @@ textarea.big{min-height:130px}
 .tag.year{background:rgba(var(--acc2Rgb),.18);color:var(--blue-d);border:1px solid rgba(var(--acc2Rgb),.4)}
 .tag.proj{background:rgba(122,90,240,.18);color:#5B34C4;border:1px solid rgba(122,90,240,.35)}
 .tag.share{background:rgba(var(--acc2Rgb),.18);color:var(--blue-d);border:1px solid rgba(var(--acc2Rgb),.4)}
+
 .pnote{margin-top:8px;border:1px solid rgba(var(--acc2Rgb),.28);border-radius:12px;padding:12px 14px;font-size:11.5px;
   color:var(--dbody);white-space:pre-line;background:rgba(var(--acc2Rgb),.06)}
+
 .totals{border:1px solid rgba(var(--lineRgb),.32);border-radius:13px;overflow:hidden;margin-top:12px;
   background:rgba(var(--accRgb),.07);break-inside:avoid}
+.totals .grp{padding:9px 14px;font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;
+  color:var(--dhtxt);background:rgba(var(--accRgb),.22)}
 .totals .r{display:flex;justify-content:space-between;gap:14px;align-items:baseline;padding:9px 14px;font-size:12.5px;
   color:var(--dbody);border-bottom:1px solid var(--dline)}
 .totals .r b{font-size:13px;color:var(--dhtxt)}
+.totals .r b.blue{color:var(--blue)}
 .totals .r.sum{background:rgba(var(--accRgb),.14);font-weight:700}
+.totals .r.sum span{color:var(--dhtxt)}
+.totals .r.sum b{font-size:14px}
 .totals .r:last-child{border-bottom:0}
 .totals .note{padding:9px 14px;font-size:10.5px;color:var(--dmut);background:var(--surf);border-top:1px solid var(--dline)}
+
 .exblock{margin-bottom:10px;border:1px solid var(--dline);border-radius:12px;overflow:hidden;
   background:var(--surf);break-inside:avoid}
 .exblock .cap{padding:9px 12px;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--blue);
-  background:rgba(var(--accRgb),.13);border-bottom:1px solid var(--dline)}
+  background:rgba(var(--accRgb),.13);border-bottom:1px solid var(--dline);display:flex;justify-content:space-between;gap:10px}
+.exblock .cap b{color:var(--dhtxt)}
 table{width:100%;border-collapse:collapse;font-size:11.5px}
 th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--dmut);
   padding:8px 12px;border-bottom:1px solid var(--dline);background:var(--surf);font-weight:600}
@@ -181,14 +219,17 @@ th:last-child,td:last-child{text-align:right;white-space:nowrap}
 td:last-child{color:var(--dhtxt);font-weight:650}
 td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-top:2px}
 .soft{margin-top:6px;font-size:10.5px;color:var(--dmut)}
+
 .terms{border:1px solid var(--dline);border-radius:12px;padding:13px 15px;font-size:11.5px;
   color:var(--dbody);white-space:pre-line;background:var(--surf);break-inside:avoid}
+
 .dfoot{margin-top:24px;padding-top:15px;border-top:1px solid var(--dline)}
 .contacts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .contacts .c{border:1px solid var(--dline);border-radius:10px;padding:10px;background:var(--surf)}
 .contacts .l{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--dmut);margin-bottom:3px}
 .contacts .v{font-size:11.5px;font-weight:650;color:var(--dhtxt);word-break:break-word}
 .req{margin-top:10px;font-size:10.5px;color:var(--dmut);white-space:pre-line}
+
 @media print{
   @page{size:A4;margin:0}
   html,body{height:auto;background:var(--doc2)}
@@ -214,6 +255,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
       <label class="btn" style="display:inline-flex;align-items:center">Загрузить
         <input type="file" id="fileImport" accept=".json,application/json" hidden>
       </label>
+      <button class="btn primary" id="btnPrint">Печать / PDF</button>
     </div>
   </header>
 
@@ -221,31 +263,9 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
     <aside class="editor no-print" id="editor">
 
       <details class="card" open>
-        <summary>КП из сделки — одна кнопка</summary>
-        <div class="body">
-          <p class="hint"><b>Телефон обязателен.</b> По нему программа находит сделку и кладёт туда КП, даже если открыта карточка другого клиента. Если сделок несколько — берётся та, что открыта в CRM сейчас.</p>
-          <label class="f">Телефон клиента (обязательно)<input id="kpPhone" placeholder="8 903 313-08-751" inputmode="tel"></label>
-          <div class="grid2" style="margin-top:10px">
-            <label class="f">Адрес CRM<input id="kpHost"></label>
-            <label class="f">Ключ API<input id="kpKey"></label>
-            <label class="f">Поле «КП (файл)» — input_id<input id="kpFile" inputmode="numeric" placeholder="найдётся кнопкой"></label>
-            <label class="f">Поле «КП» текст — input_id<input id="kpNumId" inputmode="numeric" placeholder="необязательно"></label>
-          </div>
-          <label class="chk"><input type="checkbox" id="kpWriteNum" checked> Записывать номер КП в текстовое поле</label>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
-            <button class="btn primary" id="kpRun">Сформировать КП</button>
-            <button class="btn" id="kpFind">Найти поля</button>
-            <button class="btn" id="kpTest">Проверить API</button>
-            <button class="btn" id="kpSaveCfg">Сохранить настройки</button>
-          </div>
-          <div class="log" id="kpLog">журнал пуст</div>
-        </div>
-      </details>
-
-      <details class="card" open>
         <summary>1. Внешний вид: цвет и фон</summary>
         <div class="body">
-          <p class="hint"><b>Фон бланка</b> — по умолчанию белый. Свой цвет можно сохранить как вариант (до 3).</p>
+          <p class="hint" style="margin-bottom:6px"><b>Фон бланка</b> — по умолчанию белый. Свой цвет можно сохранить как вариант (до 3).</p>
           <div class="bgs" id="bgs"></div>
           <div class="colorbar" style="margin-top:10px">
             <label class="f" style="margin:0">Свой фон (база)<input type="color" data-bind="bgCustom"></label>
@@ -255,7 +275,8 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
             <button class="btn" id="btnBgSave">Сохранить фон как вариант</button>
             <span class="hint" id="bgNote" style="margin:0"></span>
           </div>
-          <p class="hint" style="margin:14px 0 6px"><b>Цветовая схема</b>:</p>
+
+          <p class="hint" style="margin:14px 0 6px"><b>Цветовая схема</b> — акцент для цифр, заголовков и карточек:</p>
           <div class="themes" id="themes"></div>
           <div class="colorbar" style="margin-top:10px">
             <label class="f" style="margin:0">Свой акцент<input type="color" data-bind="themeAccent"></label>
@@ -275,7 +296,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
             <label class="f">Дата<input type="date" data-bind="docDate"></label>
             <label class="f">Действительно, дней<input type="number" min="0" data-bind="validDays"></label>
             <label class="f">Кому (заказчик)<input data-bind="client" placeholder="ООО «...»"></label>
-            <label class="f">Контакт (телефон)<input data-bind="clientContact"></label>
+            <label class="f">Должность / контакт<input data-bind="clientContact"></label>
             <label class="f full">От кого (исполнитель)<input data-bind="from"></label>
             <label class="f full">Вступительный текст<textarea data-bind="intro"></textarea></label>
             <label class="f full">Реквизиты исполнителя<textarea data-bind="requisites"></textarea></label>
@@ -286,7 +307,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
       <details class="card" open>
         <summary>3. Наши услуги <span class="badge" id="cntServices">0</span></summary>
         <div class="body">
-          <p class="hint">Кнопка <b>★</b> сохраняет позицию в «Мой каталог».</p>
+          <p class="hint">Типы цены: фиксированная, «от», доля в %, по запросу, без цены. Кнопка <b>★</b> на карточке сохраняет позицию в каталог.</p>
           <div class="picker">
             <select id="svcPick"></select>
             <button class="btn primary" id="btnAddSvc">Добавить</button>
@@ -301,22 +322,23 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
       <details class="card" open>
         <summary>4. Условия партнёрства <span class="badge" id="cntPartner">0</span></summary>
         <div class="body">
-          <p class="hint">Если блок включён (пункт 8), в «Условия работы» автоматически добавляется пункт 7. Выключен — пункта 7 нет.</p>
+          <p class="hint">Партнёрская схема только по AI-агенту: партнёр продаёт — мы внедряем, вознаграждение до 50% от стоимости внедрения.</p>
           <div class="picker">
             <select id="prtPick"></select>
             <button class="btn primary" id="btnAddPrt">Добавить</button>
           </div>
+          <p class="hint" style="margin-bottom:6px">Или добавьте всю категорию:</p>
           <div class="packs" id="prtPacks"></div>
           <div data-list="partner" id="partnerEditor"></div>
           <button class="btn dashed" id="btnAddPartner">+ Пустое условие партнёрства</button>
-          <label class="f" style="margin-top:12px">Текст пункта 7<textarea data-bind="partnerNote"></textarea></label>
+          <label class="f" style="margin-top:12px">Общее условие под блоком (текст)<textarea data-bind="partnerNote"></textarea></label>
         </div>
       </details>
 
       <details class="card" open>
         <summary>5. Сопутствующие расходы <span class="badge" id="cntExtras">0</span></summary>
         <div class="body">
-          <p class="hint">Клиент оплачивает напрямую поставщикам.</p>
+          <p class="hint">Клиент оплачивает напрямую поставщикам. Ваши статьи — в группе «Основные».</p>
           <div class="picker">
             <select id="extPick"></select>
             <button class="btn primary" id="btnAddExt">Добавить</button>
@@ -331,17 +353,14 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
       <details class="card" open>
         <summary>6. Мой каталог</summary>
         <div class="body">
-          <p class="hint">Позиции, сохранённые кнопкой ★.</p>
+          <p class="hint">Позиции, сохранённые кнопкой ★. Появляются в списках выше отдельной группой и доступны всем вашим КП.</p>
           <div id="userCatBox"></div>
         </div>
       </details>
 
       <details class="card" open>
-        <summary>7. Условия работы (пункты 1–6)</summary>
-        <div class="body">
-          <textarea class="big" data-bind="terms"></textarea>
-          <p class="hint" style="margin-top:8px">Пункт 7 добавляется автоматически, только если включён блок «Условия партнёрства».</p>
-        </div>
+        <summary>7. Условия работы</summary>
+        <div class="body"><textarea class="big" data-bind="terms"></textarea></div>
       </details>
 
       <details class="card" open>
@@ -349,7 +368,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
         <div class="body">
           <label class="chk"><input type="checkbox" data-bind="showIntro"> Вступительный текст</label>
           <label class="chk"><input type="checkbox" data-bind="showServices"> Блок «Наши услуги»</label>
-          <label class="chk"><input type="checkbox" data-bind="showPartner"> Блок «Условия партнёрства» + пункт 7</label>
+          <label class="chk"><input type="checkbox" data-bind="showPartner"> Блок «Условия партнёрства»</label>
           <label class="chk"><input type="checkbox" data-bind="showExtras"> Блок «Сопутствующие расходы»</label>
           <label class="chk"><input type="checkbox" data-bind="showTotals"> Блок «Итоги»</label>
           <label class="chk"><input type="checkbox" data-bind="showTerms"> Блок «Условия работы»</label>
@@ -366,11 +385,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
 
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
 <script>
-/* ============ ЧАСТЬ 1. КОНСТРУКТОР ============ */
 var $ = function(s){ return document.querySelector(s); };
 var uid = function(){ return Math.random().toString(36).slice(2,9); };
 var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
@@ -381,10 +396,14 @@ var parseNum = function(v){ var n = Number(String(v == null ? '' : v).replace(/[
 var money = function(n){ return nf.format(n) + ' \u20BD'; };
 
 function toast(msg){
-  var el = $('#toast'); el.textContent = msg; el.classList.add('show');
-  clearTimeout(el._t); el._t = setTimeout(function(){ el.classList.remove('show'); }, 2800);
+  var el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.classList.remove('show'); }, 2200);
 }
 
+/* ================= цвет ================= */
 function hexToRgb(h){
   h = String(h || '').replace('#','');
   if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
@@ -402,20 +421,35 @@ function mixRgb(a,b,k){ return [a[0]+(b[0]-a[0])*k, a[1]+(b[1]-a[1])*k, a[2]+(b[
 function trip(a){ return a.map(function(v){ return Math.round(Math.max(0, Math.min(255, v))); }).join(','); }
 function lum(a){ return (0.299*a[0] + 0.587*a[1] + 0.114*a[2]) / 255; }
 
+/* фон по умолчанию — белый; остальное это сохранённые варианты и «свой» */
 var PAPER = ['#FFFFFF','#F4F7FC','#FBFCFF'];
+
+/* тройка оттенков из базового цвета: светлый → базовый → средний */
 function trio(baseHex){
   var b = hexToRgb(baseHex);
-  return [ rgbToHex(mixRgb(b,[255,255,255],.06)), baseHex, rgbToHex(mixRgb(b,[0,0,0],.28)) ];
+  return [
+    rgbToHex(mixRgb(b,[255,255,255],.06)),
+    baseHex,
+    rgbToHex(mixRgb(b,[0,0,0],.28))
+  ];
+}
+function bgCss(base){
+  var c = trio(base);
+  return 'linear-gradient(160deg,' + c[0] + ',' + c[1] + ' 55%,' + c[2] + ')';
 }
 function savedBg(id){
-  var found = null; (state.bgSaves || []).forEach(function(x){ if (x.id === id) found = x; }); return found;
+  var found = null;
+  (state.bgSaves || []).forEach(function(x){ if (x.id === id) found = x; });
+  return found;
 }
 function bgColors(){
   if (state.bgId === 'custom') return trio(state.bgCustom || '#101A2E');
-  var sv = savedBg(state.bgId); if (sv) return trio(sv.base);
+  var sv = savedBg(state.bgId);
+  if (sv) return trio(sv.base);
   return PAPER.slice();
 }
 
+/* цветовые схемы (только акцент) */
 var THEMES = {
   navy:    { name:'Голубой и синий',      accent:'#2F6BFF', stripe:'#7FD1FF' },
   gold:    { name:'Золото и графит',      accent:'#C9A227', stripe:'#F0DDA0' },
@@ -432,33 +466,52 @@ function applyTheme(){
   var accent = state.themeAccent || t.accent;
   var stripe = state.themeStripe || t.stripe;
   var bg = bgColors();
+
   var a = hexToRgb(accent), s = hexToRgb(stripe);
   var isLight = lum(hexToRgb(bg[1])) > 0.58;
+
   var aL = isLight ? rgbToHex(mixRgb(a,[0,0,0],.22)) : rgbToHex(mixRgb(a,[255,255,255],.40));
   var aD = rgbToHex(mixRgb(a,[0,0,0],.48));
   var lineRgb = isLight ? mixRgb(a,[0,0,0],.30) : mixRgb(a,[255,255,255],.55);
   var liteRgb = isLight ? mixRgb(a,[255,255,255],.35) : mixRgb(a,[255,255,255],.28);
+
   var el = $('#doc');
-  el.style.setProperty('--doc1', bg[0]); el.style.setProperty('--doc2', bg[1]); el.style.setProperty('--doc3', bg[2]);
-  el.style.setProperty('--accRgb', trip(a)); el.style.setProperty('--acc2Rgb', trip(s));
-  el.style.setProperty('--lineRgb', trip(lineRgb)); el.style.setProperty('--liteRgb', trip(liteRgb));
-  el.style.setProperty('--blue', accent); el.style.setProperty('--blue-l', aL); el.style.setProperty('--blue-d', aD);
+  el.style.setProperty('--doc1', bg[0]);
+  el.style.setProperty('--doc2', bg[1]);
+  el.style.setProperty('--doc3', bg[2]);
+  el.style.setProperty('--accRgb', trip(a));
+  el.style.setProperty('--acc2Rgb', trip(s));
+  el.style.setProperty('--lineRgb', trip(lineRgb));
+  el.style.setProperty('--liteRgb', trip(liteRgb));
+  el.style.setProperty('--blue', accent);
+  el.style.setProperty('--blue-l', aL);
+  el.style.setProperty('--blue-d', aD);
   el.style.setProperty('--acc2', stripe);
   el.style.setProperty('--stripe', 'linear-gradient(90deg,' + aD + ',' + accent + ' 55%,' + stripe + ')');
+
   if (isLight){
-    el.style.setProperty('--dtxt', '#16223A'); el.style.setProperty('--dhtxt', '#0B1428');
-    el.style.setProperty('--dbody', '#35425C'); el.style.setProperty('--dmut', '#6B7893');
-    el.style.setProperty('--dline', 'rgba(12,24,46,.14)'); el.style.setProperty('--surf', 'rgba(255,255,255,.60)');
-    el.style.setProperty('--surf2', 'rgba(255,255,255,.85)'); el.style.setProperty('--glow', '.30');
+    el.style.setProperty('--dtxt', '#16223A');
+    el.style.setProperty('--dhtxt', '#0B1428');
+    el.style.setProperty('--dbody', '#35425C');
+    el.style.setProperty('--dmut', '#6B7893');
+    el.style.setProperty('--dline', 'rgba(12,24,46,.14)');
+    el.style.setProperty('--surf', 'rgba(255,255,255,.60)');
+    el.style.setProperty('--surf2', 'rgba(255,255,255,.85)');
+    el.style.setProperty('--glow', '.30');
   } else {
-    el.style.setProperty('--dtxt', '#E9EFFA'); el.style.setProperty('--dhtxt', '#FFFFFF');
-    el.style.setProperty('--dbody', '#C9D5EA'); el.style.setProperty('--dmut', '#9AA7BD');
-    el.style.setProperty('--dline', 'rgba(255,255,255,.10)'); el.style.setProperty('--surf', 'rgba(255,255,255,.03)');
-    el.style.setProperty('--surf2', 'rgba(255,255,255,.05)'); el.style.setProperty('--glow', '.60');
+    el.style.setProperty('--dtxt', '#E9EFFA');
+    el.style.setProperty('--dhtxt', '#FFFFFF');
+    el.style.setProperty('--dbody', '#C9D5EA');
+    el.style.setProperty('--dmut', '#9AA7BD');
+    el.style.setProperty('--dline', 'rgba(255,255,255,.10)');
+    el.style.setProperty('--surf', 'rgba(255,255,255,.03)');
+    el.style.setProperty('--surf2', 'rgba(255,255,255,.05)');
+    el.style.setProperty('--glow', '.60');
   }
   document.documentElement.style.setProperty('--doc2', bg[1]);
 }
 
+/* ================= модели ================= */
 function svc(t,d,m,p,per,note){
   return { id:uid(), title:t, desc:d, mode:m, price:String(p == null ? '' : p), period:per,
            priceNote:String(note == null ? '' : note), reqText:'По запросу' };
@@ -483,6 +536,7 @@ var CONTACTS = [
   { l:'Telegram', v:'t.me/novikovmentor' }
 ];
 
+/* ================= КАТАЛОГ УСЛУГ ================= */
 var SVC_CATALOG = {
   'Авито': [
     svc('Ведение личного кабинета Авито',
@@ -574,6 +628,7 @@ var SVC_CATALOG = {
   ]
 };
 
+/* ================= УСЛОВИЯ ПАРТНЁРСТВА ================= */
 var PRT_CATALOG = {
   'Партнёрство: AI-агент': [
     svc('Партнёрская схема: продаёте вы — внедряем мы',
@@ -582,6 +637,7 @@ var PRT_CATALOG = {
   ]
 };
 
+/* ================= СОПУТСТВУЮЩИЕ РАСХОДЫ ================= */
 var EXT_CATALOG = {
   'Основные': [
     ext('Лицензия CRM (EnvyBox / AmoCRM)', 'Оплата напрямую вендору CRM. Зависит от тарифа и числа пользователей.', 'request', '', 'month'),
@@ -603,10 +659,17 @@ var EXT_CATALOG = {
   ]
 };
 
-var K_UCAT = 'kp_user_catalog_v3';
+/* ================= МОЙ КАТАЛОГ ================= */
+var K_UCAT = 'kp_user_catalog_v1';
 var USER_CAT = { svc:[], prt:[], ex:[] };
-try { var d0 = JSON.parse(localStorage.getItem(K_UCAT)); if (d0 && d0.svc) USER_CAT = d0; } catch(_){}
+(function(){
+  try {
+    var d = JSON.parse(localStorage.getItem(K_UCAT));
+    if (d && d.svc) USER_CAT = d;
+  } catch(_){}
+})();
 function ucatSave(){ try { localStorage.setItem(K_UCAT, JSON.stringify(USER_CAT)); } catch(_){} }
+
 var CAT_GROUP = { svc:'Мои услуги', prt:'Моё партнёрство', ex:'Мои расходы' };
 var LIST2KIND = { services:'svc', partner:'prt', extras:'ex' };
 
@@ -618,30 +681,41 @@ function catalogFor(kind){
   return out;
 }
 function pushToUserCat(kind, item){
-  var clone = JSON.parse(JSON.stringify(item)); delete clone.id;
+  var clone = JSON.parse(JSON.stringify(item));
+  delete clone.id;
   var arr = USER_CAT[kind] || (USER_CAT[kind] = []);
-  var idx = -1; arr.forEach(function(x, i){ if (x.title === clone.title) idx = i; });
+  var idx = -1;
+  arr.forEach(function(x, i){ if (x.title === clone.title) idx = i; });
   if (idx >= 0) arr[idx] = clone; else arr.push(clone);
   ucatSave();
 }
 
+/* ================= состояние ================= */
 function defaults(){
   return {
-    theme:'navy', themeAccent:'', themeStripe:'', bgId:'paper', bgCustom:'#101A2E', bgSaves:[],
-    brand:'Платформа', brandSub:'Автоматизированная платформа продаж и ИИ-агентов',
-    docTitle:'Коммерческое предложение', docNumber:'', docDate:new Date().toISOString().slice(0,10), validDays:'14',
-    client:'', clientContact:'', from:'ИП Новикова Анна Ивановна · ИНН 701722216881 · ОГРНИП 325700000051823',
+    theme:'navy', themeAccent:'', themeStripe:'',
+    bgId:'paper', bgCustom:'#101A2E', bgSaves:[],
+    brand:'Платформа',
+    brandSub:'Автоматизированная платформа продаж и ИИ-агентов',
+    docTitle:'Коммерческое предложение',
+    docNumber:'КП-01/2026',
+    docDate: new Date().toISOString().slice(0,10),
+    validDays:'14',
+    client:'',
+    clientContact:'Директору',
+    from:'ИП Новикова Анна Ивановна · ИНН 701722216881 · ОГРНИП 325700000051823',
     intro:'Спасибо за интерес к сотрудничеству. Ниже — состав услуг, стоимость и порядок работы. Комплекс можно скорректировать под ваш объём и бюджет.',
     requisites:'ИП Новикова Анна Ивановна · ИНН 701722216881 · ОГРНИП 325700000051823\nР/с 40802810864710003143, Томское отделение № 8616 ПАО Сбербанк\nБИК 046902606 · К/с 30101810800000000606\nНДС не облагается (УСН).',
-    terms:'1. Договор и техническое задание фиксируют состав работ, сроки и KPI.\n2. Гарантия по ТЗ: если результат не достигнут — дорабатываем за свой счёт.\n3. Оплата услуг — по договору. Для крупных проектов возможна рассрочка платежа.\n4. Сопутствующие расходы (лицензии, телефония, рекламные бюджеты) оплачиваются заказчиком напрямую поставщикам и не входят в вознаграждение исполнителя.\n5. Срок оказания услуг — 30 календарных дней с даты старта, если не согласовано иное.\n6. Предложение действительно в течение указанного срока. Цены могут быть скорректированы при изменении объёма работ.',
-    partnerNote:'Партнёрская схема действует по AI-агенту: партнёр продаёт — исполнитель внедряет. Вознаграждение партнёра — до 50% от стоимости внедрения, выплачивается после оплаты клиентом.',
-    showIntro:true, showServices:true, showPartner:false, showExtras:true,
+    terms:'1. Договор и техническое задание фиксируют состав работ, сроки и KPI.\n2. Гарантия по ТЗ: если результат не достигнут — дорабатываем за свой счёт.\n3. Оплата услуг — по договору. Для крупных проектов возможна рассрочка платежа.\n4. Сопутствующие расходы (лицензии, телефония, рекламные бюджеты) оплачиваются заказчиком напрямую поставщикам и не входят в вознаграждение исполнителя.\n5. Срок оказания услуг — 30 календарных дней с даты старта, если не согласовано иное.\n6. Предложение действительно в течение указанного срока. Цены могут быть скорректированы при изменении объёма работ.\n7. Партнёрская схема действует по AI-агенту: партнёр продаёт — исполнитель внедряет. Вознаграждение партнёра — до 50% от стоимости внедрения, выплачивается после оплаты клиентом.',
+    partnerNote:'Партнёрская схема действует только по AI-агенту: партнёр продаёт — мы внедряем. Вознаграждение — до 50% от стоимости внедрения, выплата после оплаты внедрения клиентом. Порядок расчётов и защита сделки фиксируются отдельным соглашением.',
+    showIntro:true, showServices:true, showPartner:true, showExtras:true,
     showTotals:true, showTerms:true, showReq:true, showContacts:true,
     services:[], partner:[], extras:[]
   };
 }
 var state = defaults();
 
+/* ================= расчёт ================= */
 function bucket(){ return { once:0, onceFrom:0, mon:0, monFrom:0, year:0, yearFrom:0, proj:0, projFrom:0, req:0, share:0 }; }
 function fill(b, list){
   list.forEach(function(it){
@@ -655,16 +729,31 @@ function fill(b, list){
 }
 function calc(){
   var r = { svc:bucket(), prt:bucket(), ex:bucket() };
-  fill(r.svc, state.services); fill(r.prt, state.partner); fill(r.ex, state.extras);
+  fill(r.svc, state.services);
+  fill(r.prt, state.partner);
+  fill(r.ex, state.extras);
   return r;
 }
+function sumLine(base, from){
+  if (!base && !from) return '';
+  if (base && from) return money(base) + ' + от ' + money(from);
+  return base ? money(base) : 'от ' + money(from);
+}
+
+/* ================= документ ================= */
 function priceHTML(s){
-  if (s.mode === 'hidden') return '<b class="blue">—</b><small>по договорённости</small>';
-  if (s.mode === 'request') return '<b class="blue">' + esc(s.reqText || 'По запросу') + '</b><small>по вашим объёмам</small>';
-  if (s.mode === 'share') return '<b class="blue">до ' + parseNum(s.price) + ' %</b><small>от внедрения</small>';
+  if (s.mode === 'hidden') return '<b class="blue">\u2014</b><small>по договорённости</small>';
+  if (s.mode === 'request'){
+    return '<b class="blue">' + esc(String(s.reqText || '').trim() || 'По запросу') + '</b><small>рассчитываем по вашим объёмам</small>';
+  }
+  if (s.mode === 'share'){
+    var sub = String(s.priceNote || '').trim() || 'от стоимости внедрения';
+    return '<b class="blue">до ' + parseNum(s.price) + ' %</b><small>' + esc(sub) + '</small>';
+  }
   var per = (PERIODS[s.period] || PERIODS.once);
+  var sub2 = String(s.priceNote || '').trim() || per.tag;
   var head = (s.mode === 'from' ? 'от ' : '') + money(parseNum(s.price));
-  return '<b>' + esc(head) + '</b>' + (s.priceNote || per.tag ? '<small>' + esc(s.priceNote || per.tag) + '</small>' : '');
+  return '<b>' + esc(head) + '</b>' + (sub2 ? '<small>' + esc(sub2) + '</small>' : '');
 }
 function tagHTML(s){
   if (s.mode === 'hidden' || s.mode === 'request') return '';
@@ -687,113 +776,208 @@ function cards(list, cls){
   return h;
 }
 
-function termsFull(){
-  var t = String(state.terms || '').trim();
-  if (state.showPartner && String(state.partnerNote || '').trim()){
-    t += (t ? '\n' : '') + '7. ' + String(state.partnerNote).trim();
-  }
-  return t;
-}
-
 function renderDoc(){
-  var c = calc(); applyTheme();
+  var c = calc();
+  applyTheme();
+
   var letter = String(state.brand || 'П').trim().charAt(0).toUpperCase();
   var valid = Number(state.validDays);
   var dateRu = '';
   if (state.docDate){
-    var dd = new Date(state.docDate);
-    if (!isNaN(dd.getTime())) dateRu = dd.toLocaleDateString('ru-RU', { day:'2-digit', month:'long', year:'numeric' });
+    var d = new Date(state.docDate);
+    if (!isNaN(d.getTime())) dateRu = d.toLocaleDateString('ru-RU', { day:'2-digit', month:'long', year:'numeric' });
   }
-  var h = '<div class="dhead"><div class="brand"><div class="logo">' + esc(letter) + '</div><div>';
+
+  var h = '';
+
+  h += '<div class="dhead">';
+  h += '<div class="brand"><div class="logo">' + esc(letter) + '</div><div>';
   h += '<h1>' + esc(state.brand) + '</h1>';
   if (state.brandSub) h += '<p>' + esc(state.brandSub) + '</p>';
-  h += '</div></div><div class="dmeta"><div class="t">' + esc(state.docTitle) + '</div>';
-  if (state.docNumber) h += '<div class="num">№ ' + esc(state.docNumber) + '</div>';
+  h += '</div></div>';
+  h += '<div class="dmeta"><div class="t">' + esc(state.docTitle) + '</div>';
+  h += '<div class="num">\u2116 ' + esc(state.docNumber) + '</div>';
   if (dateRu) h += '<div>от ' + esc(dateRu) + '</div>';
   if (valid) h += '<div>действительно ' + valid + ' дней</div>';
   h += '</div><div class="hline">';
   CONTACTS.forEach(function(k){ h += '<span>' + esc(k.v) + '</span>'; });
-  h += '</div></div><div class="recip">';
-  h += '<div><span class="l">Кому</span>' + esc(state.client || '—') + (state.clientContact ? ' · ' + esc(state.clientContact) : '') + '</div>';
-  h += '<div><span class="l">От кого</span>' + esc(state.from || '—') + '</div></div>';
+  h += '</div></div>';
+
+  h += '<div class="recip">';
+  h += '<div><span class="l">Кому</span>' + esc(state.client || '\u2014') + (state.clientContact ? ' \u00B7 ' + esc(state.clientContact) : '') + '</div>';
+  h += '<div><span class="l">От кого</span>' + esc(state.from || '\u2014') + '</div></div>';
+
   if (state.showIntro && String(state.intro).trim()) h += '<p class="intro">' + esc(state.intro) + '</p>';
 
+  /* 1. услуги */
   if (state.showServices){
-    h += '<div class="sec"><h2>Услуги <span>· наши работы и вознаграждение</span></h2>';
-    h += state.services.length ? cards(state.services, '') : '<div class="empty">Позиции не выбраны.</div>';
+    h += '<div class="sec"><h2>Услуги <span>\u00B7 наши работы и вознаграждение</span></h2>';
+    h += state.services.length ? cards(state.services, '') :
+         '<div class="empty">Позиции не выбраны. Добавьте услуги из каталога в панели слева.</div>';
     h += '</div>';
   }
+
+  /* 2. партнёрство */
   if (state.showPartner && (state.partner.length || String(state.partnerNote).trim())){
-    h += '<div class="sec"><h2>Условия партнёрства</h2>';
+    h += '<div class="sec"><h2>Условия партнёрства <span>\u00B7 партнёрская схема по AI-агенту</span></h2>';
     if (state.partner.length) h += cards(state.partner, 'prt');
     if (String(state.partnerNote).trim()) h += '<div class="pnote">' + esc(state.partnerNote) + '</div>';
     h += '</div>';
   }
+
+  /* 3. сопутствующие расходы */
   if (state.showExtras && state.extras.length){
-    h += '<div class="sec"><h2>Сопутствующие расходы <span>· оплачивает заказчик напрямую</span></h2>';
-    [{cap:'Единоразовые', list:state.extras.filter(function(e){ return e.period==='once'||!e.period; })},
-     {cap:'Ежемесячные', list:state.extras.filter(function(e){ return e.period==='month'; })},
-     {cap:'Ежегодные',   list:state.extras.filter(function(e){ return e.period==='year'; })}].forEach(function(g){
+    h += '<div class="sec"><h2>Сопутствующие расходы <span>\u00B7 оплачивает заказчик напрямую</span></h2>';
+    [{ cap:'Единоразовые', list: state.extras.filter(function(e){ return e.period === 'once' || !e.period; }) },
+     { cap:'Ежемесячные',  list: state.extras.filter(function(e){ return e.period === 'month'; }) },
+     { cap:'Ежегодные',    list: state.extras.filter(function(e){ return e.period === 'year'; }) }].forEach(function(g){
       if (!g.list.length) return;
-      h += '<div class="exblock"><div class="cap"><span>'+g.cap+'</span></div><table><thead><tr><th>Статья расходов</th><th>Стоимость</th></tr></thead><tbody>';
+      var sum = 0, fromS = 0, reqN = 0;
       g.list.forEach(function(e){
-        h += '<tr><td>' + esc(e.title) + (String(e.note||'').trim() ? '<span class="w">'+esc(e.note)+'</span>' : '') + '</td><td>'+esc(exPriceHTML(e))+'</td></tr>';
+        if (e.mode === 'request' || !String(e.price).trim()) reqN++;
+        else if (e.mode === 'from') fromS += parseNum(e.price);
+        else sum += parseNum(e.price);
+      });
+      var capSum = sum ? money(sum) : '';
+      if (fromS) capSum += (capSum ? ' + ' : '') + 'от ' + money(fromS);
+      if (reqN) capSum += (capSum ? ' + ' : '') + reqN + ' поз. по запросу';
+      if (!capSum) capSum = 'по запросу';
+      h += '<div class="exblock"><div class="cap"><span>' + g.cap + '</span><b>' + capSum + '</b></div>';
+      h += '<table><thead><tr><th>Статья расходов</th><th>Стоимость</th></tr></thead><tbody>';
+      g.list.forEach(function(e){
+        h += '<tr><td>' + esc(e.title) + (String(e.note || '').trim() ? '<span class="w">' + esc(e.note) + '</span>' : '') + '</td>';
+        h += '<td>' + esc(exPriceHTML(e)) + '</td></tr>';
       });
       h += '</tbody></table></div>';
     });
-    h += '<p class="soft">Эти расходы не входят в вознаграждение исполнителя — оплачиваются напрямую поставщикам услуг.</p>';
+    h += '<p class="soft">Эти расходы не входят в вознаграждение исполнителя и не облагаются нашей комиссией — они оплачиваются напрямую поставщикам услуг.</p>';
     h += '</div>';
   }
+
+  /* 4. итоги */
   if (state.showTotals){
-    var tOnce = c.svc.once + c.svc.onceFrom + c.svc.proj + c.svc.projFrom;
-    var tMon  = c.svc.mon + c.svc.monFrom;
-    var tYear = c.svc.year + c.svc.yearFrom;
+    var rows = [];
+    function addGroup(b, title){
+      var o = sumLine(b.once, b.onceFrom), m = sumLine(b.mon, b.monFrom),
+          y = sumLine(b.year, b.yearFrom), p = sumLine(b.proj, b.projFrom);
+      if (!o && !m && !y && !p) return false;
+      rows.push({ grp:title });
+      if (o) rows.push({ l:'Единоразово', v:o, c:'blue' });
+      if (m) rows.push({ l:'Ежемесячно',  v:m, c:'blue' });
+      if (y) rows.push({ l:'Ежегодно',    v:y, c:'blue' });
+      if (p) rows.push({ l:'За проект',   v:p, c:'blue' });
+      return true;
+    }
+    if (state.showServices) addGroup(c.svc, 'Наши услуги');
+    if (state.showPartner) addGroup(c.prt, 'Условия партнёрства');
+    if (state.showExtras && state.extras.length) addGroup(c.ex, 'Сопутствующие расходы \u00B7 оплачиваются напрямую поставщикам');
+
+    var tOnce = c.svc.once + c.svc.onceFrom + c.svc.proj + c.svc.projFrom
+              + (state.showPartner ? c.prt.once + c.prt.onceFrom + c.prt.proj + c.prt.projFrom : 0)
+              + (state.showExtras ? c.ex.once + c.ex.onceFrom : 0);
+    var tMon  = c.svc.mon + c.svc.monFrom
+              + (state.showPartner ? c.prt.mon + c.prt.monFrom : 0)
+              + (state.showExtras ? c.ex.mon + c.ex.monFrom : 0);
+    var tYear = c.svc.year + c.svc.yearFrom
+              + (state.showPartner ? c.prt.year + c.prt.yearFrom : 0)
+              + (state.showExtras ? c.ex.year + c.ex.yearFrom : 0);
+
     if (tOnce || tMon || tYear){
-      h += '<div class="sec"><h2>Итоги</h2><div class="totals">';
-      if (tOnce) h += '<div class="r sum"><span>Единоразово всего</span><b>' + money(tOnce) + '</b></div>';
-      if (tMon)  h += '<div class="r sum"><span>Ежемесячно всего</span><b>' + money(tMon) + '</b></div>';
-      if (tYear) h += '<div class="r sum"><span>Ежегодно всего</span><b>' + money(tYear) + '</b></div>';
-      h += '<div class="note">Цены указаны без НДС (УСН). Итоговая стоимость может корректироваться по итогам ТЗ.</div></div></div>';
+      rows.push({ grp:'Итого бюджет проекта' });
+      if (tOnce) rows.push({ l:'Единоразово всего', v:money(tOnce), c:'sum' });
+      if (tMon)  rows.push({ l:'Ежемесячно всего',  v:money(tMon),  c:'sum' });
+      if (tYear) rows.push({ l:'Ежегодно всего',    v:money(tYear), c:'sum' });
+    }
+    var shN = c.svc.share + (state.showPartner ? c.prt.share : 0) + (state.showExtras ? c.ex.share : 0);
+    if (shN) rows.push({ l:'Вознаграждение долей от стоимости', v:shN + ' поз.' });
+    var reqN = c.svc.req + (state.showPartner ? c.prt.req : 0) + (state.showExtras ? c.ex.req : 0);
+    if (reqN) rows.push({ l:'Позиции с ценой по запросу', v:reqN + ' шт.' });
+
+    if (rows.length){
+      h += '<div class="sec"><h2>Итоги <span>\u00B7 наши услуги и бюджет проекта</span></h2><div class="totals">';
+      rows.forEach(function(r){
+        if (r.grp){ h += '<div class="grp">' + r.grp + '</div>'; return; }
+        var cls = r.c === 'sum' ? ' class="r sum"' : ' class="r"';
+        var bCls = r.c === 'blue' ? ' class="blue"' : '';
+        h += '<div' + cls + '><span>' + r.l + '</span><b' + bCls + '>' + esc(r.v) + '</b></div>';
+      });
+      h += '<div class="note">Цены указаны без НДС (УСН). Итоговая стоимость может корректироваться по итогам технического задания и выбранного объёма.</div>';
+      h += '</div></div>';
     }
   }
-  if (state.showTerms && termsFull()) h += '<div class="sec"><h2>Условия сотрудничества</h2><div class="terms">' + esc(termsFull()) + '</div></div>';
+
+  /* 5. условия */
+  if (state.showTerms && String(state.terms).trim()){
+    h += '<div class="sec"><h2>Условия и порядок работы</h2><div class="terms">' + esc(state.terms) + '</div></div>';
+  }
+
+  /* 6. подвал */
   if (state.showContacts || (state.showReq && String(state.requisites).trim())){
     h += '<div class="dfoot">';
     if (state.showContacts){
       h += '<div class="contacts">';
-      CONTACTS.forEach(function(k){ h += '<div class="c"><span class="l">'+k.l+'</span><span class="v">'+esc(k.v)+'</span></div>'; });
+      CONTACTS.forEach(function(k){
+        h += '<div class="c"><span class="l">' + k.l + '</span><span class="v">' + esc(k.v) + '</span></div>';
+      });
       h += '</div>';
     }
     if (state.showReq && String(state.requisites).trim()) h += '<div class="req">' + esc(state.requisites) + '</div>';
     h += '</div>';
   }
+
   $('#doc').innerHTML = h;
 }
 
+/* ================= редактор ================= */
 function itemRow(s, i, kind){
-  var isEx = (kind === 'ex'), isShare = (s.mode === 'share');
+  var isEx = (kind === 'ex');
+  var isShare = (s.mode === 'share');
   var needPrice = (s.mode === 'fixed' || s.mode === 'from' || isShare);
-  var p = s.period || 'once', periods = isEx ? EX_PERIODS : PERIODS, modes = isEx ? EX_MODES : MODES;
-  var r = '<div class="ctrl c3"><div class="cell"><label>'+(isEx?'Тип суммы':'Тип цены')+'</label><select data-f="mode">' +
-       Object.keys(modes).map(function(k){ return '<option value="'+k+'"'+(s.mode===k?' selected':'')+'>'+modes[k]+'</option>'; }).join('') +
-       '</select></div><div class="cell"><label>'+(isShare?'Доля, %':'Сумма, ₽')+'</label>' +
-       (needPrice ? '<input data-f="price" inputmode="numeric" value="'+esc(s.price)+'">'
-                  : (s.mode === 'request' ? '<input data-f="reqText" value="'+esc(s.reqText||'')+'">' : '<input disabled placeholder="—">')) +
-       '</div><div class="cell"><label>Оплата</label><select data-f="period">' +
-       Object.keys(periods).map(function(k){ return '<option value="'+k+'"'+(p===k?' selected':'')+'>'+(isEx?periods[k]:periods[k].sel)+'</option>'; }).join('') +
-       '</select></div></div>';
+  var p = s.period || 'once';
+  var periods = isEx ? EX_PERIODS : PERIODS;
+  var cls = 'period' + (p === 'month' ? ' on' : p === 'year' ? ' yr' : '');
+  var modes = isEx ? EX_MODES : MODES;
+
+  var r = '<div class="ctrl c3">';
+  r += '<div class="cell"><label>' + (isEx ? 'Тип суммы' : 'Тип цены') + '</label><select data-f="mode">' +
+       Object.keys(modes).map(function(k){
+         return '<option value="' + k + '"' + (s.mode === k ? ' selected' : '') + '>' + modes[k] + '</option>'; }).join('') +
+       '</select></div>';
+
+  r += '<div class="cell"><label>' + (isShare ? 'Доля, %' : 'Сумма, \u20BD') + '</label>';
+  if (needPrice) r += '<input data-f="price" inputmode="numeric" placeholder="' + (isShare ? '50' : '50000') + '" value="' + esc(s.price) + '">';
+  else if (s.mode === 'request') r += '<input data-f="reqText" placeholder="По запросу" value="' + esc(s.reqText || '') + '">';
+  else r += '<input disabled placeholder="не выводится">';
+  r += '</div>';
+
+  r += '<div class="cell"><label>Оплата</label><select class="' + cls + '" data-f="period">' +
+       Object.keys(periods).map(function(k){
+         return '<option value="' + k + '"' + (p === k ? ' selected' : '') + '>' +
+                (isEx ? periods[k] : periods[k].sel) + '</option>'; }).join('') +
+       '</select></div>';
+
+  if (!isEx){
+    r += '<div class="cell full"><label>Подпись под ценой (необязательно)</label>' +
+         '<input data-f="priceNote" placeholder="например: от стоимости внедрения" value="' + esc(s.priceNote || '') + '"></div>';
+  }
+  r += '</div>';
+
+  var head = isEx
+    ? '<div class="row-head"><input data-f="title" placeholder="Статья расходов" value="' + esc(s.title) + '">'
+    : '<div class="row-head"><span class="n">' + (i+1) + '</span><input data-f="title" placeholder="Название" value="' + esc(s.title) + '">';
+
   var note = isEx
-    ? '<input data-f="note" placeholder="Комментарий" value="'+esc(s.note||'')+'">'
-    : '<textarea data-f="desc">'+esc(s.desc)+'</textarea>';
-  return '<div class="row" data-id="'+s.id+'"><div class="row-head">' +
-    (isEx ? '' : '<span class="n">'+(i+1)+'</span>') +
-    '<input data-f="title" value="'+esc(s.title)+'">' +
+    ? '<input data-f="note" placeholder="Комментарий (необязательно)" value="' + esc(s.note || '') + '">'
+    : '<textarea data-f="desc" placeholder="Краткое описание">' + esc(s.desc) + '</textarea>';
+
+  return '<div class="row" data-id="' + s.id + '">' + head +
     '<div class="row-tools">' +
-    '<button class="btn mini" data-act="save" title="В мой каталог">★</button>' +
-    '<button class="btn mini" data-act="up" title="Выше">↑</button>' +
-    '<button class="btn mini" data-act="down" title="Ниже">↓</button>' +
-    '<button class="btn mini" data-act="del" title="Удалить">✕</button>' +
-    '</div></div>' + note + r + '</div>';
+    '<button class="btn mini" data-act="save" title="Сохранить в каталог">\u2605</button>' +
+    '<button class="btn mini" data-act="up" title="Выше">\u2191</button>' +
+    '<button class="btn mini" data-act="down" title="Ниже">\u2193</button>' +
+    '<button class="btn mini" data-act="del" title="Удалить">\u2715</button>' +
+    '</div></div>' +
+    note + r + '</div>';
 }
 
 function renderLists(){
@@ -815,12 +999,12 @@ function renderUserCat(){
     h += '<div class="ucat-grp">' + o[1] + ' · ' + list.length + '</div><div class="ucat-row">';
     list.forEach(function(it, i){
       h += '<span class="chip"><span>' + esc(it.title) + '</span>' +
-           '<button data-delucat="' + o[0] + ':' + i + '" title="Удалить">✕</button></span>';
+           '<button data-delucat="' + o[0] + ':' + i + '" title="Удалить из каталога">\u2715</button></span>';
     });
     h += '</div>';
   });
   $('#userCatBox').innerHTML = h ||
-    '<p class="hint" style="margin:0">Пока пусто. Нажмите ★ на карточке позиции.</p>';
+    '<p class="hint" style="margin:0">Пока пусто. Нажмите ★ на карточке позиции — она сохранится в каталог и появится в списках выше.</p>';
 }
 
 function priceLabel(it, isExtra){
@@ -833,100 +1017,127 @@ function priceLabel(it, isExtra){
 }
 
 function fillCatalog(pickId, packsId, kind, isExtra){
-  var cat = catalogFor(kind);
-  var o = '<option value="">— выберите из списка —</option>';
-  Object.keys(cat).forEach(function(c){
-    o += '<optgroup label="' + esc(c) + '">';
-    cat[c].forEach(function(it, i){
-      o += '<option value="' + esc(c) + '::' + i + '">' + esc(it.title) + ' — ' + esc(priceLabel(it, isExtra)) + '</option>';
+  var catalog = catalogFor(kind);
+  var o = '<option value="">\u2014 выберите из списка \u2014</option>';
+  Object.keys(catalog).forEach(function(cat){
+    o += '<optgroup label="' + esc(cat) + '">';
+    catalog[cat].forEach(function(it, i){
+      o += '<option value="' + esc(cat) + '::' + i + '">' + esc(it.title) + ' \u2014 ' + esc(priceLabel(it, isExtra)) + '</option>';
     });
     o += '</optgroup>';
   });
   $(pickId).innerHTML = o;
-  $(packsId).innerHTML = Object.keys(cat).map(function(k){
-    return '<button data-pack="' + esc(pickId + '|' + k) + '">+ ' + esc(k) + ' (' + cat[k].length + ')</button>';
-  }).join('');
+  $(packsId).innerHTML = Object.keys(catalog).map(function(k){
+    return '<button data-pack="' + esc(pickId + '|' + k) + '">+ ' + esc(k) + ' (' + catalog[k].length + ')</button>'; }).join('');
 }
+
 function renderCatalogs(){
   fillCatalog('#svcPick', '#svcPacks', 'svc', false);
   fillCatalog('#prtPick', '#prtPacks', 'prt', false);
   fillCatalog('#extPick', '#extPacks', 'ex', true);
 }
+
 function renderAppearance(){
   $('#themes').innerHTML = Object.keys(THEMES).map(function(k){
     var t = THEMES[k];
-    return '<button data-theme="'+k+'" class="'+(state.theme===k?'active':'')+'">' +
-      '<span class="sw" style="background:linear-gradient(135deg,'+t.accent+','+t.stripe+')"></span><span>'+esc(t.name)+'</span></button>';
+    return '<button data-theme="' + k + '" class="' + (state.theme === k ? 'active' : '') + '">' +
+           '<span class="sw" style="background:linear-gradient(135deg,' + t.accent + ',' + t.stripe + ')"></span>' +
+           '<span>' + esc(t.name) + '</span></button>';
   }).join('');
-  var html = '<button data-bg="paper" class="' + (state.bgId==='paper'?'active':'') + '">' +
-    '<i style="background:' + (function(){var c=trio('#FFFFFF');return 'linear-gradient(160deg,'+c[0]+','+c[1]+' 55%,'+c[2]+')';})() + '"></i><b>Белый</b></button>';
-  (state.bgSaves || []).forEach(function(s){
-    var c = trio(s.base);
-    html += '<button data-bg="'+s.id+'" class="'+(state.bgId===s.id?'active':'')+'">' +
-      '<i style="background:linear-gradient(160deg,'+c[0]+','+c[1]+' 55%,'+c[2]+')"></i><b>'+esc(s.name)+'</b>' +
-      '<span class="delbg" data-delbg="'+s.id+'">✕</span></button>';
+
+  var html = '<button data-bg="paper" class="' + (state.bgId === 'paper' ? 'active' : '') + ' darklabel" title="Белый">' +
+             '<i style="background:' + bgCss('#FFFFFF') + '"></i><b>Белый</b></button>';
+
+  (state.bgSaves || []).forEach(function(s, i){
+    html += '<button data-bg="' + s.id + '" class="' + (state.bgId === s.id ? 'active' : '') +
+            (lum(hexToRgb(s.base)) > 0.58 ? ' darklabel' : '') + '" title="' + esc(s.name) + '">' +
+            '<i style="background:' + bgCss(s.base) + '"></i><b>' + esc(s.name) + '</b>' +
+            '<span class="delbg" data-delbg="' + s.id + '" title="Удалить вариант">\u2715</span></button>';
   });
-  var cc = trio(state.bgCustom || '#101A2E');
-  html += '<button data-bg="custom" class="'+(state.bgId==='custom'?'active':'')+'">' +
-    '<i style="background:linear-gradient(160deg,'+cc[0]+','+cc[1]+' 55%,'+cc[2]+')"></i><b>Свой</b></button>';
+
+  html += '<button data-bg="custom" class="' + (state.bgId === 'custom' ? 'active' : '') +
+          (lum(hexToRgb(state.bgCustom || '#101A2E')) > 0.58 ? ' darklabel' : '') + '" title="Свой фон">' +
+          '<i style="background:' + bgCss(state.bgCustom || '#101A2E') + '"></i><b>Свой</b></button>';
   $('#bgs').innerHTML = html;
-  $('#bgNote').textContent = 'сохранено ' + (state.bgSaves||[]).length + ' из 3';
+
+  $('#bgNote').textContent = 'сохранено ' + (state.bgSaves || []).length + ' из 3';
+
   var t = THEMES[state.theme] || THEMES.navy;
   document.querySelector('[data-bind="themeAccent"]').value = state.themeAccent || t.accent;
   document.querySelector('[data-bind="themeStripe"]').value = state.themeStripe || t.stripe;
   document.querySelector('[data-bind="bgCustom"]').value = state.bgCustom || '#101A2E';
 }
-function syncInputs(){
-  Array.prototype.forEach.call(document.querySelectorAll('[data-bind]'), function(el){
-    var k = el.getAttribute('data-bind');
-    if (el.type === 'checkbox') el.checked = !!state[k]; else el.value = (state[k] == null ? '' : state[k]);
-  });
-}
+
 function bindFields(){
   Array.prototype.forEach.call(document.querySelectorAll('[data-bind]'), function(el){
-    if (el.__kpBound) return; el.__kpBound = true;
     var k = el.getAttribute('data-bind');
-    if (el.type === 'checkbox') el.checked = !!state[k]; else el.value = (state[k] == null ? '' : state[k]);
+    if (el.type === 'checkbox') el.checked = !!state[k]; else el.value = state[k] == null ? '' : state[k];
     el.addEventListener('input', function(){
       state[k] = el.type === 'checkbox' ? el.checked : el.value;
+      if (k === 'bgCustom'){ state.bgId = 'custom'; renderAppearance(); }
       save(); renderDoc();
     });
   });
 }
 
+/* ================= события ================= */
 var editor = $('#editor');
-editor.addEventListener('input', function(e){
-  var f = e.target.getAttribute('data-f'); if (!f) return;
-  var row = e.target.closest('[data-id]'); if (!row) return;
-  var id = row.getAttribute('data-id'), listName = row.closest('[data-list]').getAttribute('data-list');
-  state[listName].forEach(function(x){ if (x.id === id) x[f] = e.target.value; });
-  save(); renderDoc();
-});
-editor.addEventListener('change', function(e){
+
+function findItem(row){
+  var listName = row.closest('[data-list]').getAttribute('data-list');
+  var id = row.getAttribute('data-id'), item = null;
+  state[listName].forEach(function(x){ if (x.id === id) item = x; });
+  return item;
+}
+function syncField(e){
   var f = e.target.getAttribute('data-f');
-  if (f === 'mode' || f === 'period') renderLists();
-});
+  if (!f) return false;
+  var row = e.target.closest('[data-id]');
+  if (!row) return false;
+  var item = findItem(row);
+  if (!item) return false;
+  item[f] = e.target.value;
+  save(); renderDoc();
+  return (f === 'mode' || f === 'period');
+}
+
+editor.addEventListener('input', function(e){ syncField(e); });
+editor.addEventListener('change', function(e){ if (syncField(e)) renderLists(); });
+
 editor.addEventListener('click', function(e){
   var deluc = e.target.closest('[data-delucat]');
   if (deluc){
     var parts = deluc.getAttribute('data-delucat').split(':');
-    USER_CAT[parts[0]].splice(Number(parts[1]), 1);
+    var kind = parts[0], idx = Number(parts[1]);
+    USER_CAT[kind].splice(idx, 1);
     ucatSave(); renderCatalogs(); renderUserCat();
     return;
   }
+
   var delbg = e.target.closest('[data-delbg]');
   if (delbg){
     var bid = delbg.getAttribute('data-delbg');
-    state.bgSaves = (state.bgSaves||[]).filter(function(x){ return x.id !== bid; });
+    state.bgSaves = (state.bgSaves || []).filter(function(x){ return x.id !== bid; });
     if (state.bgId === bid) state.bgId = 'paper';
     save(); renderAppearance(); renderDoc();
     return;
   }
+
   var th = e.target.closest('[data-theme]');
-  if (th){ state.theme = th.getAttribute('data-theme'); state.themeAccent=''; state.themeStripe='';
-           save(); renderAppearance(); renderDoc(); return; }
+  if (th){
+    state.theme = th.getAttribute('data-theme');
+    state.themeAccent = ''; state.themeStripe = '';
+    save(); renderAppearance(); renderDoc();
+    return;
+  }
+
   var bgBtn = e.target.closest('[data-bg]');
-  if (bgBtn){ state.bgId = bgBtn.getAttribute('data-bg'); save(); renderAppearance(); renderDoc(); return; }
+  if (bgBtn){
+    state.bgId = bgBtn.getAttribute('data-bg');
+    save(); renderAppearance(); renderDoc();
+    return;
+  }
+
   var pack = e.target.closest('[data-pack]');
   if (pack){
     var v = pack.getAttribute('data-pack').split('|');
@@ -934,1699 +1145,313 @@ editor.addEventListener('click', function(e){
     var kind = pickId === '#svcPick' ? 'svc' : pickId === '#prtPick' ? 'prt' : 'ex';
     var src = catalogFor(kind);
     var dst = kind === 'svc' ? state.services : kind === 'prt' ? state.partner : state.extras;
-    (src[cat]||[]).forEach(function(it){ dst.push(Object.assign({}, it, { id: uid() })); });
+    (src[cat] || []).forEach(function(it){ dst.push(Object.assign({}, it, { id: uid() })); });
     save(); renderLists(); renderDoc();
     return;
   }
+
   var btn = e.target.closest('[data-act]');
   if (!btn) return;
-  var row = btn.closest('[data-id]'); if (!row) return;
+  var row = btn.closest('[data-id]');
+  if (!row) return;
   var listName = row.closest('[data-list]').getAttribute('data-list');
-  var arr = state[listName], id = row.getAttribute('data-id'), idx = -1, tmp;
+  var arr = state[listName], id = row.getAttribute('data-id'), idx = -1, t;
   arr.forEach(function(x, i){ if (x.id === id) idx = i; });
   if (idx < 0) return;
+
   var act = btn.getAttribute('data-act');
+
   if (act === 'save'){
-    pushToUserCat(LIST2KIND[listName], arr[idx]);
+    var kind2 = LIST2KIND[listName];
+    pushToUserCat(kind2, arr[idx]);
     renderCatalogs(); renderUserCat();
     toast('Сохранено в каталог: ' + (arr[idx].title || 'без названия'));
     return;
   }
   if (act === 'del') arr.splice(idx, 1);
-  if (act === 'up' && idx > 0){ tmp = arr[idx-1]; arr[idx-1] = arr[idx]; arr[idx] = tmp; }
-  if (act === 'down' && idx < arr.length - 1){ tmp = arr[idx+1]; arr[idx+1] = arr[idx]; arr[idx] = tmp; }
+  if (act === 'up' && idx > 0){ t = arr[idx-1]; arr[idx-1] = arr[idx]; arr[idx] = t; }
+  if (act === 'down' && idx < arr.length - 1){ t = arr[idx+1]; arr[idx+1] = arr[idx]; arr[idx] = t; }
   save(); renderLists(); renderDoc();
 });
 
-function addFromPicker(pickId, kind, dst){
+function addFromPicker(pickId, kind, dst, boxId){
   var v = $(pickId).value;
-  if (!v){ toast('Сначала выберите позицию из списка'); return; }
-  var parts = v.split('::'), cat = catalogFor(kind);
-  var item = cat[parts[0]] ? cat[parts[0]][Number(parts[1])] : null;
+  if (!v){ alert('Сначала выберите позицию из списка.'); return; }
+  var parts = v.split('::');
+  var catalog = catalogFor(kind);
+  var item = catalog[parts[0]] ? catalog[parts[0]][Number(parts[1])] : null;
   if (!item) return;
   dst.push(Object.assign({}, item, { id: uid() }));
   save(); renderLists(); renderDoc();
   $(pickId).value = '';
+  var box = $(boxId);
+  if (box.lastElementChild) box.lastElementChild.scrollIntoView({ behavior:'smooth', block:'center' });
 }
-$('#btnAddSvc').onclick = function(){ addFromPicker('#svcPick', 'svc', state.services); };
-$('#btnAddPrt').onclick = function(){ addFromPicker('#prtPick', 'prt', state.partner); };
-$('#btnAddExt').onclick = function(){ addFromPicker('#extPick', 'ex', state.extras); };
-$('#btnAddService').onclick = function(){ state.services.push(svc('Новая услуга','Краткое описание.','fixed','','once')); save(); renderLists(); renderDoc(); };
-$('#btnAddPartner').onclick = function(){ state.partner.push(svc('Новое условие партнёрства','Опишите условие.','share','','once','от стоимости внедрения')); save(); renderLists(); renderDoc(); };
-$('#btnAddExtra').onclick = function(){ state.extras.push(ext('Новая статья расходов','','request','','month')); save(); renderLists(); renderDoc(); };
-$('#btnBgSave').onclick = function(){
+$('#btnAddSvc').addEventListener('click', function(){ addFromPicker('#svcPick', 'svc', state.services, '#servicesEditor'); });
+$('#btnAddPrt').addEventListener('click', function(){ addFromPicker('#prtPick', 'prt', state.partner, '#partnerEditor'); });
+$('#btnAddExt').addEventListener('click', function(){ addFromPicker('#extPick', 'ex', state.extras, '#extrasEditor'); });
+
+$('#btnAddService').addEventListener('click', function(){
+  state.services.push(svc('Новая услуга', 'Краткое описание услуги.', 'fixed', '', 'once'));
+  save(); renderLists(); renderDoc();
+});
+$('#btnAddPartner').addEventListener('click', function(){
+  state.partner.push(svc('Новое условие партнёрства', 'Опишите условие сотрудничества.', 'share', '', 'once', 'от стоимости внедрения'));
+  save(); renderLists(); renderDoc();
+});
+$('#btnAddExtra').addEventListener('click', function(){
+  state.extras.push(ext('Новая статья расходов', '', 'request', '', 'month'));
+  save(); renderLists(); renderDoc();
+});
+
+$('#btnBgSave').addEventListener('click', function(){
   var saves = state.bgSaves || (state.bgSaves = []);
-  if (saves.length >= 3){ toast('Можно сохранить не более 3 вариантов'); return; }
+  if (saves.length >= 3){ toast('Можно сохранить не более 3 вариантов. Удалите один.'); return; }
+  var base = state.bgCustom || '#101A2E';
   var id = 's' + Date.now().toString(36);
-  saves.push({ id:id, name:'Вариант ' + (saves.length+1), base: state.bgCustom || '#101A2E' });
+  saves.push({ id: id, name: 'Вариант ' + (saves.length + 1), base: base });
   state.bgId = id;
   save(); renderAppearance(); renderDoc();
   toast('Фон сохранён как вариант ' + saves.length);
-};
+});
 
-var KEY = 'speshu_kp_builder_v11';
+/* ================= сохранение ================= */
+var KEY = 'speshu_kp_builder_v9';
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(_){} }
 function load(){
   try { var raw = localStorage.getItem(KEY); if (!raw) return null;
         var d = JSON.parse(raw); return (d && d.services) ? d : null; } catch(_){ return null; }
 }
-$('#btnExport').onclick = function(){
+$('#btnExport').addEventListener('click', function(){
   var blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
-  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'KP.json'; a.click(); URL.revokeObjectURL(a.href);
-};
-$('#fileImport').onchange = function(e){
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'KP_' + String(state.client || state.docNumber || 'KP').replace(/[^\wа-яА-ЯёЁ-]+/g,'_') + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+});
+$('#fileImport').addEventListener('change', function(e){
   var f = e.target.files[0]; if (!f) return;
   var r = new FileReader();
   r.onload = function(){
-    try { state = Object.assign(defaults(), JSON.parse(r.result)); save(); location.reload(); } catch(_){ toast('Не удалось прочитать файл'); }
+    try {
+      var d = JSON.parse(r.result);
+      if (!d.services){ alert('Файл не похож на сохранённое КП.'); return; }
+      state = Object.assign(defaults(), d); save(); location.reload();
+    } catch(_){ alert('Не удалось прочитать файл.'); }
   };
   r.readAsText(f);
-};
-var armedReset = false;
-$('#btnReset').onclick = function(){
-  if (!armedReset){ armedReset = true; toast('Нажмите «Новый бланк» ещё раз, чтобы подтвердить'); setTimeout(function(){ armedReset=false; }, 4000); return; }
-  armedReset = false;
-  localStorage.removeItem(KEY); state = defaults(); save(); location.reload();
-};
+});
+$('#btnReset').addEventListener('click', function(){
+  if (!confirm('Создать новый пустой бланк? Текущие данные сбросятся, каталог и фоны сохранятся.')) return;
+  localStorage.removeItem(KEY); state = defaults(); location.reload();
+});
+$('#btnPrint').addEventListener('click', function(){ window.print(); });
 
+/* ================= старт ================= */
 function init(){
-  var saved = load(); if (saved) state = Object.assign(defaults(), saved);
-  state.bgSaves = state.bgSaves || []; state.bgId = state.bgId || 'paper';
-  renderAppearance(); renderCatalogs(); renderLists(); bindFields(); syncInputs(); renderDoc();
+  var saved = load();
+  if (saved) state = Object.assign(defaults(), saved);
+  state.bgSaves = state.bgSaves || [];
+  state.bgId = state.bgId || 'paper';
+  renderAppearance();
+  renderCatalogs();
+  renderLists();
+  bindFields();
+  renderDoc();
 }
 init();
 </script>
 
+<!-- ================= АДАПТЕР ДЛЯ EnvyCRM ================= -->
+<script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 <script>
-/* ============ ЧАСТЬ 2. ОДНА КНОПКА: НАЙТИ СДЕЛКУ → PDF → ПОЛЕ → ПЕЧАТЬ ============ */
 (function(){
-'use strict';
-
-var CK = 'kp_crm_v5';
-var cfg = {
-  host: 'https://novikov.envycrm.com',
-  key:  '48a7f23ebf788af44686fe0fa4c9c955c4c34d7c',
-  file_id: '', file_type: 'custom',
-  num_id: '',  num_type: 'custom',
-  fmt_tpl: '', fmt_key: ''
-};
-try { cfg = Object.assign(cfg, JSON.parse(localStorage.getItem(CK) || '{}')); } catch(e){}
-var DEAL = null;
-
-function W(){ return window.EnvyCrmWidget; }
-function logEl(){ return document.getElementById('kpLog'); }
-function lg(m, v, bad){
-  var s = m + (v === undefined ? '' : ': ' + (typeof v === 'string' ? v : JSON.stringify(v)));
-  s = String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  var el = logEl(); if (el) el.innerHTML += (bad ? '<i>' : '<b>') + s + (bad ? '</i>' : '</b>') + '\n';
-  console.log('[KP]', s);
-}
-function cfgSave(){ try { localStorage.setItem(CK, JSON.stringify(cfg)); } catch(e){} }
-
-/* нормализация телефона: 8XXXXXXXXXX / 7XXXXXXXXXX / +7XXXXXXXXXX → 11 цифр, начинается с 7 */
-function normPhone(v){
-  var d = String(v || '').replace(/\D/g,'');
-  if (d.length === 11 && d.charAt(0) === '8') d = '7' + d.slice(1);
-  if (d.length === 10) d = '7' + d;
-  return d;
-}
-function prettyPhone(v){
-  var d = normPhone(v);
-  if (d.length !== 11) return String(v || '');
-  return '+7 ' + d.slice(1,4) + ' ' + d.slice(4,7) + '-' + d.slice(7,9) + '-' + d.slice(9,11);
-}
-
-function url(p){
-  var b = String(cfg.host || '').replace(/\/+$/, '') + '/openapi/v1' + p;
-  if (cfg.key) b += (b.indexOf('?') === -1 ? '?' : '&') + 'api_key=' + encodeURIComponent(cfg.key);
-  return b;
-}
-function api(path, method, body, form){
-  if (typeof method === 'object'){ form = body; body = method; method = 'POST'; }
-  var opt = { method: method || 'POST' };
-  if (form) opt.body = body;
-  else { opt.headers = { 'Content-Type':'application/json' }; opt.body = JSON.stringify(body || {}); }
-  return fetch(url(path), opt).then(function(r){
-    return r.text().then(function(t){
-      var j = null; try { j = JSON.parse(t); } catch(e){}
-      if (!r.ok) throw new Error('HTTP ' + r.status + ' · ' + String(t).slice(0,300));
-      return j === null ? t : j;
-    });
-  });
-}
-
-function dealSearch(phone){
-  var p = normPhone(phone);
-  return api('/deal/search', { phone: p }).catch(function(){ return api('/deal/search', { phone: '+' + p }); });
-}
-function phoneFromClient(c){
-  var a = (c && c.contacts) || [];
-  for (var i = 0; i < a.length; i++){ if (a[i] && (a[i].phone || a[i].value)) return a[i].phone || a[i].value; }
-  return '';
-}
-function dealsFrom(res){
-  var cl = (res && res.clients) || [], out = [];
-  cl.forEach(function(c){
-    (c.deals_for_event || []).forEach(function(d){
-      out.push({ id: Number(d.id), client: c.client_name || c.name || '', phone: normPhone(phoneFromClient(c)) });
-    });
-  });
-  return out;
-}
-function openedDealId(){
-  var m = /[?&]deal_id=(\d+)/.exec(location.search);
-  if (m) return Promise.resolve(Number(m[1]));
-  var w = W();
-  if (w && w.getDeal){
-    return Promise.race([
-      w.getDeal(),
-      new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('таймаут')); }, 2500); })
-    ]).then(function(d){
-      return Number(d && (d.id || d.deal_id || (d.result && d.result.id)) || 0);
-    }).catch(function(){ return 0; });
-  }
-  return Promise.resolve(0);
-}
-function loadDeal(id){
-  return api('/deal/get', 'POST', { deal_id: Number(id) }).then(function(r){
-    DEAL = (r && r.result) ? r.result : r;
-    return DEAL;
-  });
-}
-function flatVals(v){
-  var out = [];
-  ['service','custom'].forEach(function(g){
-    var grp = v && v[g]; if (!grp) return;
-    var a = Array.isArray(grp) ? grp : Object.keys(grp).map(function(k){ return grp[k]; });
-    a.forEach(function(x){ if (x && typeof x === 'object') out.push(x); });
-  });
-  return out;
-}
-function valById(v, id){
-  var f = flatVals(v).filter(function(x){ return Number(x.input_id) === Number(id); })[0];
-  return f ? f.value : null;
-}
-function readValues(){ return loadDeal(DEAL.id).then(function(d){ return d.values; }); }
-function writeField(id, type, value){
-  return api('/deal/updateDealValue','POST',{
-    deal_id:Number(DEAL.id), client_id:Number(DEAL.client_id),
-    user_id:Number(DEAL.user_id), employee_id:Number(DEAL.employee_id),
-    fields:[{ input_id:Number(id), value:String(value), value_type_id:(type==='service'?1:2) }]
-  });
-}
-
-function fillFromDeal(d){
-  var values = d.values || {};
-  var s = values.service;
-  function pick(){
-    if (Array.isArray(s)) return '';
-    for (var i = 0; i < arguments.length; i++){
-      var x = s && s[arguments[i]];
-      if (x && x.value) return String(x.value);
-    }
-    return '';
-  }
-  var name  = d.client_name || pick('client_name','name') || '';
-  var comp  = d.short_name  || pick('short_name') || '';
-  var list  = flatVals(values);
-  var phone = '';
-  ((d.contacts) || []).forEach(function(c){
-    if (!phone && c && (c.phone || c.value)) phone = String(c.phone || c.value);
-  });
-  if (!phone){
-    for (var i = 0; i < list.length; i++){
-      var it = list[i];
-      if (it && it.value && (Number(it.type_id) === 11 || /phone|тел|моб/i.test(String(it.name_id || it.name || '')))){
-        phone = String(it.value); break;
-      }
-    }
-  }
-  if (comp || name) state.client = comp ? (comp + (name ? ' · ' + name : '')) : name;
-  if (phone) state.clientContact = prettyPhone(phone);
-
-  var now = new Date();
-  var dm = ('0' + now.getDate()).slice(-2) + '.' + ('0' + (now.getMonth()+1)).slice(-2) + '.' + now.getFullYear();
-  state.docDate = now.toISOString().slice(0,10);
-  state.docNumber = 'КП-' + d.id + '/' + dm;
-  syncInputs(); renderDoc(); save();
-  lg('подставлено: Кому «' + state.client + '», телефон «' + state.clientContact + '», номер ' + state.docNumber);
-}
-
-function loadInputs(type){
-  var all = [], off = 0;
-  function step(){
-    return api('/deal/getListInputs?type=' + type + '&limit=50&offset=' + off, 'GET').then(function(r){
-      var list = (r && r.result) || [];
-      all = all.concat(list);
-      var next = r && r.offset;
-      if (list.length && next !== -1 && next !== undefined && next !== null && all.length < 400){ off = next; return step(); }
-      return all;
-    });
-  }
-  return step();
-}
-function findKpFields(){
-  logEl().innerHTML = '';
-  lg('ищу поля «КП»…');
-  return Promise.all([
-    loadInputs('custom').catch(function(e){ lg('custom недоступен: ' + e.message, undefined, true); return []; }),
-    loadInputs('service').catch(function(){ return []; })
-  ]).then(function(res){
-    var file = null, num = null;
-    res[0].concat(res[1]).forEach(function(f){
-      var n = String(f.name || '').toLowerCase();
-      if (!/кп|коммерч/.test(n)) return;
-      lg('  id=' + f.id + ' «' + f.name + '» type_id=' + f.type_id);
-      if (!file && /файл|file|документ|pdf/.test(n)) file = { id:f.id, t:'custom' };
-      else if (!num) num = { id:f.id, t:'custom' };
-    });
-    if (file){ cfg.file_id = file.id; cfg.file_type = file.t; lg('ПОЛЕ ФАЙЛА → ' + file.id); }
-    else lg('поле с «файл» в названии не найдено — впишите input_id вручную', undefined, true);
-    if (num){ cfg.num_id = num.id; cfg.num_type = num.t; lg('поле НОМЕРА → ' + num.id); }
-    cfgSave(); fillForm();
-  });
-}
-
-function refPairs(res){
-  var pairs = [], seen = {};
-  (function walk(o, path){
-    if (o == null || typeof o !== 'object') return;
-    Object.keys(o).forEach(function(k){
-      var v = o[k], p = path ? path + '.' + k : k;
-      if (v == null) return;
-      if (typeof v === 'object'){ walk(v, p); return; }
-      var sv = String(v), kl = k.toLowerCase();
-      var isUrl = /url|link|href|path/.test(kl) && /^https?:/.test(sv);
-      var isId  = /^(id|file_id|log_id|element_id)$/.test(kl) && /^\d{1,12}$/.test(sv);
-      if (isUrl || isId){
-        var key = isUrl ? 'url' : kl, sig = key + ':' + sv;
-        if (!seen[sig]){ seen[sig] = 1; pairs.push({ key:key, val:sv, isUrl:isUrl, path:p }); }
-      }
-    });
-  })(res, '');
-  return pairs;
-}
-function formatsFrom(pairs){
-  var out = [], seen = {};
-  function add(n, tpl, key){ if (seen[n]) return; seen[n] = 1; out.push({ n:n, tpl:tpl, key:key }); }
-  pairs.filter(function(p){ return p.isUrl; }).forEach(function(p){
-    add('url_obj','[{"url":"{{v}}"}]',p.key);
-    add('url_arr','["{{v}}"]',p.key);
-    add('url_bare','{{v}}',p.key);
-  });
-  pairs.filter(function(p){ return !p.isUrl; }).forEach(function(p){
-    add(p.key+'_obj','[{"'+p.key+'":{{v}}}]',p.key);
-    add(p.key+'_obj_str','[{"'+p.key+'":"{{v}}"}]',p.key);
-    add(p.key+'_arr','["{{v}}"]',p.key);
-    add(p.key+'_bare','{{v}}',p.key);
-  });
-  return out.slice(0, 14);
-}
-
-function makePdf(){
-  if (typeof html2pdf === 'undefined') return Promise.reject(new Error('html2pdf не загрузился'));
-  var el = document.getElementById('doc');
-  return html2pdf().set({
-    margin: 0,
-    image: { type:'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor:'#ffffff', windowWidth:1400 },
-    jsPDF: { unit:'mm', format:'a4', orientation:'portrait' },
-    pagebreak: { mode: ['css','legacy'] }
-  }).from(el).toPdf().get('pdf').then(function(pdf){ return pdf.output('blob'); });
-}
-function attachFile(dealId, blob, filename){
-  var fd = new FormData();
-  fd.append('deal_id', String(dealId));
-  fd.append('comment', 'Коммерческое предложение ' + (state.docNumber || ''));
-  fd.append('files[]', blob, filename);
-  return api('/deal/log/attachFile', 'POST', fd, true);
-}
-
-function printDoc(){
-  var css = '';
-  Array.prototype.forEach.call(document.querySelectorAll('style'), function(s){ css += s.textContent; });
-  var ds = document.getElementById('doc').getAttribute('style') || '';
-  var html = '<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>'
-    + (state.docTitle || 'КП') + (state.docNumber ? ' № ' + state.docNumber : '') + '</title><style>' + css
-    + '\nhtml,body{height:auto;background:#fff}.app,.main{display:block;height:auto;overflow:visible}'
-    + '.doc{width:210mm;min-height:297mm;margin:0 auto;border:0;border-radius:0;box-shadow:none}</style></head><body>'
-    + '<div class="doc" id="doc" style="' + ds + '">' + document.getElementById('doc').innerHTML + '</div>'
-    + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>';
-  var w = window.open('', '_blank');
-  if (!w){ lg('окно печати заблокировано браузером — разрешите всплывающие окна', undefined, true); return; }
-  w.document.open(); w.document.write(html); w.document.close();
-}
-
-function run(){
-  logEl().innerHTML = '';
-  var phoneEl = document.getElementById('kpPhone');
-  var phone = normPhone(phoneEl ? phoneEl.value : '');
-  if (phone.length !== 11){
-    lg('телефон обязателен — введите номер полностью', undefined, true);
-    toast('Введите телефон клиента');
-    if (phoneEl) phoneEl.focus();
-    return;
-  }
-  lg('телефон: ' + prettyPhone(phone));
-
-  var resp = null, myDealId = 0;
-
-  Promise.all([ dealSearch(phone), openedDealId() ]).then(function(arr){
-    var found = dealsFrom(arr[0]);
-    var opened = arr[1];
-    lg('найдено сделок: ' + found.length + (opened ? ', открыта сделка ' + opened : ''));
-    if (!found.length) throw new Error('по этому телефону сделка не найдена');
-
-    var chosen = null;
-    if (opened) chosen = found.filter(function(x){ return x.id === opened; })[0] || null;
-    if (!chosen) chosen = found[0];
-
-    myDealId = chosen.id;
-    lg('КП уйдёт в сделку №' + chosen.id + (chosen.client ? ' (' + chosen.client + ')' : ''));
-    return loadDeal(chosen.id);
-  }).then(function(d){
-    fillFromDeal(d);
-    return makePdf();
-  }).then(function(blob){
-    lg('PDF собран: ' + Math.round(blob.size/1024) + ' КБ');
-    var fn = 'KP_' + myDealId + '_' + String(state.docNumber || '').replace(/[^\wа-яА-ЯёЁ-]+/g,'_') + '.pdf';
-    return attachFile(myDealId, blob, fn);
-  }).then(function(r){
-    resp = r;
-    lg('файл приложен к сделке №' + myDealId);
-    if (!cfg.file_id) throw new Error('не найден input_id поля «КП (файл)» — нажмите «Найти поля»');
-    return readValues();
-  }).then(function(){
-    var pairs = refPairs(resp);
-    if (!pairs.length){
-      return api('/deal/log/list?deal_id=' + Number(myDealId) + '&limit=10','GET')
-        .then(function(r){ return refPairs(r); }).catch(function(){ return []; });
-    }
-    return pairs;
-  }).then(function(pairs){
-    var list = [];
-    if (cfg.fmt_tpl && cfg.fmt_key){
-      var pr0 = pairs.filter(function(p){ return p.key === cfg.fmt_key; })[0];
-      if (pr0) list.push({ tpl:cfg.fmt_tpl, key:cfg.fmt_key, val:pr0.val });
-    }
-    formatsFrom(pairs).forEach(function(f){
-      var pr = pairs.filter(function(p){ return p.key === f.key; })[0];
-      if (pr) list.push({ tpl:f.tpl, key:f.key, val:pr.val });
-    });
-    if (!list.length) throw new Error('в ответе нет ссылки на файл');
-
-    function tryNext(i){
-      if (i >= list.length) throw new Error('формат записи файла не подошёл — пришлите журнал');
-      var f = list[i], val = String(f.tpl).replace('{{v}}', f.val);
-      return writeField(cfg.file_id, cfg.file_type, val)
-        .then(readValues)
-        .then(function(vals){
-          var got = valById(vals, cfg.file_id);
-          if (got){ cfg.fmt_tpl = f.tpl; cfg.fmt_key = f.key; cfgSave(); lg('PDF записан в поле «КП (файл)»'); return true; }
-          return tryNext(i + 1);
-        })
-        .catch(function(){ return tryNext(i + 1); });
-    }
-    return tryNext(0);
-  }).then(function(){
-    if (cfg.num_id && document.getElementById('kpWriteNum').checked){
-      return writeField(cfg.num_id, cfg.num_type, state.docNumber)
-        .then(function(){ lg('номер КП записан: ' + state.docNumber); })
-        .catch(function(e){ lg('номер КП не записался: ' + e.message, undefined, true); });
-    }
-  }).then(function(){
-    lg('ГОТОВО — открываю печать');
-    toast('КП сохранён в сделке №' + myDealId + ' — открываю печать');
-    setTimeout(printDoc, 300);
-  }).catch(function(e){
-    var msg = String(e && e.message ? e.message : e);
-    lg('ОШИБКА: ' + msg, undefined, true);
-    if (/Failed to fetch|NetworkError|load failed/i.test(msg)){
-      lg('браузер блокирует запрос к CRM (CORS) — нужен файл-посредник на вашем хостинге', undefined, true);
-    }
-    toast('Ошибка — смотрите журнал');
-  });
-}
-
-function fillForm(){
-  var set = function(id, v){ var el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
-  set('kpHost', cfg.host); set('kpKey', cfg.key);
-  set('kpFile', cfg.file_id); set('kpNumId', cfg.num_id);
-}
-function bindPanel(){
-  var q = function(id){ return document.getElementById(id); };
-  if (!q('kpRun')) return;
-  q('kpSaveCfg').onclick = function(){
-    cfg.host = q('kpHost').value.trim(); cfg.key = q('kpKey').value.trim();
-    cfg.file_id = q('kpFile').value.trim(); cfg.num_id = q('kpNumId').value.trim();
-    cfgSave(); toast('Настройки сохранены');
-  };
-  q('kpTest').onclick = function(){
-    logEl().innerHTML = '';
-    cfg.host = q('kpHost').value.trim(); cfg.key = q('kpKey').value.trim();
-    lg('проверяю ' + cfg.host);
-    api('/main/data','GET').then(function(r){
-      var c = (r && r.crm) || (r && r.result && r.result.crm);
-      lg(c ? ('API отвечает: ' + c.name + ' · ' + c.domain) : 'API отвечает');
-      toast('API отвечает');
-    }).catch(function(e){
-      lg('ошибка API: ' + e.message, undefined, true);
-      lg('401 → ключ · Failed to fetch → CORS, блокировщик или адрес', undefined, true);
-    });
-  };
-  q('kpFind').onclick = function(){ findKpFields().catch(function(e){ lg('ошибка поиска: ' + e.message, undefined, true); }); };
-  q('kpRun').onclick = run;
-  fillForm();
-}
-document.addEventListener('keydown', function(e){
-  if (e.key === 'Enter' && e.target && e.target.id === 'kpPhone'){ e.preventDefault(); run(); }
-});
-
-function loadCfgFromCrm(){
-  var w = W();
-  if (!w || !w.getParams) return;
-  try {
-    w.getParams({ type:'user' }).then(function(p){
-      var raw = null;
-      if (Array.isArray(p)) p.forEach(function(x){ if (x && x.name === 'kp_cfg') raw = x.value; });
-      else if (p && p.kp_cfg) raw = (p.kp_cfg.value !== undefined ? p.kp_cfg.value : p.kp_cfg);
-      if (typeof raw === 'string'){ try { cfg = Object.assign(cfg, JSON.parse(raw)); fillForm(); } catch(e){} }
-    }).catch(function(){});
-  } catch(e){}
-}
-
-function boot(){
-  bindPanel();
-  loadCfgFromCrm();
-  var q = new URLSearchParams(location.search);
-  if (q.get('embed') === '1'){
-    document.body.classList.add('embed-mode');
-  }
-}
-if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(boot, 400);
-else window.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 400); });
-})();
-</script>
-  <script>
-(function () {
   'use strict';
+  var W = window.EnvyCrmWidget;
+  var CRM = { on:false };
+  var t = function(m){ if (typeof toast === 'function') toast(m); else console.log(m); };
 
-  var params = new URLSearchParams(window.location.search);
-
-  if (params.get('auto') !== '1') {
-    return;
-  }
-
-  var autoPhone = params.get('phone') || '';
-  var autoDealId = params.get('deal_id') || '';
-  var autoNumber = params.get('kp_number') || '';
-
-  window.KP_AUTO_CONTEXT = {
-    dealId: autoDealId,
-    phone: autoPhone,
-    number: autoNumber
+  /* 1. Сохранение: localStorage + настройки расширения (у каждого пользователя свои) */
+  var _save = save;
+  save = function(){
+    _save();
+    if (!CRM.on) return;
+    try { W.saveParams([{ name:'kp_state', value: JSON.stringify(state), type:'user' }]); }
+    catch(e){ console.log('saveParams', e); }
   };
 
-  function fire(element) {
-    if (!element) return;
+  /* 2. Модальные окна в iframe часто заблокированы */
+  window.alert = function(m){ t(String(m)); };
+  var armed = null;
+  window.confirm = function(m){
+    if (armed === m){ armed = null; return true; }
+    armed = m; t('Нажмите ещё раз, чтобы подтвердить');
+    return false;
+  };
 
-    element.dispatchEvent(new Event('input', {
-      bubbles: true
-    }));
+  /* 3. bindFields без дублей обработчиков */
+  bindFields = function(){
+    Array.prototype.forEach.call(document.querySelectorAll('[data-bind]'), function(el){
+      if (el.__kpBound) return;
+      el.__kpBound = true;
+      var k = el.getAttribute('data-bind');
+      if (el.type === 'checkbox') el.checked = !!state[k]; else el.value = state[k] == null ? '' : state[k];
+      el.addEventListener('input', function(){
+        state[k] = el.type === 'checkbox' ? el.checked : el.value;
+        if (k === 'bgCustom'){ state.bgId = 'custom'; renderAppearance(); }
+        save(); renderDoc();
+      });
+    });
+  };
 
-    element.dispatchEvent(new Event('change', {
-      bubbles: true
-    }));
-
-    element.dispatchEvent(new Event('blur', {
-      bubbles: true
-    }));
+  /* 4. Документ отдельным окном (в узкой панели печатать нельзя) */
+  function openDoc(doPrint){
+    var css = '';
+    Array.prototype.forEach.call(document.querySelectorAll('style'), function(s){ css += s.textContent; });
+    var docStyle = document.getElementById('doc').getAttribute('style') || '';
+    var html = '<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>'
+      + (state.docTitle || 'КП') + ' \u2116 ' + (state.docNumber || '') + '</title><style>' + css
+      + '\nhtml,body{height:auto;background:#fff}.app,.main{display:block;height:auto;overflow:visible}'
+      + '.doc{width:210mm;min-height:297mm;margin:0 auto;border:0;border-radius:0;box-shadow:none}</style></head><body>'
+      + '<div class="doc" id="doc" style="' + docStyle + '">' + document.getElementById('doc').innerHTML + '</div>'
+      + (doPrint ? '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script>' : '')
+      + '</body></html>';
+    var win = window.open('', '_blank');
+    if (!win){ try { window.print(); } catch(e){} t('Открытие окна заблокировано — печатаю панель'); return; }
+    win.document.open(); win.document.write(html); win.document.close();
   }
 
-  function setValue(element, value) {
-    if (!element || !value) return;
+  /* 5. Панель CRM */
+  function panel(){
+    var ed = document.getElementById('editor');
+    if (!ed || document.getElementById('crmCard')) return;
+    var d = document.createElement('details');
+    d.className = 'card'; d.open = true; d.id = 'crmCard';
+    d.innerHTML = '<summary>CRM: связь, поля, импорт</summary><div class="body">'
+      + '<p class="hint" id="crmStatus">Состояние: проверяю…</p>'
+      + '<div class="grid2">'
+      +   '<label class="f">Объект<select id="crmObj"><option value="deal">Сделка</option><option value="client">Клиент</option></select></label>'
+      +   '<label class="f">Тип поля<select id="crmType"><option value="service">service</option><option value="custom">custom</option></select></label>'
+      +   '<label class="f">input_id<input id="crmId" inputmode="numeric" placeholder="200"></label>'
+      +   '<label class="f">Вставить в<select id="crmTarget">'
+      +     '<option value="">— только показать —</option>'
+      +     '<option value="client">Кому (заказчик)</option>'
+      +     '<option value="clientContact">Должность / контакт</option>'
+      +     '<option value="docTitle">Заголовок документа</option>'
+      +     '<option value="intro">Вступительный текст</option>'
+      +     '<option value="from">От кого (исполнитель)</option>'
+      +     '<option value="brand">Название платформы</option>'
+      +     '<option value="requisites">Реквизиты</option>'
+      +   '</select></label></div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
+      +   '<button class="btn primary" id="crmRead">Прочитать поле</button>'
+      +   '<button class="btn" id="crmDeal">Прочитать сделку</button>'
+      +   '<button class="btn" id="crmSave">Сохранить шаблон в CRM</button>'
+      + '</div>'
+      + '<div id="crmOut" style="margin-top:10px;font-size:11.5px;color:var(--mut);white-space:pre-wrap;word-break:break-word"></div>'
+      + '</div>';
+    ed.insertBefore(d, ed.firstChild);
 
-    element.value = value;
-    fire(element);
-  }
-
-  function parentText(element) {
-    var parent = element;
-
-    for (var i = 0; i < 4 && parent; i++) {
-      var text = String(parent.innerText || '').toLowerCase();
-
-      if (text.length > 0) {
-        return text;
-      }
-
-      parent = parent.parentElement;
+    var out = d.querySelector('#crmOut');
+    function log(msg, val){
+      out.textContent += msg + (val === undefined ? '' : ': ' + (typeof val === 'string' ? val : JSON.stringify(val))) + '\n';
     }
 
-    return '';
-  }
-
-  function findInput(words) {
-    var inputs = Array.prototype.slice.call(
-      document.querySelectorAll('input, textarea')
-    );
-
-    for (var i = 0; i < inputs.length; i++) {
-      var input = inputs[i];
-
-      var allText = (
-        String(input.id || '') + ' ' +
-        String(input.name || '') + ' ' +
-        String(input.placeholder || '') + ' ' +
-        parentText(input)
-      ).toLowerCase();
-
-      var matches = true;
-
-      for (var j = 0; j < words.length; j++) {
-        if (allText.indexOf(words[j]) === -1) {
-          matches = false;
-          break;
+    d.querySelector('#crmRead').onclick = function(){
+      var id = Number(d.querySelector('#crmId').value);
+      var type = d.querySelector('#crmType').value;
+      var obj = d.querySelector('#crmObj').value;
+      if (!id){ t('Укажите input_id'); return; }
+      var p = (obj === 'deal') ? W.getDealValue({ input_id:id, type:type })
+                               : W.getClientValue({ input_id:id, type:type });
+      p.then(function(res){
+        var val = (res && typeof res === 'object' && res.value !== undefined) ? res.value : res;
+        log(obj + ' ' + id + ' (' + type + ')', res);
+        var target = d.querySelector('#crmTarget').value;
+        if (target){
+          state[target] = (val == null ? '' : String(val));
+          bindFields(); save(); renderDoc();
+          t('Вставлено в «' + target + '»');
         }
-      }
+      }).catch(function(e){ log('Ошибка ' + obj + ' ' + id, String(e)); });
+    };
 
-      if (matches) {
-        return input;
-      }
-    }
+    d.querySelector('#crmDeal').onclick = function(){
+      W.getDeal().then(function(r){ log('getDeal()', r); })
+                  .catch(function(e){ log('getDeal ошибка', String(e)); });
+    };
 
-    return null;
+    d.querySelector('#crmSave').onclick = function(){
+      W.saveParams([{ name:'kp_state', value: JSON.stringify(state), type:'user' }])
+        .then(function(){ t('Шаблон сохранён'); log('saveParams (user) — ok'); })
+        .catch(function(e){ log('saveParams ошибка', String(e)); });
+    };
   }
 
-  function findPhoneInput() {
-    var direct =
-      document.querySelector('#clientPhone') ||
-      document.querySelector('#phone') ||
-      document.querySelector('[name="client_phone"]') ||
-      document.querySelector('[name="phone"]');
-
-    if (direct) {
-      return direct;
-    }
-
-    return findInput(['телефон']);
+  function setStatus(s){
+    var el = document.getElementById('crmStatus');
+    if (el) el.textContent = 'Состояние: ' + s;
+    console.log('[KP]', s);
   }
 
-  function findNumberInput() {
-    var direct =
-      document.querySelector('#proposalNumber') ||
-      document.querySelector('#kpNumber') ||
-      document.querySelector('[name="proposal_number"]') ||
-      document.querySelector('[name="kp_number"]');
-
-    if (direct) {
-      return direct;
+  function pickState(p){
+    var raw = null;
+    if (Object.prototype.toString.call(p) === '[object Array]'){
+      p.forEach(function(x){ if (x && x.name === 'kp_state') raw = x.value; });
+    } else if (p && typeof p === 'object'){
+      raw = p.kp_state;
+      if (raw && typeof raw === 'object' && raw.value !== undefined) raw = raw.value;
     }
-
-    var byLabel = findInput(['номер', 'кп']);
-
-    if (byLabel) {
-      return byLabel;
-    }
-
-    return findInput(['номер']);
+    if (typeof raw !== 'string') return null;
+    try { return JSON.parse(raw); } catch(e){ return null; }
   }
 
-  function hideUnnecessaryButtons() {
-    var buttons = Array.prototype.slice.call(
-      document.querySelectorAll('button')
-    );
+  function enableCrm(){
+    CRM.on = true;
+    document.body.classList.add('crm-mode');
+    var st = document.createElement('style');
+    st.textContent = 'body.crm-mode .main{display:block}'
+      + 'body.crm-mode .preview{display:none}'
+      + 'body.crm-mode .editor{height:100%;max-height:none;border-right:0}';
+    document.head.appendChild(st);
 
-    buttons.forEach(function (button) {
-      var text = String(button.innerText || '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-
-      if (
-        text.indexOf('найти поля') !== -1 ||
-        text.indexOf('проверить api') !== -1 ||
-        text.indexOf('сохранить настройки') !== -1
-      ) {
-        button.style.display = 'none';
-      }
-    });
-  }
-
-  function applyAutomaticData() {
-    var phoneInput = findPhoneInput();
-    var numberInput = findNumberInput();
-
-    if (phoneInput && autoPhone && phoneInput.value !== autoPhone) {
-      setValue(phoneInput, autoPhone);
+    var bar = document.querySelector('.appactions');
+    var printBtn = document.getElementById('btnPrint');
+    if (bar && printBtn){
+      var clone = printBtn.cloneNode(true);
+      printBtn.parentNode.replaceChild(clone, printBtn);
+      clone.onclick = function(){ openDoc(true); };
+      var pv = document.createElement('button');
+      pv.className = 'btn'; pv.textContent = 'Предпросмотр';
+      pv.onclick = function(){ openDoc(false); };
+      bar.insertBefore(pv, clone);
     }
 
-    if (numberInput && autoNumber && numberInput.value !== autoNumber) {
-      setValue(numberInput, autoNumber);
-    }
+    panel();
 
-    hideUnnecessaryButtons();
-
-    document.documentElement.setAttribute(
-      'data-kp-auto',
-      '1'
-    );
+    W.getParams({ type:'user' })
+      .then(function(p){
+        var saved = pickState(p);
+        if (saved && saved.services){
+          state = Object.assign(defaults(), saved);
+          state.bgSaves = state.bgSaves || [];
+          state.bgId = state.bgId || 'paper';
+          renderAppearance(); renderCatalogs(); renderLists(); bindFields(); renderDoc();
+        }
+        setStatus('подключено · ' + (state.docNumber || '—'));
+      })
+      .catch(function(e){ setStatus('getParams недоступен: ' + e); });
   }
 
-  var attempts = 0;
+  window.addEventListener('message', function(e){ console.log('CRM update:', e.data); }, false);
 
-  var timer = setInterval(function () {
-    applyAutomaticData();
-
-    attempts++;
-
-    if (attempts > 40) {
-      clearInterval(timer);
-    }
-  }, 250);
-
-  if (window.MutationObserver) {
-    var observer = new MutationObserver(function () {
-      applyAutomaticData();
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-
-    setTimeout(function () {
-      observer.disconnect();
-    }, 12000);
-  }
-
-  applyAutomaticData();
-})();
-</script>
-  <script>
-(function () {
-  'use strict';
-
-  var params = new URLSearchParams(window.location.search);
-
-  if (params.get('auto') !== '1') {
-    return;
-  }
-
-  var token = params.get('context_token') || '';
-  var storageKey = 'kp_envycrm_context_v13';
-
-  var appliedToken = '';
-  var nameApplied = false;
-  var phoneApplied = false;
-  var numberApplied = false;
-
-  function getContext() {
+  if (W && W.getParams){
     try {
-      var raw = localStorage.getItem(storageKey);
-
-      if (!raw) {
-        return null;
-      }
-
-      var data = JSON.parse(raw);
-
-      if (token && data.token !== token) {
-        return null;
-      }
-
-      return data;
-    } catch (e) {
-      return null;
-    }
+      W.getParams({ type:'user' }).then(enableCrm).catch(function(){ if (window.parent !== window) enableCrm(); });
+    } catch(e){ if (window.parent !== window) enableCrm(); }
+  } else {
+    console.log('[KP] библиотека EnvyCrmWidget не загрузилась — обычный режим');
   }
-
-  function getValue(element) {
-    if (!element) {
-      return '';
-    }
-
-    if (element.matches && element.matches('[contenteditable="true"]')) {
-      return String(element.textContent || '').trim();
-    }
-
-    return String(element.value || '').trim();
-  }
-
-  function setValue(element, value) {
-    if (!element || !value) {
-      return;
-    }
-
-    if (element.matches && element.matches('[contenteditable="true"]')) {
-      element.textContent = value;
-    } else {
-      /*
-       * Используем настоящий setter input,
-       * чтобы React/Vue/обычный JS увидели изменение.
-       */
-      var prototype = Object.getPrototypeOf(element);
-      var descriptor = prototype &&
-        Object.getOwnPropertyDescriptor(prototype, 'value');
-
-      if (descriptor && descriptor.set) {
-        descriptor.set.call(element, value);
-      } else {
-        element.value = value;
-      }
-    }
-
-    element.dispatchEvent(new Event('input', {
-      bubbles: true
-    }));
-
-    element.dispatchEvent(new Event('change', {
-      bubbles: true
-    }));
-
-    element.dispatchEvent(new Event('blur', {
-      bubbles: true
-    }));
-  }
-
-  function fieldText(element) {
-    if (!element) {
-      return '';
-    }
-
-    var text = '';
-
-    if (element.id) {
-      var label = document.querySelector(
-        'label[for="' + element.id + '"]'
-      );
-
-      if (label) {
-        text += ' ' + label.innerText;
-      }
-    }
-
-    var parent = element.parentElement;
-
-    for (var i = 0; i < 3 && parent; i++) {
-      text += ' ' + String(parent.innerText || '');
-      parent = parent.parentElement;
-    }
-
-    return (
-      String(element.id || '') + ' ' +
-      String(element.name || '') + ' ' +
-      String(element.placeholder || '') + ' ' +
-      String(element.getAttribute('aria-label') || '') + ' ' +
-      text
-    ).toLowerCase();
-  }
-
-  function allFields() {
-    return Array.prototype.slice.call(
-      document.querySelectorAll(
-        'input, textarea, [contenteditable="true"]'
-      )
-    );
-  }
-
-  function findBySelectors(selectors) {
-    for (var i = 0; i < selectors.length; i++) {
-      var element = document.querySelector(selectors[i]);
-
-      if (element) {
-        return element;
-      }
-    }
-
-    return null;
-  }
-
-  function findPhoneField() {
-    var direct = findBySelectors([
-      '#clientPhone',
-      '#phone',
-      '[name="client_phone"]',
-      '[name="phone"]',
-      'input[type="tel"]'
-    ]);
-
-    if (direct) {
-      return direct;
-    }
-
-    var fields = allFields();
-
-    for (var i = 0; i < fields.length; i++) {
-      var text = fieldText(fields[i]);
-
-      if (
-        text.indexOf('телефон клиента') !== -1 ||
-        text.indexOf('телефон') !== -1 ||
-        text.indexOf('phone') !== -1
-      ) {
-        return fields[i];
-      }
-    }
-
-    return null;
-  }
-
-  function findNameField() {
-    var direct = findBySelectors([
-      '#clientName',
-      '#customerName',
-      '[name="client_name"]',
-      '[name="customer_name"]',
-      '[name="customer"]'
-    ]);
-
-    if (direct) {
-      return direct;
-    }
-
-    var labels = Array.prototype.slice.call(
-      document.querySelectorAll('label')
-    );
-
-    for (var i = 0; i < labels.length; i++) {
-      var labelText = String(labels[i].innerText || '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-
-      if (
-        labelText.indexOf('кому') !== -1 ||
-        labelText.indexOf('заказчик') !== -1
-      ) {
-        if (labels[i].htmlFor) {
-          var linked = document.getElementById(
-            labels[i].htmlFor
-          );
-
-          if (linked) {
-            return linked;
-          }
-        }
-
-        var parent = labels[i].parentElement;
-
-        if (parent) {
-          var inside = parent.querySelector(
-            'input, textarea, [contenteditable="true"]'
-          );
-
-          if (inside) {
-            return inside;
-          }
-        }
-      }
-    }
-
-    var fields = allFields();
-
-    for (var j = 0; j < fields.length; j++) {
-      var text = fieldText(fields[j]);
-
-      if (
-        text.indexOf('кому') !== -1 ||
-        text.indexOf('заказчик') !== -1 ||
-        text.indexOf('client_name') !== -1 ||
-        text.indexOf('customer_name') !== -1
-      ) {
-        return fields[j];
-      }
-    }
-
-    return null;
-  }
-
-  function findNumberField() {
-    var direct = findBySelectors([
-      '#proposalNumber',
-      '#kpNumber',
-      '[name="proposal_number"]',
-      '[name="kp_number"]'
-    ]);
-
-    if (direct) {
-      return direct;
-    }
-
-    var fields = allFields();
-
-    for (var i = 0; i < fields.length; i++) {
-      var text = fieldText(fields[i]);
-
-      if (
-        text.indexOf('номер кп') !== -1 ||
-        text.indexOf('№ кп') !== -1 ||
-        text.indexOf('proposal_number') !== -1 ||
-        text.indexOf('kp_number') !== -1
-      ) {
-        return fields[i];
-      }
-    }
-
-    return null;
-  }
-
-  function hideManualButtons() {
-    var buttons = Array.prototype.slice.call(
-      document.querySelectorAll('button')
-    );
-
-    buttons.forEach(function (button) {
-      var text = String(button.innerText || '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-
-      if (
-        text.indexOf('найти поля') !== -1 ||
-        text.indexOf('проверить api') !== -1 ||
-        text.indexOf('сохранить настройки') !== -1
-      ) {
-        button.style.display = 'none';
-      }
-    });
-  }
-
-  function applyContext() {
-    var context = getContext();
-
-    if (!context) {
-      return;
-    }
-
-    if (appliedToken !== context.token) {
-      appliedToken = context.token;
-      nameApplied = false;
-      phoneApplied = false;
-      numberApplied = false;
-    }
-
-    var nameField = findNameField();
-    var phoneField = findPhoneField();
-    var numberField = findNumberField();
-
-    /*
-     * Имя заполняем только если поле пустое.
-     * После этого его можно менять вручную.
-     */
-    if (
-      !nameApplied &&
-      nameField &&
-      context.clientName &&
-      !getValue(nameField)
-    ) {
-      setValue(nameField, context.clientName);
-      nameApplied = true;
-    }
-
-    /*
-     * Телефон виден в поле и доступен для копирования.
-     */
-    if (
-      !phoneApplied &&
-      phoneField &&
-      context.phone &&
-      !getValue(phoneField)
-    ) {
-      setValue(phoneField, context.phone);
-      phoneApplied = true;
-    }
-
-    /*
-     * Номер КП подставляется автоматически.
-     */
-    if (
-      !numberApplied &&
-      numberField &&
-      context.number &&
-      !getValue(numberField)
-    ) {
-      setValue(numberField, context.number);
-      numberApplied = true;
-    }
-
-    hideManualButtons();
-  }
-
-  /*
-   * Ждём, пока конструктор отрисует поля,
-   * а виджет получит данные сделки.
-   */
-  var tries = 0;
-
-  var timer = setInterval(function () {
-    applyContext();
-
-    tries++;
-
-    if (tries > 80) {
-      clearInterval(timer);
-    }
-  }, 250);
-
-  /*
-   * Если данные сделки появились после открытия —
-   * применяем их сразу.
-   */
-  window.addEventListener('storage', function (event) {
-    if (event.key === storageKey) {
-      applyContext();
-    }
-  });
-
-  if (window.MutationObserver && document.body) {
-    var observer = new MutationObserver(function () {
-      applyContext();
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-
-    setTimeout(function () {
-      observer.disconnect();
-    }, 20000);
-  }
-
-  applyContext();
-})();
-</script>
-  <script>
-(function () {
-  'use strict';
-
-  function savePdfOnComputer(blob, filename) {
-    var link = document.createElement('a');
-    var url = URL.createObjectURL(blob);
-
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-
-    document.body.appendChild(link);
-    link.click();
-
-    setTimeout(function () {
-      URL.revokeObjectURL(url);
-
-      if (link.parentNode) {
-        link.parentNode.removeChild(link);
-      }
-    }, 3000);
-  }
-
-  function finalPdfRun() {
-    var phoneInput =
-      document.getElementById('kpPhone');
-
-    var rawPhone =
-      phoneInput ? phoneInput.value : '';
-
-    var phone = String(rawPhone)
-      .replace(/\D/g, '');
-
-    if (
-      phone.length !== 10 &&
-      phone.length !== 11
-    ) {
-      if (typeof toast === 'function') {
-        toast('Введите телефон клиента');
-      }
-
-      if (phoneInput) {
-        phoneInput.focus();
-      }
-
-      return;
-    }
-
-    var urlParams = new URLSearchParams(
-      window.location.search
-    );
-
-    var dealId =
-      urlParams.get('deal_id') || '';
-
-    /*
-     * Сначала используем уже заполненные поля.
-     * Это позволяет скачать PDF даже при CORS.
-     */
-    if (typeof renderDoc === 'function') {
-      renderDoc();
-    }
-
-    var doc = document.getElementById('doc');
-
-    if (
-      !doc ||
-      typeof html2pdf === 'undefined'
-    ) {
-      if (typeof toast === 'function') {
-        toast('Не удалось собрать PDF');
-      }
-
-      return;
-    }
-
-    html2pdf()
-      .set({
-        margin: 0,
-        image: {
-          type: 'jpeg',
-          quality: 0.95
-        },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          windowWidth: 1400
-        },
-        jsPDF: {
-          unit: 'mm',
-          format: 'a4',
-          orientation: 'portrait'
-        },
-        pagebreak: {
-          mode: ['css', 'legacy']
-        }
-      })
-      .from(doc)
-      .toPdf()
-      .get('pdf')
-      .then(function (pdf) {
-        var blob = pdf.output('blob');
-
-        var number =
-          window.state &&
-          window.state.docNumber
-            ? window.state.docNumber
-            : (
-              dealId
-                ? 'КП-' + dealId
-                : 'КП'
-            );
-
-        var filename = String(number)
-          .replace(/[^\wа-яА-ЯёЁ-]+/g, '_') +
-          '.pdf';
-
-        savePdfOnComputer(
-          blob,
-          filename
-        );
-
-        if (typeof toast === 'function') {
-          toast('PDF сохранён на компьютер');
-        }
-
-        /*
-         * Печать запускается после скачивания.
-         * Ошибки CRM сюда не попадут.
-         */
-        setTimeout(function () {
-          if (typeof printDoc === 'function') {
-            printDoc();
-          } else {
-            window.print();
-          }
-        }, 400);
-      })
-      .catch(function (error) {
-        console.error(
-          '[KP FINAL PDF]',
-          error
-        );
-
-        if (typeof toast === 'function') {
-          toast('Ошибка создания PDF');
-        }
-      });
-  }
-
-  function bindFinalPdfButton() {
-    var button = document.getElementById('kpRun');
-
-    if (!button) {
-      return;
-    }
-
-    button.onclick = finalPdfRun;
-  }
-
-  bindFinalPdfButton();
-
-  setTimeout(bindFinalPdfButton, 500);
-  setTimeout(bindFinalPdfButton, 1200);
-  setTimeout(bindFinalPdfButton, 2500);
-})();
-</script>
-  <script>
-(function () {
-  'use strict';
-
-  /*
-   * Финальный обработчик КП.
-   * Удаляет старые обработчики кнопки,
-   * не требует повторного ввода телефона,
-   * сначала скачивает PDF,
-   * затем отдельно пытается синхронизировать CRM.
-   */
-
-  function finalLog(message, error) {
-    if (typeof lg === 'function') {
-      lg(
-        message,
-        undefined,
-        !!error
-      );
-    }
-
-    console.log(
-      error ? '[KP FINAL ERROR]' : '[KP FINAL]',
-      message
-    );
-  }
-
-  function finalToast(message) {
-    if (typeof toast === 'function') {
-      toast(message);
-    }
-  }
-
-  function getPhoneFromVisibleField() {
-    var input = document.getElementById('kpPhone');
-
-    if (!input) {
-      return '';
-    }
-
-    return String(input.value || '')
-      .replace(/\D/g, '');
-  }
-
-  function getDealIdFromUrl() {
-    try {
-      return new URLSearchParams(
-        window.location.search
-      ).get('deal_id') || '';
-    } catch (e) {
-      return '';
-    }
-  }
-
-  function makeFilename(dealId) {
-    var number =
-      window.state &&
-      window.state.docNumber
-        ? window.state.docNumber
-        : ('КП-' + dealId);
-
-    return String(number)
-      .replace(/[^\wа-яА-ЯёЁ-]+/g, '_') +
-      '.pdf';
-  }
-
-  function downloadPdf(blob, filename) {
-    var link = document.createElement('a');
-    var objectUrl = URL.createObjectURL(blob);
-
-    link.href = objectUrl;
-    link.download = filename;
-    link.style.display = 'none';
-
-    document.body.appendChild(link);
-    link.click();
-
-    setTimeout(function () {
-      URL.revokeObjectURL(objectUrl);
-
-      if (link.parentNode) {
-        link.parentNode.removeChild(link);
-      }
-    }, 3000);
-  }
-
-  function buildPdf() {
-    if (
-      typeof html2pdf === 'undefined'
-    ) {
-      return Promise.reject(
-        new Error('html2pdf не загрузился')
-      );
-    }
-
-    var documentBlock =
-      document.getElementById('doc');
-
-    if (!documentBlock) {
-      return Promise.reject(
-        new Error('Блок документа не найден')
-      );
-    }
-
-    return html2pdf()
-      .set({
-        margin: 0,
-        image: {
-          type: 'jpeg',
-          quality: 0.95
-        },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          windowWidth: 1400
-        },
-        jsPDF: {
-          unit: 'mm',
-          format: 'a4',
-          orientation: 'portrait'
-        },
-        pagebreak: {
-          mode: ['css', 'legacy']
-        }
-      })
-      .from(documentBlock)
-      .toPdf()
-      .get('pdf')
-      .then(function (pdf) {
-        return pdf.output('blob');
-      });
-  }
-
-  function findDeal() {
-    var dealId = getDealIdFromUrl();
-
-    /*
-     * Основной путь: ID сделки уже передан
-     * из CRM через kp-widget → kp-auto.
-     * Телефон повторно не спрашиваем.
-     */
-    if (
-      dealId &&
-      typeof loadDeal === 'function'
-    ) {
-      return loadDeal(Number(dealId));
-    }
-
-    /*
-     * Резервный путь — поиск по уже заполненному телефону.
-     */
-    var phone = getPhoneFromVisibleField();
-
-    if (
-      phone.length === 10 ||
-      phone.length === 11
-    ) {
-      return dealSearch(phone)
-        .then(function (response) {
-          var deals = dealsFrom(response);
-
-          if (!deals.length) {
-            throw new Error(
-              'Сделка по телефону не найдена'
-            );
-          }
-
-          return loadDeal(deals[0].id);
-        });
-    }
-
-    return Promise.reject(
-      new Error(
-        'Не удалось получить ID сделки и телефон'
-      )
-    );
-  }
-
-  function tryAttachPdf(dealId, blob, filename) {
-    if (
-      typeof attachFile !== 'function'
-    ) {
-      finalLog(
-        'Функция прикрепления файла недоступна',
-        true
-      );
-
-      return Promise.resolve();
-    }
-
-    return attachFile(
-      dealId,
-      blob,
-      filename
-    )
-      .then(function () {
-        finalLog(
-          'PDF прикреплён к сделке №' + dealId
-        );
-      })
-      .catch(function (error) {
-        /*
-         * CORS не отменяет скачивание PDF.
-         */
-        finalLog(
-          'PDF уже скачан, но не прикреплён к CRM: ' +
-          (
-            error && error.message
-              ? error.message
-              : error
-          ),
-          true
-        );
-      });
-  }
-
-  function tryWriteNumber() {
-    var checkbox =
-      document.getElementById('kpWriteNum');
-
-    if (
-      !checkbox ||
-      !checkbox.checked ||
-      !window.cfg ||
-      !cfg.num_id ||
-      typeof writeField !== 'function'
-    ) {
-      return Promise.resolve();
-    }
-
-    return writeField(
-      cfg.num_id,
-      cfg.num_type,
-      state.docNumber
-    )
-      .then(function () {
-        finalLog(
-          'номер КП записан: ' +
-          state.docNumber
-        );
-      })
-      .catch(function (error) {
-        finalLog(
-          'номер КП не записался в CRM: ' +
-          (
-            error && error.message
-              ? error.message
-              : error
-          ),
-          true
-        );
-      });
-  }
-
-  function runFinal() {
-    finalLog('формирование КП запущено');
-
-    /*
-     * 1. Получаем сделку по переданному ID.
-     */
-    findDeal()
-
-      /*
-       * 2. Заполняем имя, телефон и номер КП
-       *    штатной функцией конструктора.
-       */
-      .then(function (deal) {
-        if (
-          typeof fillFromDeal === 'function'
-        ) {
-          fillFromDeal(deal);
-        }
-
-        /*
-         * Если старый код успел записать телефон
-         * в название платформы — возвращаем штатное имя.
-         */
-        if (
-          window.state &&
-          /^\+?\d[\d\s()\-]{6,}$/.test(
-            String(state.brand || '')
-          )
-        ) {
-          state.brand = 'Платформа';
-        }
-
-        if (
-          typeof syncInputs === 'function'
-        ) {
-          syncInputs();
-        }
-
-        if (
-          typeof renderDoc === 'function'
-        ) {
-          renderDoc();
-        }
-
-        if (
-          typeof save === 'function'
-        ) {
-          save();
-        }
-
-        return {
-          deal: deal,
-          dealId: Number(deal.id)
-        };
-      })
-
-      /*
-       * 3. Строим PDF.
-       */
-      .then(function (data) {
-        return buildPdf().then(function (blob) {
-          return {
-            dealId: data.dealId,
-            blob: blob,
-            filename: makeFilename(data.dealId)
-          };
-        });
-      })
-
-      /*
-       * 4. СНАЧАЛА сохраняем PDF на компьютер.
-       */
-      .then(function (data) {
-        downloadPdf(
-          data.blob,
-          data.filename
-        );
-
-        finalLog(
-          'PDF сохранён на компьютер: ' +
-          data.filename
-        );
-
-        finalToast(
-          'PDF сохранён на компьютер'
-        );
-
-        /*
-         * 5. Только после скачивания
-         *    пытаемся прикрепить его к CRM.
-         */
-        return tryAttachPdf(
-          data.dealId,
-          data.blob,
-          data.filename
-        ).then(function () {
-          return data;
-        });
-      })
-
-      /*
-       * 6. Номер КП записываем отдельно.
-       */
-      .then(function () {
-        return tryWriteNumber();
-      })
-
-      /*
-       * 7. Печать не зависит от CORS.
-       */
-      .then(function () {
-        finalLog(
-          'готово — открываю печать'
-        );
-
-        setTimeout(function () {
-          if (
-            typeof printDoc === 'function'
-          ) {
-            printDoc();
-          } else {
-            window.print();
-          }
-        }, 400);
-      })
-
-      .catch(function (error) {
-        finalLog(
-          'ошибка формирования КП: ' +
-          (
-            error && error.message
-              ? error.message
-              : error
-          ),
-          true
-        );
-
-        finalToast(
-          'Ошибка формирования КП'
-        );
-      });
-  }
-
-  function replaceButtonHandler() {
-    var oldButton =
-      document.getElementById('kpRun');
-
-    if (!oldButton) {
-      return;
-    }
-
-    /*
-     * Клонирование удаляет ВСЕ старые onclick/listeners.
-     */
-    var newButton =
-      oldButton.cloneNode(true);
-
-    oldButton.parentNode.replaceChild(
-      newButton,
-      oldButton
-    );
-
-    newButton.onclick = runFinal;
-    newButton.__kpFinalHandler = true;
-  }
-
-  /*
-   * Дожидаемся, пока kp.html создаст кнопку.
-   */
-  replaceButtonHandler();
-
-  setTimeout(
-    replaceButtonHandler,
-    300
-  );
-
-  setTimeout(
-    replaceButtonHandler,
-    800
-  );
-
-  setTimeout(
-    replaceButtonHandler,
-    1600
-  );
 })();
 </script>
 </body>
