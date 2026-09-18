@@ -28,7 +28,7 @@
 
 <iframe
   id="kp-frame"
-  src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=26"
+  src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=27"
   title="Конструктор КП">
 </iframe>
 
@@ -44,7 +44,7 @@
   var clientId = params.get('client_id') || '';
 
   var PROXY_URL =
-    'https://script.google.com/macros/s/AKfycbxxi10GiEDFroquS0VwwUH4eJ3v0NuR5GlUiIdOvynZFukhRKkOhRkPVrCFgsBg-pV9/exec';
+    'https://script.google.com/macros/s/AKfycbwTIDBQvAu7q2WFEOr6F8AQ_gJdjnSxYAJrtrd04QODVyoVoR085ZdtsiwpXE7Z26AQ/exec';
 
   var frame = document.getElementById('kp-frame');
 
@@ -54,11 +54,12 @@
   var nameChanged = false;
   var phoneChanged = false;
   var numberChanged = false;
+
   var writing = false;
 
   function log(message, data) {
     console.log(
-      '[KP AUTO v26] ' + message,
+      '[KP AUTO v27] ' + message,
       data || ''
     );
   }
@@ -68,34 +69,12 @@
       return frame.contentDocument ||
         frame.contentWindow.document ||
         null;
-    } catch (error) {
+    } catch (e) {
       return null;
     }
   }
 
-  /*
-   * Порядок подтверждён вашей диагностикой kp.html:
-   *
-   * 0  fileImport
-   * 1  #kpPhone
-   * 2  #kpHost
-   * 3  #kpKey
-   * 4  #kpFile
-   * 5  #kpNumId
-   * 6  #kpWriteNum
-   * 7  цвет
-   * 8  цвет
-   * 9  цвет
-   * 10 Название платформы — НЕ ТРОГАЕМ
-   * 11 Подзаголовок
-   * 12 Заголовок документа
-   * 13 Номер КП
-   * 14 Дата
-   * 15 Срок
-   * 16 Кому (заказчик)
-   * 17 Контакт (телефон)
-   */
-  function controls(doc) {
+  function allControls(doc) {
     return Array.prototype.slice.call(
       doc.querySelectorAll(
         'input, textarea, select, [contenteditable="true"]'
@@ -103,12 +82,11 @@
     );
   }
 
-  function field(doc, index) {
-    var list = controls(doc);
-    return list[index] || null;
+  function getControl(doc, index) {
+    return allControls(doc)[index] || null;
   }
 
-  function writable(element) {
+  function isWritable(element) {
     if (!element) {
       return false;
     }
@@ -139,11 +117,12 @@
       type !== 'hidden' &&
       type !== 'button' &&
       type !== 'submit' &&
+      type !== 'reset' &&
       !element.disabled
     );
   }
 
-  function value(element) {
+  function getValue(element) {
     if (!element) {
       return '';
     }
@@ -160,10 +139,10 @@
     return String(element.value || '').trim();
   }
 
-  function setValue(element, newValue) {
+  function setValue(element, value) {
     if (
-      !writable(element) ||
-      !newValue
+      !isWritable(element) ||
+      !value
     ) {
       return;
     }
@@ -175,12 +154,9 @@
         element.matches &&
         element.matches('[contenteditable="true"]')
       ) {
-        element.textContent = newValue;
+        element.textContent = value;
       } else {
-        var prototype = Object.getPrototypeOf(
-          element
-        );
-
+        var prototype = Object.getPrototypeOf(element);
         var descriptor = prototype &&
           Object.getOwnPropertyDescriptor(
             prototype,
@@ -191,9 +167,9 @@
           descriptor &&
           descriptor.set
         ) {
-          descriptor.set.call(element, newValue);
+          descriptor.set.call(element, value);
         } else {
-          element.value = newValue;
+          element.value = value;
         }
       }
 
@@ -214,7 +190,6 @@
         'blur',
         { bubbles: true }
       ));
-
     } finally {
       setTimeout(function () {
         writing = false;
@@ -225,12 +200,12 @@
   function watch(element, type) {
     if (
       !element ||
-      element.__kpWatch26
+      element.__kpWatch27
     ) {
       return;
     }
 
-    element.__kpWatch26 = type;
+    element.__kpWatch27 = type;
 
     element.addEventListener(
       'input',
@@ -270,7 +245,30 @@
       day + '.' + month + '.' + year;
   }
 
-  function proxyData() {
+  function hideManualButtons(doc) {
+    var buttons = Array.prototype.slice.call(
+      doc.querySelectorAll('button')
+    );
+
+    buttons.forEach(function (button) {
+      var text = String(
+        button.innerText || ''
+      )
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+      if (
+        text.indexOf('найти поля') !== -1 ||
+        text.indexOf('проверить api') !== -1 ||
+        text.indexOf('сохранить настройки') !== -1
+      ) {
+        button.style.display = 'none';
+      }
+    });
+  }
+
+  function getProxyData() {
     if (!dealId && !clientId) {
       return Promise.resolve();
     }
@@ -288,7 +286,7 @@
 
       var timer = setTimeout(function () {
         cleanup();
-        log('прокси не ответил за 15 секунд');
+        log('прокси не ответил');
         resolve();
       }, 15000);
 
@@ -297,7 +295,7 @@
 
         try {
           delete window[callbackName];
-        } catch (error) {
+        } catch (e) {
           window[callbackName] = undefined;
         }
 
@@ -311,7 +309,7 @@
 
         if (!data || !data.ok) {
           log(
-            'ошибка прокси',
+            'прокси вернул ошибку',
             data && data.error
           );
 
@@ -319,13 +317,15 @@
           return;
         }
 
-        clientName =
-          String(data.clientName || '');
+        clientName = String(
+          data.clientName || ''
+        );
 
-        clientPhone =
-          String(data.phone || '');
+        clientPhone = String(
+          data.phone || ''
+        );
 
-        log('имя и телефон получены', {
+        log('данные клиента получены', {
           clientName: clientName,
           phone: clientPhone
         });
@@ -352,29 +352,6 @@
     });
   }
 
-  function hideManualButtons(doc) {
-    var buttons = Array.prototype.slice.call(
-      doc.querySelectorAll('button')
-    );
-
-    buttons.forEach(function (button) {
-      var text = String(
-        button.innerText || ''
-      )
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-
-      if (
-        text.indexOf('найти поля') !== -1 ||
-        text.indexOf('проверить api') !== -1 ||
-        text.indexOf('сохранить настройки') !== -1
-      ) {
-        button.style.display = 'none';
-      }
-    });
-  }
-
   function apply() {
     var doc = getDocument();
 
@@ -383,19 +360,54 @@
     }
 
     /*
-     * Точные поля из диагностики.
-     * Поле 10 «Название платформы» здесь отсутствует
-     * и никогда не изменяется.
+     * Индексы подтверждены диагностикой:
+     * 10 — Название платформы: НЕ ТРОГАЕМ;
+     * 13 — Номер КП;
+     * 16 — Кому (заказчик);
+     * 17 — Контакт (телефон).
      */
-    var phoneSearchField =
+    var platformField = getControl(doc, 10);
+    var numberField = getControl(doc, 13);
+    var nameField = getControl(doc, 16);
+    var contactPhoneField = getControl(doc, 17);
+
+    var searchPhoneField =
       doc.querySelector('#kpPhone');
 
-    var numberField = field(doc, 13);
-    var nameField = field(doc, 16);
-    var documentPhoneField = field(doc, 17);
+    /*
+     * Исправляем старое загрязнение:
+     * если в «Название платформы» попал телефон
+     * или имя клиента, возвращаем «Платформа».
+     */
+    if (
+      platformField &&
+      isWritable(platformField)
+    ) {
+      var platformValue =
+        getValue(platformField);
 
-    watch(phoneSearchField, 'phone');
-    watch(documentPhoneField, 'phone');
+      var hasPhone =
+        /\d{7,}/.test(
+          platformValue.replace(/\D/g, '')
+        );
+
+      var hasClientName =
+        clientName &&
+        platformValue === clientName;
+
+      if (
+        hasPhone ||
+        hasClientName
+      ) {
+        setValue(
+          platformField,
+          'Платформа'
+        );
+      }
+    }
+
+    watch(searchPhoneField, 'phone');
+    watch(contactPhoneField, 'phone');
     watch(nameField, 'name');
     watch(numberField, 'number');
 
@@ -404,21 +416,21 @@
       !phoneChanged
     ) {
       if (
-        writable(phoneSearchField) &&
-        value(phoneSearchField) !== clientPhone
+        isWritable(searchPhoneField) &&
+        getValue(searchPhoneField) !== clientPhone
       ) {
         setValue(
-          phoneSearchField,
+          searchPhoneField,
           clientPhone
         );
       }
 
       if (
-        writable(documentPhoneField) &&
-        value(documentPhoneField) !== clientPhone
+        isWritable(contactPhoneField) &&
+        getValue(contactPhoneField) !== clientPhone
       ) {
         setValue(
-          documentPhoneField,
+          contactPhoneField,
           clientPhone
         );
       }
@@ -427,8 +439,8 @@
     if (
       clientName &&
       !nameChanged &&
-      writable(nameField) &&
-      value(nameField) !== clientName
+      isWritable(nameField) &&
+      getValue(nameField) !== clientName
     ) {
       setValue(
         nameField,
@@ -439,11 +451,11 @@
     if (
       dealId &&
       !numberChanged &&
-      writable(numberField)
+      isWritable(numberField)
     ) {
       var number = proposalNumber();
 
-      if (value(numberField) !== number) {
+      if (getValue(numberField) !== number) {
         setValue(numberField, number);
       }
     }
@@ -459,11 +471,7 @@
     false
   );
 
-  /*
-   * Сначала получаем данные через прокси,
-   * затем применяем к точным полям.
-   */
-  proxyData().then(function () {
+  getProxyData().then(function () {
     apply();
   });
 
@@ -487,12 +495,12 @@
         if (
           !doc ||
           !doc.body ||
-          doc.body.__kpObserver26
+          doc.body.__kpObserver27
         ) {
           return;
         }
 
-        doc.body.__kpObserver26 = true;
+        doc.body.__kpObserver27 = true;
 
         var observer = new MutationObserver(
           function () {
