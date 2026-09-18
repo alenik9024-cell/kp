@@ -1,19 +1,57 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head><meta charset="utf-8"><title>КП — виджет</title></head>
+<head>
+<meta charset="utf-8">
+<title>КП — виджет</title>
+<!-- Библиотека виджета EnvyCRM. Рабочий адрес — только этот. -->
+<script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"
+        onerror="window.__KP_LIB_ERROR = 1"></script>
+<style>
+  body{margin:0;font:13px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;
+       background:#fff;color:#2b2b2b;padding:12px;box-sizing:border-box}
+  #kpBtn{display:block;width:100%;padding:13px 16px;border:0;border-radius:10px;
+    background:#2F6BFF;color:#fff;font:600 14px/1 inherit;cursor:pointer}
+  #kpBtn:hover{background:#1f57e0}
+  #kpBtn[disabled]{opacity:.6;cursor:default}
+  #st{margin-top:10px;font-size:12px;line-height:1.5;color:#666}
+  .ok{color:#0a7d33;font-weight:600}
+  .err{color:#c0392b;font-weight:600}
+  .warn{color:#b8860b;font-weight:600}
+  pre{font:11px/1.4 monospace;white-space:pre-wrap;word-break:break-word;
+      background:#f6f7f9;padding:8px;border-radius:6px;margin:8px 0 0;max-height:180px;overflow:auto}
+</style>
+</head>
 <body>
+
+<button id="kpBtn" type="button">📄 Сформировать КП</button>
+<div id="st">КП v39 · запуск…</div>
+
 <script>
 (function () {
   'use strict';
 
-  var VERSION = 'v39';
+  var VERSION  = 'v39';
   var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=39';
+
+  var st  = document.getElementById('st');
+  var btn = document.getElementById('kpBtn');
 
   var w = window.EnvyCrmWidget;
   var dealId = '', clientId = '';
+  var ready = false;
 
   function log(m, d) { try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {} }
+  function say(html) { st.innerHTML = html; }
 
+  /* --- состояние библиотеки видно прямо в панели --- */
+  var libState = window.EnvyCrmWidget
+    ? '<span class="ok">загружена</span>'
+    : (window.__KP_LIB_ERROR ? '<span class="err">НЕ загрузилась (сеть/блокировка)</span>'
+                             : '<span class="warn">ожидание…</span>');
+  say('<b>КП ' + VERSION + '</b><br>Библиотека EnvyCRM: ' + libState);
+  log('старт', { lib: !!window.EnvyCrmWidget, err: !!window.__KP_LIB_ERROR });
+
+  /* --- идентификаторы сделки: params + getDeal() как страховка --- */
   function getParam(p, names) {
     p = p || {};
     for (var i = 0; i < names.length; i++) {
@@ -23,12 +61,35 @@
     return '';
   }
 
+  function pullDeal() {
+    return new Promise(function (resolve) {
+      if (dealId) { resolve(); return; }
+      try {
+        if (!w || typeof w.getDeal !== 'function') { resolve(); return; }
+        var r = w.getDeal();
+        if (r && typeof r.then === 'function') {
+          r.then(function (d) {
+            if (d) {
+              dealId   = String(d.id || d.deal_id || d.ID || dealId || '');
+              clientId = String(d.client_id || d.clientId || clientId || '');
+            }
+            log('getDeal', d);
+            resolve();
+          }).catch(function (e) { log('getDeal ошибка', e); resolve(); });
+        } else { resolve(); }
+      } catch (e) { log('getDeal исключение', e); resolve(); }
+    });
+  }
+
+  /* --- открытие конструктора --- */
   function openConstructor() {
     var url = AUTO_URL +
-      '&deal_id=' + encodeURIComponent(dealId) +
+      '&deal_id='   + encodeURIComponent(dealId) +
       '&client_id=' + encodeURIComponent(clientId);
 
-    var html = '<iframe src="' + url + '" style="width:100%;height:80vh;border:0;display:block"></iframe>';
+    var html = '<iframe src="' + url +
+      '" style="width:100%;height:80vh;border:0;display:block"></iframe>';
+
     log('открываю конструктор', { deal_id: dealId, client_id: clientId });
 
     try {
@@ -52,24 +113,34 @@
     }
   }
 
+  /* --- кнопка ВНУТРИ панели расширения: исчезнуть не может --- */
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    pullDeal().then(function () {
+      btn.disabled = false;
+      openConstructor();
+    });
+
+  /* --- регистрация кнопки в шапке сделки: ровно как в рабочей v32 --- */
   function register() {
     w = window.EnvyCrmWidget;
     if (!w) { log('EnvyCrmWidget не найдена'); return; }
 
     window.addEventListener('message', function (e) {
-      if (e.data && e.data.type === 'kp-btn:click') openConstructor();
+      if (e.data && e.data.type === 'kp-btn:click') {
+        log('кнопка в шапке нажата');
+        pullDeal().then(openConstructor);
+      }
     }, false);
 
     try {
-      /* ОДНА кнопка — ровно как в рабочей v32.
-         Несколько кнопок в одном слоте position гасят друг друга —
-         именно это убрало кнопку в v35/v36. */
       w.init({
         'deal-btn': function (params) {
-          dealId   = getParam(params, ['dealID', 'deal_id', 'dealId']);
-          clientId = getParam(params, ['clientID', 'client_id', 'clientId']);
-          log('сделка', { deal_id: dealId, client_id: clientId });
+          dealId   = getParam(params, ['dealID', 'deal_id', 'dealId'])   || dealId;
+          clientId = getParam(params, ['clientID', 'client_id', 'clientId']) || clientId;
+          log('params', { deal_id: dealId, client_id: clientId });
 
+          /* ОДНА кнопка. Несколько кнопок в слоте position гасят друг друга. */
           return [{
             title: 'Сформировать КП',
             styles: { color: '#fff', 'background-color': '#2F6BFF' },
@@ -80,18 +151,32 @@
           }];
         }
       });
+      ready = true;
       log('кнопка зарегистрирована');
     } catch (e) { log('ошибка регистрации', e); }
   }
 
   function wait(n) {
     n = n || 0;
-    if (window.EnvyCrmWidget) { register(); return; }
-    if (n >= 100) { log('библиотека не загрузилась'); return; }
+    if (window.EnvyCrmWidget) {
+      register();
+      pullDeal().then(function () {
+        say('<b>КП ' + VERSION + '</b><br>Библиотека EnvyCRM: <span class="ok">загружена</span>' +
+            '<br>Кнопка в шапке: ' + (ready ? '<span class="ok">зарегистрирована</span>'
+                                            : '<span class="err">не зарегистрирована</span>') +
+            '<br>Сделка: <b>' + (dealId || '—') + '</b> · Клиент: <b>' + (clientId || '—') + '</b>');
+      });
+      return;
+    }
+    if (n >= 60) {
+      say('<b>КП ' + VERSION + '</b><br>Библиотека EnvyCRM: <span class="err">НЕ загрузилась</span>' +
+          '<br>Проверьте адрес <code>cdn.saas-support.com</code> — он не открывается из этой сети.');
+      log('библиотека не загрузилась за 6 с');
+      return;
+    }
     setTimeout(function () { wait(n + 1); }, 100);
   }
 
-  log('виджет ' + VERSION + ' запущен');
   wait(0);
 })();
 </script>
