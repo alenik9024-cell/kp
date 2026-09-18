@@ -28,7 +28,7 @@
 
 <iframe
   id="kp-frame"
-  src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=20"
+  src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=26"
   title="Конструктор КП">
 </iframe>
 
@@ -40,39 +40,27 @@
     window.location.search
   );
 
-  var token = params.get('token') || '';
-  var STORAGE_KEY = 'kp_context_v20';
+  var dealId = params.get('deal_id') || '';
+  var clientId = params.get('client_id') || '';
+
+  var PROXY_URL =
+    'https://script.google.com/macros/s/AKfycbxxi10GiEDFroquS0VwwUH4eJ3v0NuR5GlUiIdOvynZFukhRKkOhRkPVrCFgsBg-pV9/exec';
+
   var frame = document.getElementById('kp-frame');
 
-  var activeToken = '';
-  var writing = false;
+  var clientName = '';
+  var clientPhone = '';
 
   var nameChanged = false;
   var phoneChanged = false;
   var numberChanged = false;
+  var writing = false;
 
-  function readContext() {
-    try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-
-      if (!raw) {
-        return null;
-      }
-
-      var context = JSON.parse(raw);
-
-      if (
-        token &&
-        context.token &&
-        context.token !== token
-      ) {
-        return null;
-      }
-
-      return context;
-    } catch (error) {
-      return null;
-    }
+  function log(message, data) {
+    console.log(
+      '[KP AUTO v26] ' + message,
+      data || ''
+    );
   }
 
   function getDocument() {
@@ -85,15 +73,42 @@
     }
   }
 
-  function normalize(value) {
-    return String(value || '')
-      .replace(/\s+/g, ' ')
-      .replace(/ё/g, 'е')
-      .trim()
-      .toLowerCase();
+  /*
+   * Порядок подтверждён вашей диагностикой kp.html:
+   *
+   * 0  fileImport
+   * 1  #kpPhone
+   * 2  #kpHost
+   * 3  #kpKey
+   * 4  #kpFile
+   * 5  #kpNumId
+   * 6  #kpWriteNum
+   * 7  цвет
+   * 8  цвет
+   * 9  цвет
+   * 10 Название платформы — НЕ ТРОГАЕМ
+   * 11 Подзаголовок
+   * 12 Заголовок документа
+   * 13 Номер КП
+   * 14 Дата
+   * 15 Срок
+   * 16 Кому (заказчик)
+   * 17 Контакт (телефон)
+   */
+  function controls(doc) {
+    return Array.prototype.slice.call(
+      doc.querySelectorAll(
+        'input, textarea, select, [contenteditable="true"]'
+      )
+    );
   }
 
-  function isWritable(element) {
+  function field(doc, index) {
+    var list = controls(doc);
+    return list[index] || null;
+  }
+
+  function writable(element) {
     if (!element) {
       return false;
     }
@@ -116,126 +131,19 @@
       element.type || 'text'
     ).toLowerCase();
 
-    /*
-     * Эти типы нельзя изменять через value.
-     */
-    if (
-      type === 'file' ||
-      type === 'color' ||
-      type === 'checkbox' ||
-      type === 'radio' ||
-      type === 'button' ||
-      type === 'submit' ||
-      type === 'reset' ||
-      type === 'hidden'
-    ) {
-      return false;
-    }
-
-    return !element.disabled;
-  }
-
-  function candidates(scope) {
-    if (!scope) {
-      return [];
-    }
-
-    var list = Array.prototype.slice.call(
-      scope.querySelectorAll(
-        'input, textarea, [contenteditable="true"]'
-      )
+    return (
+      type !== 'file' &&
+      type !== 'color' &&
+      type !== 'checkbox' &&
+      type !== 'radio' &&
+      type !== 'hidden' &&
+      type !== 'button' &&
+      type !== 'submit' &&
+      !element.disabled
     );
-
-    return list.filter(isWritable);
   }
 
-  /*
-   * Ищем поле только рядом с конкретным label.
-   * Не просматриваем весь большой родительский блок,
-   * поэтому файл/color больше не выбираются ошибочно.
-   */
-  function findByLabel(doc, words) {
-    var labels = Array.prototype.slice.call(
-      doc.querySelectorAll('label')
-    );
-
-    for (var i = 0; i < labels.length; i++) {
-      var label = labels[i];
-      var text = normalize(label.innerText);
-
-      var matches = words.some(function (word) {
-        return text === normalize(word) ||
-          text.indexOf(normalize(word)) !== -1;
-      });
-
-      if (!matches) {
-        continue;
-      }
-
-      if (label.htmlFor) {
-        var linked = doc.getElementById(
-          label.htmlFor
-        );
-
-        if (isWritable(linked)) {
-          return linked;
-        }
-      }
-
-      var parent = label.parentElement;
-      var nearby = candidates(parent);
-
-      if (nearby.length) {
-        return nearby[0];
-      }
-
-      var next = label.nextElementSibling;
-      nearby = candidates(next);
-
-      if (nearby.length) {
-        return nearby[0];
-      }
-
-      if (parent && parent.nextElementSibling) {
-        nearby = candidates(
-          parent.nextElementSibling
-        );
-
-        if (nearby.length) {
-          return nearby[0];
-        }
-      }
-    }
-
-    return null;
-  }
-
-  function findPhoneField(doc) {
-    /*
-     * Это точный ID из диагностики.
-     */
-    return doc.querySelector('#kpPhone');
-  }
-
-  function findNameField(doc) {
-    return findByLabel(doc, [
-      'Кому (заказчик)'
-    ]);
-  }
-
-  function findDocumentPhoneField(doc) {
-    return findByLabel(doc, [
-      'Контакт (телефон)'
-    ]);
-  }
-
-  function findNumberField(doc) {
-    return findByLabel(doc, [
-      'Номер КП'
-    ]);
-  }
-
-  function fieldValue(element) {
+  function value(element) {
     if (!element) {
       return '';
     }
@@ -252,26 +160,10 @@
     return String(element.value || '').trim();
   }
 
-  function fire(element) {
-    var win = element.ownerDocument.defaultView;
-
-    element.dispatchEvent(new win.Event('input', {
-      bubbles: true
-    }));
-
-    element.dispatchEvent(new win.Event('change', {
-      bubbles: true
-    }));
-
-    element.dispatchEvent(new win.Event('blur', {
-      bubbles: true
-    }));
-  }
-
-  function writeValue(element, value) {
+  function setValue(element, newValue) {
     if (
-      !isWritable(element) ||
-      !value
+      !writable(element) ||
+      !newValue
     ) {
       return;
     }
@@ -283,7 +175,7 @@
         element.matches &&
         element.matches('[contenteditable="true"]')
       ) {
-        element.textContent = value;
+        element.textContent = newValue;
       } else {
         var prototype = Object.getPrototypeOf(
           element
@@ -299,13 +191,30 @@
           descriptor &&
           descriptor.set
         ) {
-          descriptor.set.call(element, value);
+          descriptor.set.call(element, newValue);
         } else {
-          element.value = value;
+          element.value = newValue;
         }
       }
 
-      fire(element);
+      var win =
+        element.ownerDocument.defaultView;
+
+      element.dispatchEvent(new win.Event(
+        'input',
+        { bubbles: true }
+      ));
+
+      element.dispatchEvent(new win.Event(
+        'change',
+        { bubbles: true }
+      ));
+
+      element.dispatchEvent(new win.Event(
+        'blur',
+        { bubbles: true }
+      ));
+
     } finally {
       setTimeout(function () {
         writing = false;
@@ -316,12 +225,12 @@
   function watch(element, type) {
     if (
       !element ||
-      element.__kpWatch20
+      element.__kpWatch26
     ) {
       return;
     }
 
-    element.__kpWatch20 = type;
+    element.__kpWatch26 = type;
 
     element.addEventListener(
       'input',
@@ -346,7 +255,7 @@
     );
   }
 
-  function proposalNumber(dealId) {
+  function proposalNumber() {
     var date = new Date();
 
     var day = String(date.getDate())
@@ -361,13 +270,100 @@
       day + '.' + month + '.' + year;
   }
 
+  function proxyData() {
+    if (!dealId && !clientId) {
+      return Promise.resolve();
+    }
+
+    return new Promise(function (resolve) {
+      var callbackName =
+        '__kp_data_' +
+        Date.now() +
+        '_' +
+        Math.floor(Math.random() * 100000);
+
+      var script = document.createElement(
+        'script'
+      );
+
+      var timer = setTimeout(function () {
+        cleanup();
+        log('прокси не ответил за 15 секунд');
+        resolve();
+      }, 15000);
+
+      function cleanup() {
+        clearTimeout(timer);
+
+        try {
+          delete window[callbackName];
+        } catch (error) {
+          window[callbackName] = undefined;
+        }
+
+        if (script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+      }
+
+      window[callbackName] = function (data) {
+        cleanup();
+
+        if (!data || !data.ok) {
+          log(
+            'ошибка прокси',
+            data && data.error
+          );
+
+          resolve();
+          return;
+        }
+
+        clientName =
+          String(data.clientName || '');
+
+        clientPhone =
+          String(data.phone || '');
+
+        log('имя и телефон получены', {
+          clientName: clientName,
+          phone: clientPhone
+        });
+
+        resolve();
+      };
+
+      script.onerror = function () {
+        cleanup();
+        log('Google Apps Script недоступен');
+        resolve();
+      };
+
+      script.src =
+        PROXY_URL +
+        '?deal_id=' +
+        encodeURIComponent(dealId) +
+        '&client_id=' +
+        encodeURIComponent(clientId) +
+        '&callback=' +
+        encodeURIComponent(callbackName);
+
+      document.head.appendChild(script);
+    });
+  }
+
   function hideManualButtons(doc) {
     var buttons = Array.prototype.slice.call(
       doc.querySelectorAll('button')
     );
 
     buttons.forEach(function (button) {
-      var text = normalize(button.innerText);
+      var text = String(
+        button.innerText || ''
+      )
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
 
       if (
         text.indexOf('найти поля') !== -1 ||
@@ -386,88 +382,69 @@
       return;
     }
 
-    var context = readContext();
+    /*
+     * Точные поля из диагностики.
+     * Поле 10 «Название платформы» здесь отсутствует
+     * и никогда не изменяется.
+     */
+    var phoneSearchField =
+      doc.querySelector('#kpPhone');
 
-    if (!context) {
-      return;
-    }
+    var numberField = field(doc, 13);
+    var nameField = field(doc, 16);
+    var documentPhoneField = field(doc, 17);
 
-    if (activeToken !== context.token) {
-      activeToken = context.token || String(Date.now());
-
-      nameChanged = false;
-      phoneChanged = false;
-      numberChanged = false;
-    }
-
-    var phoneField = findPhoneField(doc);
-    var nameField = findNameField(doc);
-    var documentPhoneField =
-      findDocumentPhoneField(doc);
-    var numberField = findNumberField(doc);
-
-    watch(phoneField, 'phone');
+    watch(phoneSearchField, 'phone');
     watch(documentPhoneField, 'phone');
     watch(nameField, 'name');
     watch(numberField, 'number');
 
-    /*
-     * Телефон клиента — точное поле #kpPhone.
-     */
     if (
-      context.phone &&
-      !phoneChanged &&
-      phoneField &&
-      fieldValue(phoneField) !== context.phone
+      clientPhone &&
+      !phoneChanged
     ) {
-      writeValue(phoneField, context.phone);
+      if (
+        writable(phoneSearchField) &&
+        value(phoneSearchField) !== clientPhone
+      ) {
+        setValue(
+          phoneSearchField,
+          clientPhone
+        );
+      }
+
+      if (
+        writable(documentPhoneField) &&
+        value(documentPhoneField) !== clientPhone
+      ) {
+        setValue(
+          documentPhoneField,
+          clientPhone
+        );
+      }
     }
 
-    /*
-     * Телефон в самом документе.
-     */
     if (
-      context.phone &&
-      !phoneChanged &&
-      documentPhoneField &&
-      fieldValue(documentPhoneField) !== context.phone
-    ) {
-      writeValue(
-        documentPhoneField,
-        context.phone
-      );
-    }
-
-    /*
-     * Поле «Кому (заказчик)».
-     * Значение можно потом изменить вручную.
-     */
-    if (
-      context.clientName &&
+      clientName &&
       !nameChanged &&
-      nameField &&
-      fieldValue(nameField) !== context.clientName
+      writable(nameField) &&
+      value(nameField) !== clientName
     ) {
-      writeValue(
+      setValue(
         nameField,
-        context.clientName
+        clientName
       );
     }
 
-    /*
-     * Номер КП.
-     */
     if (
-      context.dealId &&
+      dealId &&
       !numberChanged &&
-      numberField
+      writable(numberField)
     ) {
-      var number = proposalNumber(
-        context.dealId
-      );
+      var number = proposalNumber();
 
-      if (fieldValue(numberField) !== number) {
-        writeValue(numberField, number);
+      if (value(numberField) !== number) {
+        setValue(numberField, number);
       }
     }
 
@@ -482,19 +459,14 @@
     false
   );
 
-  window.addEventListener(
-    'storage',
-    function (event) {
-      if (event.key === STORAGE_KEY) {
-        apply();
-      }
-    },
-    false
-  );
-
   /*
-   * Поля kp.html появляются после его отрисовки.
+   * Сначала получаем данные через прокси,
+   * затем применяем к точным полям.
    */
+  proxyData().then(function () {
+    apply();
+  });
+
   var attempts = 0;
 
   var timer = setInterval(function () {
@@ -508,30 +480,33 @@
   }, 250);
 
   if (window.MutationObserver) {
-    var observerTimer = setInterval(function () {
-      var doc = getDocument();
+    var observerTimer = setInterval(
+      function () {
+        var doc = getDocument();
 
-      if (
-        !doc ||
-        !doc.body ||
-        doc.body.__kpObserver20
-      ) {
-        return;
-      }
-
-      doc.body.__kpObserver20 = true;
-
-      var observer = new MutationObserver(
-        function () {
-          apply();
+        if (
+          !doc ||
+          !doc.body ||
+          doc.body.__kpObserver26
+        ) {
+          return;
         }
-      );
 
-      observer.observe(doc.body, {
-        childList: true,
-        subtree: true
-      });
-    }, 500);
+        doc.body.__kpObserver26 = true;
+
+        var observer = new MutationObserver(
+          function () {
+            apply();
+          }
+        );
+
+        observer.observe(doc.body, {
+          childList: true,
+          subtree: true
+        });
+      },
+      500
+    );
 
     setTimeout(function () {
       clearInterval(observerTimer);
