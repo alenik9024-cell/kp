@@ -13,13 +13,14 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v24';
+  var VERSION = 'v25';
+
   var CONSTRUCTOR_URL =
     'https://alenik9024-cell.github.io/kp/kp.html';
 
   var widget = null;
-  var currentDealId = '';
-  var currentClientId = '';
+  var dealId = '';
+  var clientId = '';
 
   function log(message, data) {
     try {
@@ -27,10 +28,10 @@
         '[KP ' + VERSION + '] ' + message,
         data || ''
       );
-    } catch (e) {}
+    } catch (error) {}
   }
 
-  log('файл kp-widget.html запущен');
+  log('kp-widget.html запущен');
 
   function getParam(params, names) {
     params = params || {};
@@ -56,20 +57,19 @@
       '?embed=1' +
       '&full=1' +
       '&deal_id=' +
-      encodeURIComponent(currentDealId) +
+      encodeURIComponent(dealId) +
       '&client_id=' +
-      encodeURIComponent(currentClientId);
+      encodeURIComponent(clientId);
 
     var iframe =
       '<iframe src="' + url + '"' +
       ' style="width:100%;height:calc(100vh - 60px);' +
-      'min-height:650px;border:0;"' +
+      'min-height:650px;border:0"' +
       ' allowfullscreen></iframe>';
 
     log('открываю конструктор', {
-      deal_id: currentDealId,
-      client_id: currentClientId,
-      url: url
+      deal_id: dealId,
+      client_id: clientId
     });
 
     try {
@@ -77,37 +77,30 @@
         widget &&
         typeof widget.openPage === 'function'
       ) {
-        var page = widget.openPage({
+        widget.openPage({
           content: iframe
-        });
+        }).catch(function (error) {
+          log('openPage не сработал', error);
 
-        if (
-          page &&
-          typeof page.catch === 'function'
-        ) {
-          page.catch(function (error) {
-            log('openPage не сработал', error);
-            openModalOrTab(url, iframe);
-          });
-        }
+          if (
+            widget &&
+            typeof widget.openModal === 'function'
+          ) {
+            widget.openModal({
+              title: 'Конструктор КП',
+              content: iframe,
+              width: 1150
+            });
+          }
+        });
 
         return;
       }
 
-      openModalOrTab(url, iframe);
-
-    } catch (error) {
-      log('ошибка открытия конструктора', error);
-      openModalOrTab(url, iframe);
-    }
-  }
-
-  function openModalOrTab(url, iframe) {
-    if (
-      widget &&
-      typeof widget.openModal === 'function'
-    ) {
-      try {
+      if (
+        widget &&
+        typeof widget.openModal === 'function'
+      ) {
         widget.openModal({
           title: 'Конструктор КП',
           content: iframe,
@@ -115,15 +108,17 @@
         });
 
         return;
-      } catch (error) {
-        log('openModal не сработал', error);
       }
-    }
 
-    window.open(url, '_blank');
+      window.open(url, '_blank');
+
+    } catch (error) {
+      log('ошибка открытия', error);
+      window.open(url, '_blank');
+    }
   }
 
-  function registerWidget() {
+  function register() {
     widget = window.EnvyCrmWidget;
 
     if (!widget) {
@@ -131,56 +126,42 @@
       return;
     }
 
-    log('библиотека EnvyCRM загружена');
+    log('библиотека найдена');
 
-    /*
-     * Событие клика по кнопке.
-     */
     window.addEventListener(
       'message',
       function (event) {
-        var type = event.data &&
-          event.data.type;
-
-        if (type !== 'kp-btn:click') {
-          return;
+        if (
+          event.data &&
+          event.data.type === 'kp-btn:click'
+        ) {
+          log('кнопка нажата');
+          openConstructor();
         }
-
-        log('кнопка нажата', event.data);
-        openConstructor();
       },
       false
     );
 
     try {
-      var result = widget.init({
+      widget.init({
         'deal-btn': function (params) {
           /*
-           * CRM передаёт параметры текущей сделки
-           * именно сюда.
+           * Правильный способ из примера EnvyCRM:
+           * CRM передаёт эти параметры в callback.
            */
-          currentDealId = getParam(
+          dealId = getParam(
             params,
-            [
-              'dealID',
-              'deal_id',
-              'dealId'
-            ]
+            ['dealID', 'deal_id', 'dealId']
           );
 
-          currentClientId = getParam(
+          clientId = getParam(
             params,
-            [
-              'clientID',
-              'client_id',
-              'clientId'
-            ]
+            ['clientID', 'client_id', 'clientId']
           );
 
           log('параметры сделки получены', {
-            deal_id: currentDealId,
-            client_id: currentClientId,
-            params: params
+            dealID: dealId,
+            clientID: clientId
           });
 
           return [{
@@ -197,18 +178,10 @@
         }
       });
 
-      if (
-        result &&
-        typeof result.catch === 'function'
-      ) {
-        result.catch(function (error) {
-          log('ошибка init', error);
-        });
-      }
-
       log('кнопка зарегистрирована');
+
     } catch (error) {
-      log('ошибка регистрации кнопки', error);
+      log('ошибка регистрации', error);
     }
   }
 
@@ -216,14 +189,12 @@
     attempt = attempt || 0;
 
     if (window.EnvyCrmWidget) {
-      registerWidget();
+      register();
       return;
     }
 
     if (attempt >= 100) {
-      log(
-        'EnvyCrmWidget не загрузилась за 10 секунд'
-      );
+      log('библиотека не загрузилась');
       return;
     }
 
