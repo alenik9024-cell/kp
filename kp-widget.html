@@ -4,8 +4,7 @@
 <meta charset="utf-8">
 <title>КП — виджет</title>
 
-<!-- Путь подключения библиотеки из документации EnvyCRM.
-     Без этой строки window.EnvyCrmWidget отсутствует и init() не работает. -->
+<!-- Путь подключения библиотеки из документации EnvyCRM -->
 <script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 
 <style>
@@ -33,12 +32,20 @@
   var btn = document.getElementById('kpBtn');
 
   var dealId = '', clientId = '';
-  var registered = false, libSeen = false;
+  var registered = false, numberWritten = false, fieldId = '', state = '—';
 
-  function log(m, d) { try { console.log('[KP v51] ' + m, d || ''); } catch (e) {} }
+  function log(m, d) { try { console.log('[KP v52] ' + m, d || ''); } catch (e) {} }
   function W() { return window.EnvyCrmWidget; }
 
-  /* ---------- ID сделки: getDeal() из документации ---------- */
+  /* ============ НОМЕР КП: <ID сделки>/<ДД>/<ММ> → 115998924/18/09 ============ */
+  function proposalNumber() {
+    if (!dealId) return '';
+    var d = new Date();
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
+  }
+
+  /* ---------- ID сделки ---------- */
   function readIds() {
     return new Promise(function (res) {
       var w = W();
@@ -54,8 +61,60 @@
             res();
           }).catch(function (e) { log('getDeal ошибка', e); res(); });
         } else res();
-      } catch (e) { log('getDeal исключение', e); res(); }
+      } catch (e) { res(); }
     });
+  }
+
+  /* ---------- поиск input_id поля «КП» среди всех полей сделки ---------- */
+  function findFieldId(data, wanted) {
+    var found = '';
+    (function walk(o) {
+      if (found || !o || typeof o !== 'object') return;
+      if (Array.isArray(o)) { o.forEach(walk); return; }
+
+      var nm  = String(o.name || o.title || o.label || o.name_id || '').toLowerCase().trim();
+      var iid = o.input_id || o.id;
+      if (nm && iid) {
+        for (var i = 0; i < wanted.length; i++) {
+          if (nm === wanted[i]) { found = String(iid); return; }
+        }
+      }
+      Object.keys(o).forEach(function (k) { walk(o[k]); });
+    })(data);
+    return found;
+  }
+
+  function writeNumber() {
+    if (numberWritten || !dealId) return;
+    var w = W();
+    if (!w || typeof w.getDealValues !== 'function') { state = 'нет getDealValues'; return; }
+
+    w.getDealValues().then(function (data) {
+      /* для диагностики — покажем все названия полей */
+      var names = [];
+      (function walk(o) {
+        if (!o || typeof o !== 'object') return;
+        if (Array.isArray(o)) { o.forEach(walk); return; }
+        var nm = o.name || o.title || o.label;
+        if (nm) names.push(nm);
+        Object.keys(o).forEach(function (k) { walk(o[k]); });
+      })(data);
+      log('поля сделки: ' + names.join(' | '));
+
+      fieldId = findFieldId(data, ['кп', 'номер кп', 'номер кп (кп)', 'коммерческое предложение']);
+      if (!fieldId) { state = 'поле КП не найдено'; log('поле КП не найдено среди: ' + names.join(', ')); return; }
+
+      log('input_id поля КП = ' + fieldId);
+      if (typeof w.changeDealValue !== 'function') { state = 'нет changeDealValue'; return; }
+
+      return w.changeDealValue({ input_id: fieldId, value: proposalNumber() })
+        .then(function () {
+          numberWritten = true;
+          state = 'номер записан в поле ' + fieldId;
+          log('номер записан: ' + proposalNumber());
+          show();
+        });
+    }).catch(function (e) { state = 'ошибка записи: ' + e; log('ошибка записи номера', e); show(); });
   }
 
   /* ---------- открытие конструктора ---------- */
@@ -66,12 +125,14 @@
         w.openModal({ title: 'Коммерческое предложение', content: content, width: 1250 });
         return;
       }
-    } catch (e) { log('openModal исключение', e); }
+    } catch (e) {}
     window.open(url, '_blank');
   }
 
   function open() {
     readIds().then(function () {
+      writeNumber();
+
       var url = CONSTRUCTOR_URL +
         (dealId   ? '?deal_id='   + encodeURIComponent(dealId)   : '?') +
         (clientId ? '&client_id=' + encodeURIComponent(clientId) : '');
@@ -98,7 +159,6 @@
 
   btn.addEventListener('click', open);
 
-  /* ---------- событие клика по кнопке в шапке ---------- */
   window.addEventListener('message', function (e) {
     if (e.data && e.data.type === 'kp-btn:click') {
       log('кнопка нажата');
@@ -109,8 +169,7 @@
   /* ---------- регистрация кнопки ---------- */
   function register() {
     var w = W();
-    if (!w || typeof w.init !== 'function') return false;
-    if (registered) return true;
+    if (!w || typeof w.init !== 'function' || registered) return registered;
 
     try {
       w.init({
@@ -132,23 +191,24 @@
       });
       registered = true;
       log('кнопка зарегистрирована');
-      return true;
-    } catch (e) { log('ошибка init', e); return false; }
+    } catch (e) { log('ошибка init', e); }
+    return registered;
   }
 
   function show() {
     st.innerHTML =
       'Библиотека: <b class="' + (W() ? 'ok' : 'err') + '">' + (W() ? 'загружена' : 'ожидание…') + '</b><br>' +
       'Кнопка в шапке: <b>' + (registered ? 'зарегистрирована' : 'нет') + '</b><br>' +
-      'Сделка: <b>' + (dealId || '—') + '</b> · Клиент: <b>' + (clientId || '—') + '</b>';
+      'Номер КП: <b>' + (proposalNumber() || '—') + '</b><br>' +
+      'Сделка: <b>' + (dealId || '—') + '</b> · Клиент: <b>' + (clientId || '—') + '</b><br>' +
+      'Состояние: <b>' + state + '</b>';
   }
 
-  /* библиотека грузится с задержкой — ждём до 120 секунд, регистрируем при появлении */
+  /* библиотека грузится с задержкой — ждём до 120 секунд */
   var tries = 0;
   var iv = setInterval(function () {
     tries++;
     if (W()) {
-      if (!libSeen) { libSeen = true; log('библиотека появилась, попытка ' + tries); }
       register();
       if (registered) { readIds().then(show); clearInterval(iv); return; }
     }
