@@ -5,8 +5,10 @@
 <script>
 (function () {
   'use strict';
-  var VERSION = 'v37';
-  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=37';
+
+  var VERSION = 'v39';
+  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=39';
+
   var w = window.EnvyCrmWidget;
   var dealId = '', clientId = '';
 
@@ -44,7 +46,10 @@
         return;
       }
       window.open(url, '_blank');
-    } catch (e) { window.open(url, '_blank'); }
+    } catch (e) {
+      log('ошибка открытия', e);
+      window.open(url, '_blank');
+    }
   }
 
   function register() {
@@ -56,8 +61,9 @@
     }, false);
 
     try {
-      /* ВАЖНО: ровно ОДНА кнопка — слот position один, несколько кнопок
-         в одном слоте гасят друг друга (проверено на v36). */
+      /* ОДНА кнопка — ровно как в рабочей v32.
+         Несколько кнопок в одном слоте position гасят друг друга —
+         именно это убрало кнопку в v35/v36. */
       w.init({
         'deal-btn': function (params) {
           dealId   = getParam(params, ['dealID', 'deal_id', 'dealId']);
@@ -66,11 +72,11 @@
 
           return [{
             title: 'Сформировать КП',
-            icon: 'md-description',
             styles: { color: '#fff', 'background-color': '#2F6BFF' },
+            icon: 'md-description',
             clickEventName: 'kp-btn:click',
             position: ['first'],
-            name: 'kp-btn-v37'
+            name: 'kp-btn-final-32'
           }];
         }
       });
