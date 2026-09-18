@@ -6,9 +6,8 @@
 <style>
   html,body{margin:0;height:100%;background:#fff;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif}
   body{display:flex;flex-direction:column}
-  #kpBar{display:none;flex:none;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;
+  #kpBar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;
     background:#101722;border-bottom:1px solid #26324a;color:#e8edf5}
-  #kpBar.on{display:flex}
   #kpBar button{padding:10px 14px;border-radius:10px;border:1px solid #33415c;background:#182233;
     color:#e8edf5;cursor:pointer;font:600 13px/1 inherit}
   #kpBar button:hover{background:#1f2b40}
@@ -46,8 +45,7 @@
   var CRM   = 'https://novikov.envycrm.com';
   var URL_CARD = CRM + '/client/{client}/deal/{id}';
 
-  var NUM_INPUT_ID = '';
-  var ACT = { client:'client', attach:'attachFile', number:'updateDealValue' };
+  var ACT = { client:'client', attach:'attachFile' };
 
   var PAGE_W_MM = 210, PAGE_H_MM = 297, DOC_PX = 794;
 
@@ -57,20 +55,27 @@
 
   var frame = document.getElementById('kp-frame');
   var clientName = '', clientPhone = '';
-  var dataReady = false, installed = false, lastPdf = null, busy = false;
+  var dataReady = false, lastPdf = null, busy = false;
 
-  function log(m, d) { try { console.log('[KP AUTO v44] ' + m, d || ''); } catch (e) {} }
+  function log(m, d) { try { console.log('[KP CONST] ' + m, d || ''); } catch (e) {} }
   function doc() { try { return frame.contentDocument || frame.contentWindow.document || null; } catch (e) { return null; } }
   function win() { try { return frame.contentWindow; } catch (e) { return null; } }
-  function toast(msg, cls) {
-    var n = document.getElementById('kpToast');
-    n.textContent = msg || ''; n.className = cls || ''; n.style.display = msg ? 'block' : 'none';
-    if (msg) setTimeout(function () { if (n.textContent === msg) n.style.display = 'none'; }, 8000);
-  }
+
   function note(msg, cls) {
     var n = document.getElementById('kpNote');
     n.textContent = msg || ''; n.className = cls || '';
-    if (msg) toast(msg, cls);
+    var t = document.getElementById('kpToast');
+    t.textContent = msg || ''; t.className = cls || ''; t.style.display = msg ? 'block' : 'none';
+    if (msg) setTimeout(function () { if (t.textContent === msg) t.style.display = 'none'; }, 8000);
+  }
+
+  /* ================= НОМЕР КП: <ID сделки>/<ДД>/<ММ> =================
+     Пример: 115998924/18/09                                              */
+  function proposalNumber() {
+    if (!dealId) return '';
+    var d = new Date();
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
   }
 
   /* ---------- поля ---------- */
@@ -142,11 +147,6 @@
     if (getV(el) === value) { el.__kpFilled = true; return; }
     setV(el, value); el.__kpFilled = true;
   }
-  function proposalNumber() {
-    if (!dealId) return 'КП';
-    var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
-    return 'КП-' + dealId + '/' + p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear();
-  }
   function normPhone(raw) {
     var d = String(raw || '').replace(/\D/g, '');
     if (d.length === 11 && d.charAt(0) === '8') d = '7' + d.slice(1);
@@ -154,72 +154,22 @@
     return d;
   }
 
+  /* ---------- заполнение бланка ---------- */
   function applyData() {
     var d = doc();
     if (!d || !d.body) return;
 
     var platform = findByWords(d, ['название платформ']);
-    if (platform) platform.__kpFilled = true;
+    if (platform) platform.__kpFilled = true;          /* фирменное название не трогаем */
 
     fillOnce(findByWords(d, ['номер кп', 'номер предложения']), proposalNumber());
-    if (!dataReady) return;
 
+    if (!dataReady) return;
     if (clientName)  fillOnce(findByWords(d, ['кому (заказчик)', 'кому', 'заказчик']), clientName);
     if (clientPhone) {
       var tel = findByWords(d, ['контакт (телефон)', 'телефон', 'тел.'], { type: 'tel' });
       if (tel && !isLongText(tel)) fillOnce(tel, clientPhone);
     }
-  }
-
-  /* ---------- кнопки: на место «Сформировать КП» внутри конструктора ---------- */
-  function mkBtn(d, act, label, primary) {
-    var b = d.createElement('button');
-    b.type = 'button';
-    b.setAttribute('data-kp-act', act);
-    b.textContent = label;
-    b.style.cssText = 'padding:9px 14px;border-radius:9px;margin-left:8px;white-space:nowrap;' +
-      'font:600 13px/1 -apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer;' +
-      'border:1px solid ' + (primary ? '#2F6BFF' : '#33415c') + ';' +
-      'background:' + (primary ? '#2F6BFF' : '#182233') + ';color:' + (primary ? '#fff' : '#e8edf5');
-    return b;
-  }
-
-  function findPrintBtn(d) {
-    var list = d.querySelectorAll('button');
-    for (var i = 0; i < list.length; i++) {
-      var t = String(list[i].innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      if (t.indexOf('сформировать кп') !== -1 || t.indexOf('распечат') !== -1 || t.indexOf('печат') !== -1) return list[i];
-    }
-    return null;
-  }
-
-  function installButtons() {
-    if (installed) return true;
-    var d = doc();
-    if (!d || !d.body) return false;
-
-    var printBtn = findPrintBtn(d);
-    if (!printBtn) return false;
-
-    var wrap = d.createElement('span');
-    wrap.id = 'kpInjectedBar';
-    wrap.style.cssText = 'display:inline-flex;align-items:center;vertical-align:middle';
-    wrap.appendChild(mkBtn(d, 'chat',  '📩 В чат сделки', true));
-    wrap.appendChild(mkBtn(d, 'email', '✉️ На e-mail', false));
-    wrap.appendChild(mkBtn(d, 'pdf',   '💾 Скачать КП', false));
-    wrap.appendChild(mkBtn(d, 'copy',  '📋 Текст', false));
-
-    wrap.addEventListener('click', function (e) {
-      var b = e.target.closest ? e.target.closest('[data-kp-act]') : null;
-      if (!b) return;
-      doAction(b.getAttribute('data-kp-act'));
-    });
-
-    printBtn.parentNode.insertBefore(wrap, printBtn);
-    printBtn.style.display = 'none';
-    installed = true;
-    log('кнопки вставлены в шапку конструктора');
-    return true;
   }
 
   /* ---------- GAS ---------- */
@@ -351,7 +301,12 @@
     });
   }
 
-  function fileName() { return proposalNumber().replace(/[\\/:*?"<>|]/g, '_') + '.pdf'; }
+  /* имя файла = номер КП: 115998924_18_09.pdf */
+  function fileName() {
+    var n = proposalNumber() || ('КП-' + Date.now());
+    return n.replace(/[\\/:*?"<>|]/g, '_') + '.pdf';
+  }
+
   function download(blob, name) {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = name;
@@ -377,8 +332,7 @@
     blobToBase64(lastPdf.blob).then(function (b64) {
       gasPost({ action: ACT.attach, deal_id: dealId, client_id: clientId,
                 fileName: lastPdf.name, file: b64, pdf: b64 });
-      if (NUM_INPUT_ID) gasPost({ action: ACT.number, deal_id: dealId,
-                                  input_id: NUM_INPUT_ID, value: proposalNumber() });
+      log('вложение отправлено');
     }).catch(function (e) { log('вложение не отправлено', e && e.message); });
   }
 
@@ -415,43 +369,25 @@
     }).then(function () { busy = false; });
   }
 
-  /* верхняя панель — только если шапку конструктора найти не удалось */
   document.getElementById('kpBar').addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('button[data-act]') : null;
     if (!b) return;
     doAction(b.getAttribute('data-act'));
   });
 
-  /* ---------- старт ---------- */
   frame.addEventListener('load', function () {
     var d = doc(), w = win();
-    if (!d || !w) { log('фрейм недоступен'); return; }
-
+    if (!d || !w) return;
     applyData();
     loadClient();
-
     var tries = 0;
     var iv = setInterval(function () {
-      tries++;
-      applyData();
-      if (installButtons()) {
-        clearInterval(iv);
-        log('шапка найдена, кнопки вставлены');
-        return;
-      }
-      if (tries === 12) document.getElementById('kpBar').classList.add('on');
-      if (tries > 40) clearInterval(iv);
-    }, 400);
-
-    setTimeout(function () {
-      var b = doc();
-      if (!b || !b.body || !b.body.children.length) {
-        note('Не удалось загрузить kp.html — проверьте адрес https://alenik9024-cell.github.io/kp/kp.html', 'err');
-      }
-    }, 6000);
+      tries++; applyData();
+      if (tries > 20) clearInterval(iv);
+    }, 500);
   });
 
-  log('конструктор запущен', { deal_id: dealId, client_id: clientId });
+  log('конструктор запущен', { deal_id: dealId, client_id: clientId, number: proposalNumber() });
 })();
 </script>
 </body>
