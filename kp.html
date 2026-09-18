@@ -2187,5 +2187,447 @@ else window.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 40
   setTimeout(bindFinalPdfButton, 2500);
 })();
 </script>
+  <script>
+(function () {
+  'use strict';
+
+  /*
+   * Финальный обработчик КП.
+   * Удаляет старые обработчики кнопки,
+   * не требует повторного ввода телефона,
+   * сначала скачивает PDF,
+   * затем отдельно пытается синхронизировать CRM.
+   */
+
+  function finalLog(message, error) {
+    if (typeof lg === 'function') {
+      lg(
+        message,
+        undefined,
+        !!error
+      );
+    }
+
+    console.log(
+      error ? '[KP FINAL ERROR]' : '[KP FINAL]',
+      message
+    );
+  }
+
+  function finalToast(message) {
+    if (typeof toast === 'function') {
+      toast(message);
+    }
+  }
+
+  function getPhoneFromVisibleField() {
+    var input = document.getElementById('kpPhone');
+
+    if (!input) {
+      return '';
+    }
+
+    return String(input.value || '')
+      .replace(/\D/g, '');
+  }
+
+  function getDealIdFromUrl() {
+    try {
+      return new URLSearchParams(
+        window.location.search
+      ).get('deal_id') || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function makeFilename(dealId) {
+    var number =
+      window.state &&
+      window.state.docNumber
+        ? window.state.docNumber
+        : ('КП-' + dealId);
+
+    return String(number)
+      .replace(/[^\wа-яА-ЯёЁ-]+/g, '_') +
+      '.pdf';
+  }
+
+  function downloadPdf(blob, filename) {
+    var link = document.createElement('a');
+    var objectUrl = URL.createObjectURL(blob);
+
+    link.href = objectUrl;
+    link.download = filename;
+    link.style.display = 'none';
+
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(function () {
+      URL.revokeObjectURL(objectUrl);
+
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+    }, 3000);
+  }
+
+  function buildPdf() {
+    if (
+      typeof html2pdf === 'undefined'
+    ) {
+      return Promise.reject(
+        new Error('html2pdf не загрузился')
+      );
+    }
+
+    var documentBlock =
+      document.getElementById('doc');
+
+    if (!documentBlock) {
+      return Promise.reject(
+        new Error('Блок документа не найден')
+      );
+    }
+
+    return html2pdf()
+      .set({
+        margin: 0,
+        image: {
+          type: 'jpeg',
+          quality: 0.95
+        },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          windowWidth: 1400
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'a4',
+          orientation: 'portrait'
+        },
+        pagebreak: {
+          mode: ['css', 'legacy']
+        }
+      })
+      .from(documentBlock)
+      .toPdf()
+      .get('pdf')
+      .then(function (pdf) {
+        return pdf.output('blob');
+      });
+  }
+
+  function findDeal() {
+    var dealId = getDealIdFromUrl();
+
+    /*
+     * Основной путь: ID сделки уже передан
+     * из CRM через kp-widget → kp-auto.
+     * Телефон повторно не спрашиваем.
+     */
+    if (
+      dealId &&
+      typeof loadDeal === 'function'
+    ) {
+      return loadDeal(Number(dealId));
+    }
+
+    /*
+     * Резервный путь — поиск по уже заполненному телефону.
+     */
+    var phone = getPhoneFromVisibleField();
+
+    if (
+      phone.length === 10 ||
+      phone.length === 11
+    ) {
+      return dealSearch(phone)
+        .then(function (response) {
+          var deals = dealsFrom(response);
+
+          if (!deals.length) {
+            throw new Error(
+              'Сделка по телефону не найдена'
+            );
+          }
+
+          return loadDeal(deals[0].id);
+        });
+    }
+
+    return Promise.reject(
+      new Error(
+        'Не удалось получить ID сделки и телефон'
+      )
+    );
+  }
+
+  function tryAttachPdf(dealId, blob, filename) {
+    if (
+      typeof attachFile !== 'function'
+    ) {
+      finalLog(
+        'Функция прикрепления файла недоступна',
+        true
+      );
+
+      return Promise.resolve();
+    }
+
+    return attachFile(
+      dealId,
+      blob,
+      filename
+    )
+      .then(function () {
+        finalLog(
+          'PDF прикреплён к сделке №' + dealId
+        );
+      })
+      .catch(function (error) {
+        /*
+         * CORS не отменяет скачивание PDF.
+         */
+        finalLog(
+          'PDF уже скачан, но не прикреплён к CRM: ' +
+          (
+            error && error.message
+              ? error.message
+              : error
+          ),
+          true
+        );
+      });
+  }
+
+  function tryWriteNumber() {
+    var checkbox =
+      document.getElementById('kpWriteNum');
+
+    if (
+      !checkbox ||
+      !checkbox.checked ||
+      !window.cfg ||
+      !cfg.num_id ||
+      typeof writeField !== 'function'
+    ) {
+      return Promise.resolve();
+    }
+
+    return writeField(
+      cfg.num_id,
+      cfg.num_type,
+      state.docNumber
+    )
+      .then(function () {
+        finalLog(
+          'номер КП записан: ' +
+          state.docNumber
+        );
+      })
+      .catch(function (error) {
+        finalLog(
+          'номер КП не записался в CRM: ' +
+          (
+            error && error.message
+              ? error.message
+              : error
+          ),
+          true
+        );
+      });
+  }
+
+  function runFinal() {
+    finalLog('формирование КП запущено');
+
+    /*
+     * 1. Получаем сделку по переданному ID.
+     */
+    findDeal()
+
+      /*
+       * 2. Заполняем имя, телефон и номер КП
+       *    штатной функцией конструктора.
+       */
+      .then(function (deal) {
+        if (
+          typeof fillFromDeal === 'function'
+        ) {
+          fillFromDeal(deal);
+        }
+
+        /*
+         * Если старый код успел записать телефон
+         * в название платформы — возвращаем штатное имя.
+         */
+        if (
+          window.state &&
+          /^\+?\d[\d\s()\-]{6,}$/.test(
+            String(state.brand || '')
+          )
+        ) {
+          state.brand = 'Платформа';
+        }
+
+        if (
+          typeof syncInputs === 'function'
+        ) {
+          syncInputs();
+        }
+
+        if (
+          typeof renderDoc === 'function'
+        ) {
+          renderDoc();
+        }
+
+        if (
+          typeof save === 'function'
+        ) {
+          save();
+        }
+
+        return {
+          deal: deal,
+          dealId: Number(deal.id)
+        };
+      })
+
+      /*
+       * 3. Строим PDF.
+       */
+      .then(function (data) {
+        return buildPdf().then(function (blob) {
+          return {
+            dealId: data.dealId,
+            blob: blob,
+            filename: makeFilename(data.dealId)
+          };
+        });
+      })
+
+      /*
+       * 4. СНАЧАЛА сохраняем PDF на компьютер.
+       */
+      .then(function (data) {
+        downloadPdf(
+          data.blob,
+          data.filename
+        );
+
+        finalLog(
+          'PDF сохранён на компьютер: ' +
+          data.filename
+        );
+
+        finalToast(
+          'PDF сохранён на компьютер'
+        );
+
+        /*
+         * 5. Только после скачивания
+         *    пытаемся прикрепить его к CRM.
+         */
+        return tryAttachPdf(
+          data.dealId,
+          data.blob,
+          data.filename
+        ).then(function () {
+          return data;
+        });
+      })
+
+      /*
+       * 6. Номер КП записываем отдельно.
+       */
+      .then(function () {
+        return tryWriteNumber();
+      })
+
+      /*
+       * 7. Печать не зависит от CORS.
+       */
+      .then(function () {
+        finalLog(
+          'готово — открываю печать'
+        );
+
+        setTimeout(function () {
+          if (
+            typeof printDoc === 'function'
+          ) {
+            printDoc();
+          } else {
+            window.print();
+          }
+        }, 400);
+      })
+
+      .catch(function (error) {
+        finalLog(
+          'ошибка формирования КП: ' +
+          (
+            error && error.message
+              ? error.message
+              : error
+          ),
+          true
+        );
+
+        finalToast(
+          'Ошибка формирования КП'
+        );
+      });
+  }
+
+  function replaceButtonHandler() {
+    var oldButton =
+      document.getElementById('kpRun');
+
+    if (!oldButton) {
+      return;
+    }
+
+    /*
+     * Клонирование удаляет ВСЕ старые onclick/listeners.
+     */
+    var newButton =
+      oldButton.cloneNode(true);
+
+    oldButton.parentNode.replaceChild(
+      newButton,
+      oldButton
+    );
+
+    newButton.onclick = runFinal;
+    newButton.__kpFinalHandler = true;
+  }
+
+  /*
+   * Дожидаемся, пока kp.html создаст кнопку.
+   */
+  replaceButtonHandler();
+
+  setTimeout(
+    replaceButtonHandler,
+    300
+  );
+
+  setTimeout(
+    replaceButtonHandler,
+    800
+  );
+
+  setTimeout(
+    replaceButtonHandler,
+    1600
+  );
+})();
+</script>
 </body>
 </html>
