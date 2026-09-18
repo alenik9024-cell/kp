@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>КП — виджет EnvyCRM</title>
+  <title>Генератор КП</title>
 </head>
 <body>
 
@@ -13,24 +13,13 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v23';
-
-  var AUTO_URL =
-    'https://alenik9024-cell.github.io/kp/kp-auto.html?v=21';
-
-  var PROXY_URL =
-    'https://script.google.com/macros/s/AKfycbxxi10GiEDFroquS0VwwUH4eJ3v0NuR5GlUiIdOvynZFukhRKkOhRkPVrCFgsBg-pV9/exec';
-
-  var STORAGE_KEY = 'kp_context_v20';
+  var VERSION = 'v24';
+  var CONSTRUCTOR_URL =
+    'https://alenik9024-cell.github.io/kp/kp.html';
 
   var widget = null;
-
-  var dealContext = {
-    dealId: '',
-    clientId: '',
-    clientName: '',
-    phone: ''
-  };
+  var currentDealId = '';
+  var currentClientId = '';
 
   function log(message, data) {
     try {
@@ -38,10 +27,10 @@
         '[KP ' + VERSION + '] ' + message,
         data || ''
       );
-    } catch (error) {}
+    } catch (e) {}
   }
 
-  log('скрипт kp-widget.html запущен');
+  log('файл kp-widget.html запущен');
 
   function getParam(params, names) {
     params = params || {};
@@ -61,169 +50,35 @@
     return '';
   }
 
-  function proposalNumber(dealId) {
-    var date = new Date();
-
-    var day = String(date.getDate())
-      .padStart(2, '0');
-
-    var month = String(date.getMonth() + 1)
-      .padStart(2, '0');
-
-    var year = date.getFullYear();
-
-    return 'КП-' + dealId + '/' +
-      day + '.' + month + '.' + year;
-  }
-
-  function saveContext(token) {
-    var context = {
-      token: token,
-      dealId: dealContext.dealId,
-      clientId: dealContext.clientId,
-      clientName: dealContext.clientName,
-      phone: dealContext.phone,
-      proposalNumber: proposalNumber(
-        dealContext.dealId
-      ),
-      updatedAt: Date.now()
-    };
-
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(context)
-      );
-
-      log('контекст сохранён', context);
-    } catch (error) {
-      log('ошибка localStorage', error);
-    }
-  }
-
-  function getProxyData(token) {
-    var dealId = dealContext.dealId;
-    var clientId = dealContext.clientId;
-
-    if (!dealId && !clientId) {
-      log('нет dealID/clientID для прокси');
-      return;
-    }
-
-    var callbackName =
-      '__kp_proxy_' +
-      Date.now() +
-      '_' +
-      Math.floor(Math.random() * 100000);
-
-    var script = document.createElement('script');
-    var finished = false;
-
-    var timer = setTimeout(function () {
-      finish('тайм-аут Google Apps Script');
-    }, 15000);
-
-    function cleanup() {
-      clearTimeout(timer);
-
-      try {
-        delete window[callbackName];
-      } catch (error) {
-        window[callbackName] = undefined;
-      }
-
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-    }
-
-    function finish(message) {
-      if (finished) {
-        return;
-      }
-
-      finished = true;
-      cleanup();
-
-      if (message) {
-        log(message);
-      }
-    }
-
-    window[callbackName] = function (data) {
-      if (finished) {
-        return;
-      }
-
-      if (!data || !data.ok) {
-        finish(
-          'прокси вернул ошибку: ' +
-          (data && data.error
-            ? data.error
-            : 'неизвестная ошибка')
-        );
-
-        return;
-      }
-
-      dealContext.clientName =
-        String(data.clientName || '');
-
-      dealContext.phone =
-        String(data.phone || '');
-
-      saveContext(token);
-
-      finish('данные получены через Google Apps Script');
-    };
-
-    script.onerror = function () {
-      finish('Google Apps Script недоступен');
-    };
-
-    script.src =
-      PROXY_URL +
-      '?deal_id=' +
-      encodeURIComponent(dealId) +
-      '&client_id=' +
-      encodeURIComponent(clientId) +
-      '&callback=' +
-      encodeURIComponent(callbackName);
-
-    document.head.appendChild(script);
-  }
-
   function openConstructor() {
-    var token = 'kp_' + Date.now();
-
-    /*
-     * Сохраняем ID сделки до ответа прокси.
-     */
-    saveContext(token);
-
     var url =
-      AUTO_URL +
-      '&token=' +
-      encodeURIComponent(token);
+      CONSTRUCTOR_URL +
+      '?embed=1' +
+      '&full=1' +
+      '&deal_id=' +
+      encodeURIComponent(currentDealId) +
+      '&client_id=' +
+      encodeURIComponent(currentClientId);
 
-    var content =
-      '<iframe src="' + url + '" ' +
-      'style="width:100%;height:calc(100vh - 60px);' +
-      'min-height:650px;border:0" ' +
-      'allowfullscreen></iframe>';
+    var iframe =
+      '<iframe src="' + url + '"' +
+      ' style="width:100%;height:calc(100vh - 60px);' +
+      'min-height:650px;border:0;"' +
+      ' allowfullscreen></iframe>';
 
     log('открываю конструктор', {
-      dealId: dealContext.dealId,
-      clientId: dealContext.clientId
+      deal_id: currentDealId,
+      client_id: currentClientId,
+      url: url
     });
 
     try {
       if (
-        widget.openPage &&
+        widget &&
         typeof widget.openPage === 'function'
       ) {
         var page = widget.openPage({
-          content: content
+          content: iframe
         });
 
         if (
@@ -232,44 +87,43 @@
         ) {
           page.catch(function (error) {
             log('openPage не сработал', error);
-
-            if (
-              widget.openModal &&
-              typeof widget.openModal === 'function'
-            ) {
-              widget.openModal({
-                title: 'Конструктор КП',
-                content: content,
-                width: 1150
-              });
-            }
+            openModalOrTab(url, iframe);
           });
         }
-      } else if (
-        widget.openModal &&
-        typeof widget.openModal === 'function'
-      ) {
-        widget.openModal({
-          title: 'Конструктор КП',
-          content: content,
-          width: 1150
-        });
-      } else {
-        window.open(url, '_blank');
+
+        return;
       }
+
+      openModalOrTab(url, iframe);
+
     } catch (error) {
       log('ошибка открытия конструктора', error);
-      window.open(url, '_blank');
+      openModalOrTab(url, iframe);
     }
-
-    /*
-     * Прокси запускается после открытия
-     * и не влияет на появление кнопки.
-     */
-    getProxyData(token);
   }
 
-  function register() {
+  function openModalOrTab(url, iframe) {
+    if (
+      widget &&
+      typeof widget.openModal === 'function'
+    ) {
+      try {
+        widget.openModal({
+          title: 'Конструктор КП',
+          content: iframe,
+          width: 1150
+        });
+
+        return;
+      } catch (error) {
+        log('openModal не сработал', error);
+      }
+    }
+
+    window.open(url, '_blank');
+  }
+
+  function registerWidget() {
     widget = window.EnvyCrmWidget;
 
     if (!widget) {
@@ -277,18 +131,23 @@
       return;
     }
 
-    log('библиотека найдена');
+    log('библиотека EnvyCRM загружена');
 
+    /*
+     * Событие клика по кнопке.
+     */
     window.addEventListener(
       'message',
       function (event) {
-        if (
-          event.data &&
-          event.data.type === 'kp-btn:click'
-        ) {
-          log('кнопка нажата');
-          openConstructor();
+        var type = event.data &&
+          event.data.type;
+
+        if (type !== 'kp-btn:click') {
+          return;
         }
+
+        log('кнопка нажата', event.data);
+        openConstructor();
       },
       false
     );
@@ -296,19 +155,32 @@
     try {
       var result = widget.init({
         'deal-btn': function (params) {
-          dealContext.dealId = getParam(
+          /*
+           * CRM передаёт параметры текущей сделки
+           * именно сюда.
+           */
+          currentDealId = getParam(
             params,
-            ['dealID', 'deal_id', 'dealId']
+            [
+              'dealID',
+              'deal_id',
+              'dealId'
+            ]
           );
 
-          dealContext.clientId = getParam(
+          currentClientId = getParam(
             params,
-            ['clientID', 'client_id', 'clientId']
+            [
+              'clientID',
+              'client_id',
+              'clientId'
+            ]
           );
 
           log('параметры сделки получены', {
-            dealId: dealContext.dealId,
-            clientId: dealContext.clientId
+            deal_id: currentDealId,
+            client_id: currentClientId,
+            params: params
           });
 
           return [{
@@ -330,13 +202,13 @@
         typeof result.catch === 'function'
       ) {
         result.catch(function (error) {
-          log('init вернул ошибку', error);
+          log('ошибка init', error);
         });
       }
 
-      log('виджет зарегистрирован');
+      log('кнопка зарегистрирована');
     } catch (error) {
-      log('ошибка регистрации', error);
+      log('ошибка регистрации кнопки', error);
     }
   }
 
@@ -344,12 +216,14 @@
     attempt = attempt || 0;
 
     if (window.EnvyCrmWidget) {
-      register();
+      registerWidget();
       return;
     }
 
     if (attempt >= 100) {
-      log('EnvyCrmWidget не загрузилась за 10 секунд');
+      log(
+        'EnvyCrmWidget не загрузилась за 10 секунд'
+      );
       return;
     }
 
