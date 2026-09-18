@@ -2018,5 +2018,174 @@ else window.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 40
   applyContext();
 })();
 </script>
+  <script>
+(function () {
+  'use strict';
+
+  function savePdfOnComputer(blob, filename) {
+    var link = document.createElement('a');
+    var url = URL.createObjectURL(blob);
+
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+    }, 3000);
+  }
+
+  function finalPdfRun() {
+    var phoneInput =
+      document.getElementById('kpPhone');
+
+    var rawPhone =
+      phoneInput ? phoneInput.value : '';
+
+    var phone = String(rawPhone)
+      .replace(/\D/g, '');
+
+    if (
+      phone.length !== 10 &&
+      phone.length !== 11
+    ) {
+      if (typeof toast === 'function') {
+        toast('Введите телефон клиента');
+      }
+
+      if (phoneInput) {
+        phoneInput.focus();
+      }
+
+      return;
+    }
+
+    var urlParams = new URLSearchParams(
+      window.location.search
+    );
+
+    var dealId =
+      urlParams.get('deal_id') || '';
+
+    /*
+     * Сначала используем уже заполненные поля.
+     * Это позволяет скачать PDF даже при CORS.
+     */
+    if (typeof renderDoc === 'function') {
+      renderDoc();
+    }
+
+    var doc = document.getElementById('doc');
+
+    if (
+      !doc ||
+      typeof html2pdf === 'undefined'
+    ) {
+      if (typeof toast === 'function') {
+        toast('Не удалось собрать PDF');
+      }
+
+      return;
+    }
+
+    html2pdf()
+      .set({
+        margin: 0,
+        image: {
+          type: 'jpeg',
+          quality: 0.95
+        },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          windowWidth: 1400
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'a4',
+          orientation: 'portrait'
+        },
+        pagebreak: {
+          mode: ['css', 'legacy']
+        }
+      })
+      .from(doc)
+      .toPdf()
+      .get('pdf')
+      .then(function (pdf) {
+        var blob = pdf.output('blob');
+
+        var number =
+          window.state &&
+          window.state.docNumber
+            ? window.state.docNumber
+            : (
+              dealId
+                ? 'КП-' + dealId
+                : 'КП'
+            );
+
+        var filename = String(number)
+          .replace(/[^\wа-яА-ЯёЁ-]+/g, '_') +
+          '.pdf';
+
+        savePdfOnComputer(
+          blob,
+          filename
+        );
+
+        if (typeof toast === 'function') {
+          toast('PDF сохранён на компьютер');
+        }
+
+        /*
+         * Печать запускается после скачивания.
+         * Ошибки CRM сюда не попадут.
+         */
+        setTimeout(function () {
+          if (typeof printDoc === 'function') {
+            printDoc();
+          } else {
+            window.print();
+          }
+        }, 400);
+      })
+      .catch(function (error) {
+        console.error(
+          '[KP FINAL PDF]',
+          error
+        );
+
+        if (typeof toast === 'function') {
+          toast('Ошибка создания PDF');
+        }
+      });
+  }
+
+  function bindFinalPdfButton() {
+    var button = document.getElementById('kpRun');
+
+    if (!button) {
+      return;
+    }
+
+    button.onclick = finalPdfRun;
+  }
+
+  bindFinalPdfButton();
+
+  setTimeout(bindFinalPdfButton, 500);
+  setTimeout(bindFinalPdfButton, 1200);
+  setTimeout(bindFinalPdfButton, 2500);
+})();
+</script>
 </body>
 </html>
