@@ -28,7 +28,7 @@
 
 <iframe
   id="kp-frame"
-  src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=27"
+  src="https://alenik9024-cell.github.io/kp/kp.html?embed=1&full=1&v=28"
   title="Конструктор КП">
 </iframe>
 
@@ -54,12 +54,11 @@
   var nameChanged = false;
   var phoneChanged = false;
   var numberChanged = false;
-
   var writing = false;
 
   function log(message, data) {
     console.log(
-      '[KP AUTO v27] ' + message,
+      '[KP AUTO v28] ' + message,
       data || ''
     );
   }
@@ -74,7 +73,7 @@
     }
   }
 
-  function allControls(doc) {
+  function controls(doc) {
     return Array.prototype.slice.call(
       doc.querySelectorAll(
         'input, textarea, select, [contenteditable="true"]'
@@ -82,11 +81,11 @@
     );
   }
 
-  function getControl(doc, index) {
-    return allControls(doc)[index] || null;
+  function control(doc, index) {
+    return controls(doc)[index] || null;
   }
 
-  function isWritable(element) {
+  function writable(element) {
     if (!element) {
       return false;
     }
@@ -122,7 +121,7 @@
     );
   }
 
-  function getValue(element) {
+  function value(element) {
     if (!element) {
       return '';
     }
@@ -139,10 +138,10 @@
     return String(element.value || '').trim();
   }
 
-  function setValue(element, value) {
+  function setValue(element, newValue) {
     if (
-      !isWritable(element) ||
-      !value
+      !writable(element) ||
+      !newValue
     ) {
       return;
     }
@@ -154,7 +153,7 @@
         element.matches &&
         element.matches('[contenteditable="true"]')
       ) {
-        element.textContent = value;
+        element.textContent = newValue;
       } else {
         var prototype = Object.getPrototypeOf(element);
         var descriptor = prototype &&
@@ -167,9 +166,9 @@
           descriptor &&
           descriptor.set
         ) {
-          descriptor.set.call(element, value);
+          descriptor.set.call(element, newValue);
         } else {
-          element.value = value;
+          element.value = newValue;
         }
       }
 
@@ -190,6 +189,7 @@
         'blur',
         { bubbles: true }
       ));
+
     } finally {
       setTimeout(function () {
         writing = false;
@@ -200,12 +200,12 @@
   function watch(element, type) {
     if (
       !element ||
-      element.__kpWatch27
+      element.__kpWatch28
     ) {
       return;
     }
 
-    element.__kpWatch27 = type;
+    element.__kpWatch28 = type;
 
     element.addEventListener(
       'input',
@@ -245,7 +245,7 @@
       day + '.' + month + '.' + year;
   }
 
-  function hideManualButtons(doc) {
+  function hideButtons(doc) {
     var buttons = Array.prototype.slice.call(
       doc.querySelectorAll('button')
     );
@@ -309,7 +309,7 @@
 
         if (!data || !data.ok) {
           log(
-            'прокси вернул ошибку',
+            'ошибка прокси',
             data && data.error
           );
 
@@ -326,7 +326,7 @@
         );
 
         log('данные клиента получены', {
-          clientName: clientName,
+          name: clientName,
           phone: clientPhone
         });
 
@@ -360,49 +360,39 @@
     }
 
     /*
-     * Индексы подтверждены диагностикой:
-     * 10 — Название платформы: НЕ ТРОГАЕМ;
-     * 13 — Номер КП;
-     * 16 — Кому (заказчик);
-     * 17 — Контакт (телефон).
+     * Точные индексы из вашей диагностики:
+     * 10 — название платформы;
+     * 13 — номер КП;
+     * 16 — кому;
+     * 17 — контактный телефон.
      */
-    var platformField = getControl(doc, 10);
-    var numberField = getControl(doc, 13);
-    var nameField = getControl(doc, 16);
-    var contactPhoneField = getControl(doc, 17);
-
+    var platformField = control(doc, 10);
+    var numberField = control(doc, 13);
+    var nameField = control(doc, 16);
+    var contactPhoneField = control(doc, 17);
     var searchPhoneField =
       doc.querySelector('#kpPhone');
 
     /*
-     * Исправляем старое загрязнение:
-     * если в «Название платформы» попал телефон
-     * или имя клиента, возвращаем «Платформа».
+     * Поле «Название платформы» никогда не получает
+     * имя или телефон. Если старое значение уже испорчено,
+     * возвращаем штатное название.
      */
     if (
       platformField &&
-      isWritable(platformField)
+      writable(platformField)
     ) {
-      var platformValue =
-        getValue(platformField);
-
-      var hasPhone =
-        /\d{7,}/.test(
-          platformValue.replace(/\D/g, '')
-        );
-
-      var hasClientName =
-        clientName &&
-        platformValue === clientName;
+      var platformValue = value(platformField);
+      var digits = platformValue.replace(/\D/g, '');
 
       if (
-        hasPhone ||
-        hasClientName
+        digits.length >= 7 ||
+        (
+          clientName &&
+          platformValue === clientName
+        )
       ) {
-        setValue(
-          platformField,
-          'Платформа'
-        );
+        setValue(platformField, 'Платформа');
       }
     }
 
@@ -416,8 +406,8 @@
       !phoneChanged
     ) {
       if (
-        isWritable(searchPhoneField) &&
-        getValue(searchPhoneField) !== clientPhone
+        writable(searchPhoneField) &&
+        value(searchPhoneField) !== clientPhone
       ) {
         setValue(
           searchPhoneField,
@@ -426,8 +416,8 @@
       }
 
       if (
-        isWritable(contactPhoneField) &&
-        getValue(contactPhoneField) !== clientPhone
+        writable(contactPhoneField) &&
+        value(contactPhoneField) !== clientPhone
       ) {
         setValue(
           contactPhoneField,
@@ -439,8 +429,8 @@
     if (
       clientName &&
       !nameChanged &&
-      isWritable(nameField) &&
-      getValue(nameField) !== clientName
+      writable(nameField) &&
+      value(nameField) !== clientName
     ) {
       setValue(
         nameField,
@@ -451,16 +441,19 @@
     if (
       dealId &&
       !numberChanged &&
-      isWritable(numberField)
+      writable(numberField)
     ) {
       var number = proposalNumber();
 
-      if (getValue(numberField) !== number) {
-        setValue(numberField, number);
+      if (value(numberField) !== number) {
+        setValue(
+          numberField,
+          number
+        );
       }
     }
 
-    hideManualButtons(doc);
+    hideButtons(doc);
   }
 
   frame.addEventListener(
@@ -495,12 +488,12 @@
         if (
           !doc ||
           !doc.body ||
-          doc.body.__kpObserver27
+          doc.body.__kpObserver28
         ) {
           return;
         }
 
-        doc.body.__kpObserver27 = true;
+        doc.body.__kpObserver28 = true;
 
         var observer = new MutationObserver(
           function () {
