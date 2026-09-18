@@ -1,28 +1,21 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Генератор КП</title>
-</head>
+<head><meta charset="utf-8"><title>КП — виджет</title></head>
 <body>
-
-<script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
-
 <script>
 (function () {
   'use strict';
 
-  var VERSION = 'v32';
-  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=32';
+  var VERSION = 'v35';
+  var AUTO_URL = 'https://alenik9024-cell.github.io/kp/kp-auto.html?v=35';
+
+  /* Адреса окон внутри вашей CRM. Подставьте реальные — см. пояснение ниже. */
+  var CRM_BASE = 'https://novikov.envycrm.com';
 
   var w = window.EnvyCrmWidget;
-  var dealId = '';
-  var clientId = '';
+  var dealId = '', clientId = '';
 
-  function log(m, d) {
-    try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {}
-  }
+  function log(m, d) { try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {} }
 
   function getParam(params, names) {
     params = params || {};
@@ -33,29 +26,27 @@
     return '';
   }
 
-  function openConstructor() {
+  function openConstructor(mode) {
     var url = AUTO_URL +
       '&deal_id=' + encodeURIComponent(dealId) +
-      '&client_id=' + encodeURIComponent(clientId);
+      '&client_id=' + encodeURIComponent(clientId) +
+      '&mode=' + encodeURIComponent(mode || '');
 
-    var html = '<iframe src="' + url + '"' +
-      ' style="width:100%;height:calc(100vh - 60px);min-height:650px;border:0"' +
-      ' allowfullscreen></iframe>';
-
-    log('открываю kp-auto.html', { deal_id: dealId, client_id: clientId });
+    var html = '<iframe src="' + url + '" style="width:100%;height:78vh;border:0;display:block"></iframe>';
+    log('открываю конструктор', { deal_id: dealId, mode: mode });
 
     try {
       if (w && typeof w.openPage === 'function') {
         w.openPage({ content: html }).catch(function (e) {
           log('openPage не сработал', e);
           if (w && typeof w.openModal === 'function') {
-            w.openModal({ title: 'Конструктор КП', content: html, width: 1150 });
+            w.openModal({ title: 'Коммерческое предложение', content: html, width: 1200 });
           }
         });
         return;
       }
       if (w && typeof w.openModal === 'function') {
-        w.openModal({ title: 'Конструктор КП', content: html, width: 1150 });
+        w.openModal({ title: 'Коммерческое предложение', content: html, width: 1200 });
         return;
       }
       window.open(url, '_blank');
@@ -69,48 +60,47 @@
     w = window.EnvyCrmWidget;
     if (!w) { log('EnvyCrmWidget не найдена'); return; }
 
-    log('библиотека найдена');
-
     window.addEventListener('message', function (e) {
-      if (e.data && e.data.type === 'kp-btn:click') {
-        log('кнопка нажата');
-        openConstructor();
-      }
+      var t = e.data && e.data.type;
+      if (t === 'kp:chat')  { openConstructor('chat');  return; }
+      if (t === 'kp:email') { openConstructor('email'); return; }
+      if (t === 'kp:pdf')   { openConstructor('pdf');   return; }
+      if (t === 'kp-btn:click') { openConstructor(''); return; }   /* старая кнопка, если осталась */
     }, false);
 
     try {
       w.init({
         'deal-btn': function (params) {
-          dealId = getParam(params, ['dealID', 'deal_id', 'dealId']);
+          dealId   = getParam(params, ['dealID', 'deal_id', 'dealId']);
           clientId = getParam(params, ['clientID', 'client_id', 'clientId']);
-          log('параметры сделки получены', { deal_id: dealId, client_id: clientId });
-          return [{
-            title: 'Сформировать КП',
-            styles: { color: '#fff', 'background-color': '#2F6BFF' },
-            icon: 'md-description',
-            clickEventName: 'kp-btn:click',
-            position: ['first'],
-            name: 'kp-btn-final-32'
-          }];
+          log('сделка', { deal_id: dealId, client_id: clientId });
+
+          /* вместо прежней «Сформировать КП» — сразу нужные действия */
+          return [
+            { title: 'В чат сделки', icon: 'md-chat',
+              styles: { color: '#fff', 'background-color': '#2F6BFF' },
+              clickEventName: 'kp:chat',  position: ['first'], name: 'kp-btn-chat' },
+            { title: 'На e-mail', icon: 'md-email',
+              clickEventName: 'kp:email', position: ['first'], name: 'kp-btn-email' },
+            { title: 'Скачать КП', icon: 'md-download',
+              clickEventName: 'kp:pdf',   position: ['first'], name: 'kp-btn-pdf' }
+          ];
         }
       });
-      log('кнопка зарегистрирована');
-    } catch (e) {
-      log('ошибка регистрации', e);
-    }
+      log('кнопки зарегистрированы');
+    } catch (e) { log('ошибка регистрации', e); }
   }
 
-  function wait(attempt) {
-    attempt = attempt || 0;
+  function wait(n) {
+    n = n || 0;
     if (window.EnvyCrmWidget) { register(); return; }
-    if (attempt >= 100) { log('библиотека не загрузилась'); return; }
-    setTimeout(function () { wait(attempt + 1); }, 100);
+    if (n >= 100) { log('библиотека не загрузилась'); return; }
+    setTimeout(function () { wait(n + 1); }, 100);
   }
 
-  log('виджет v32 запущен');
+  log('виджет ' + VERSION + ' запущен');
   wait(0);
 })();
 </script>
-
 </body>
 </html>
