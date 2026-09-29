@@ -28,7 +28,7 @@
   var st  = document.getElementById('st');
   var btn = document.getElementById('kpBtn');
 
-  var dealId = '', clientId = '', clientName = '', clientPhone = '';
+  var dealId = '', clientId = '', clientName = '';
 
   function W() { return window.EnvyCrmWidget; }
 
@@ -41,13 +41,12 @@
     return n.trim();
   }
 
-  // Мгновенное открытие окна (без асинхронных задержек)
   function open(sourceParams) {
     if (sourceParams) {
       dealId   = String(sourceParams.dealID   || sourceParams.deal_id   || sourceParams.dealId   || dealId   || '');
       clientId = String(sourceParams.clientID || sourceParams.client_id || sourceParams.clientId || clientId || '');
-      var raw = (sourceParams.deal && (sourceParams.deal.client_name || sourceParams.deal.name)) || sourceParams.client_name || '';
-      if (raw) clientName = cleanName(raw);
+      var raw = (sourceParams.deal && (sourceParams.deal.client_name || sourceParams.deal.name)) || sourceParams.client_name || clientName || '';
+      clientName = cleanName(raw);
     }
 
     var pad = function (n) { return (n < 10 ? '0' : '') + n; };
@@ -55,11 +54,10 @@
     var num = dealId ? (dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1)) : '';
 
     var url = CONSTRUCTOR_URL +
-      (dealId      ? '?deal_id='      + encodeURIComponent(dealId)      : '?') +
-      (clientId    ? '&client_id='    + encodeURIComponent(clientId)    : '') +
-      (clientName  ? '&client_name='  + encodeURIComponent(clientName)  : '') +
-      (clientPhone ? '&client_phone=' + encodeURIComponent(clientPhone) : '') +
-      (num         ? '&num='          + encodeURIComponent(num)         : '');
+      (dealId     ? '?deal_id='     + encodeURIComponent(dealId)     : '?') +
+      (clientId   ? '&client_id='   + encodeURIComponent(clientId)   : '') +
+      (clientName ? '&client_name=' + encodeURIComponent(clientName) : '') +
+      (num        ? '&num='         + encodeURIComponent(num)        : '');
 
     var content = '<iframe src="' + url + '" style="width:100%;height:88vh;border:0;display:block"></iframe>';
 
@@ -97,22 +95,7 @@
           dealId   = String(params.dealID   || params.deal_id   || params.dealId   || dealId   || '');
           clientId = String(params.clientID || params.client_id || params.clientId || clientId || '');
           var raw = (params.deal && (params.deal.client_name || params.deal.name)) || '';
-          if (raw) clientName = cleanName(raw);
-
-          // Фоновый опрос по документации EnvyCRM (1001 — имя контакта, 1002 — телефон)
-          try {
-            if (typeof w.getClientValue === 'function') {
-              w.getClientValue({ input_id: 1001, type: 'service' }).then(function (res) {
-                var v = (res && typeof res === 'object' && res.value !== undefined) ? res.value : res;
-                if (v) clientName = cleanName(String(v));
-              }).catch(function () {});
-
-              w.getClientValue({ input_id: 1002, type: 'service' }).then(function (res) {
-                var v = (res && typeof res === 'object' && res.value !== undefined) ? res.value : res;
-                if (v) clientPhone = String(v).trim();
-              }).catch(function () {});
-            }
-          } catch (err) {}
+          clientName = cleanName(raw);
 
           return [{
             title: 'Сформировать КП',
