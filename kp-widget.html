@@ -32,7 +32,6 @@
 
   function W() { return window.EnvyCrmWidget; }
 
-  /* Очистка: отрезаем менеджера :: и звёздочку */
   function cleanName(n) {
     if (!n || typeof n !== 'string') return '';
     if (n.indexOf('::') !== -1) {
@@ -45,7 +44,6 @@
     return n.trim();
   }
 
-  /* Синхронное открытие окна — без задержек и зависаний */
   function open(sourceParams) {
     if (sourceParams) {
       dealId   = String(sourceParams.dealID   || sourceParams.deal_id   || sourceParams.dealId   || dealId   || '');
@@ -95,6 +93,7 @@
     if (!w || typeof w.init !== 'function') return;
 
     try {
+      // 1. Регистрируем кнопку строго синхронно (как в исходной рабочей версии)
       w.init({
         'deal-btn': function (params) {
           params = params || {};
@@ -102,27 +101,6 @@
           clientId = String(params.clientID || params.client_id || params.clientId || clientId || '');
           var raw = (params.deal && (params.deal.client_name || params.deal.name)) || '';
           if (raw && !clientName) clientName = cleanName(raw);
-
-          // Фоновый опрос по документации EnvyCRM (не блокирует кнопку)
-          try {
-            if (typeof w.getClientValue === 'function') {
-              w.getClientValue({ input_id: 1001, type: 'service' }).then(function (res) {
-                var v = (res && typeof res === 'object' && res.value !== undefined) ? res.value : res;
-                if (v) clientName = cleanName(String(v));
-              }).catch(function () {});
-
-              w.getClientValue({ input_id: 1002, type: 'service' }).then(function (res) {
-                var v = (res && typeof res === 'object' && res.value !== undefined) ? res.value : res;
-                if (v) clientPhone = String(v).trim();
-              }).catch(function () {});
-            }
-            if (typeof w.getDeal === 'function') {
-              w.getDeal().then(function (deal) {
-                var dName = (deal && (deal.name || deal.client_name)) || '';
-                if (dName && !clientName) clientName = cleanName(dName);
-              }).catch(function () {});
-            }
-          } catch (e) {}
 
           return [{
             title: 'Сформировать КП',
@@ -135,6 +113,30 @@
         }
       });
       if (st) st.innerHTML = '<span class="ok">Кнопка активна</span>';
+
+      // 2. Фоновый опрос по документации EnvyCRM (в отдельном потоке, не мешает кнопке)
+      setTimeout(function () {
+        try {
+          if (typeof w.getClientValue === 'function') {
+            w.getClientValue({ input_id: 1001, type: 'service' }).then(function (res) {
+              var v = (res && typeof res === 'object' && res.value !== undefined) ? res.value : res;
+              if (v) clientName = cleanName(String(v));
+            }).catch(function () {});
+
+            w.getClientValue({ input_id: 1002, type: 'service' }).then(function (res) {
+              var v = (res && typeof res === 'object' && res.value !== undefined) ? res.value : res;
+              if (v) clientPhone = String(v).trim();
+            }).catch(function () {});
+          }
+          if (typeof w.getDeal === 'function') {
+            w.getDeal().then(function (deal) {
+              var dName = (deal && (deal.name || deal.client_name)) || '';
+              if (dName && !clientName) clientName = cleanName(dName);
+            }).catch(function () {});
+          }
+        } catch (e) {}
+      }, 150);
+
     } catch (e) {}
   }
 
