@@ -1,41 +1,41 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<title>Коммерческое предложение</title>
-<style>
-  html,body{margin:0;height:100%;background:#fff;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  body{display:flex;flex-direction:column}
-  #kpBar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;
-    background:#101722;border-bottom:1px solid #26324a;color:#e8edf5}
-  #kpBar button{padding:10px 14px;border-radius:10px;border:1px solid #33415c;background:#182233;
-    color:#e8edf5;cursor:pointer;font:600 13px/1 inherit}
-  #kpBar button:hover{background:#1f2b40}
-  #kpBar button.primary{background:#2F6BFF;border-color:#2F6BFF;color:#fff}
-  #kpBar button.primary:hover{background:#1f57e0}
-  #kpBar .sp{flex:1}
-  #kpNote{font:13px/1.35 inherit;color:#9fb0c8;max-width:46%}
-  #kpNote.err{color:#ff8b8b} #kpNote.ok{color:#7ee0a0}
-  #kp-frame{flex:1;width:100%;border:0;display:block}
-  #kpToast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:2147483000;
-    background:#101722;color:#e8edf5;border:1px solid #26324a;border-radius:10px;padding:9px 14px;
-    font:13px/1.4 inherit;display:none;max-width:80vw;text-align:center;pointer-events:none}
-  #kpToast.err{color:#ff8b8b} #kpToast.ok{color:#7ee0a0}
-</style>
+  <meta charset="utf-8">
+  <title>Коммерческое предложение</title>
+  <style>
+    html,body{margin:0;height:100%;background:#fff;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    body{display:flex;flex-direction:column}
+    #kpBar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;
+           background:#101722;border-bottom:1px solid #26324a;color:#e8edf5}
+    #kpBar button{padding:10px 14px;border-radius:10px;border:1px solid #33415c;background:#182233;
+                  color:#e8edf5;cursor:pointer;font:600 13px/1 inherit}
+    #kpBar button:hover{background:#1f2b40}
+    #kpBar button.primary{background:#2F6BFF;border-color:#2F6BFF;color:#fff}
+    #kpBar button.primary:hover{background:#1f57e0}
+    #kpBar .sp{flex:1}
+    #kpNote{font:13px/1.35 inherit;color:#9fb0c8;max-width:46%}
+    #kpNote.err{color:#ff8b8b} #kpNote.ok{color:#7ee0a0}
+    #kp-frame{flex:1;width:100%;border:0;display:block}
+    #kpToast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:2147483000;
+             background:#101722;color:#e8edf5;border:1px solid #26324a;border-radius:10px;padding:9px 14px;
+             font:13px/1.4 inherit;display:none;max-width:80vw;text-align:center;pointer-events:none}
+    #kpToast.err{color:#ff8b8b} #kpToast.ok{color:#7ee0a0}
+  </style>
 </head>
 <body>
 
-<div id="kpBar">
-  <button class="primary" data-act="chat">📩 В чат сделки</button>
-  <button data-act="email">✉️ На e-mail</button>
-  <button data-act="pdf">💾 Скачать КП</button>
-  <button data-act="copy">📋 Текст</button>
-  <span class="sp"></span>
-  <span id="kpNote"></span>
-</div>
+  <div id="kpBar">
+    <button type="button" class="primary" id="btnChat">📩 В чат сделки</button>
+    <button type="button" id="btnMail">✉️ На e-mail</button>
+    <button type="button" id="btnPrint">💾 Скачать КП</button>
+    <button type="button" id="btnCopy">📋 Текст</button>
+    <span class="sp"></span>
+    <span id="kpNote"></span>
+  </div>
 
-<iframe id="kp-frame" src="kp.html"></iframe>
-<div id="kpToast"></div>
+  <iframe id="kp-frame" src="kp.html"></iframe>
+  <div id="kpToast"></div>
 
 <script>
 (function () {
@@ -43,10 +43,10 @@
 
   var PROXY = 'https://script.google.com/macros/s/AKfycbwTIDBQvAu7q2WFEOr6F8AQ_gJdjnSxYAJrtrd04QODVyoVoR085ZdtsiwpXE7Z26AQ/exec';
 
-  var params      = new URLSearchParams(location.search);
-  var dealId      = params.get('deal_id')      || '';
-  var clientId    = params.get('client_id')    || '';
-  var clientName  = params.get('client_name')  || '';
+  var params = new URLSearchParams(location.search);
+  var dealId      = params.get('deal_id') || '';
+  var clientId    = params.get('client_id') || '';
+  var clientName  = params.get('client_name') || '';
   var clientPhone = params.get('client_phone') || '';
 
   var frame = document.getElementById('kp-frame');
@@ -82,6 +82,9 @@
 
   function cleanName(n) {
     if (!n || typeof n !== 'string') return '';
+    if (n.indexOf('::') !== -1) {
+      n = n.split('::')[0].trim();
+    }
     if (n.indexOf('*') !== -1) {
       var p = n.split('*');
       return (p[1] && p[1].trim()) ? p[1].trim() : (p[0] ? p[0].trim() : '');
@@ -89,7 +92,7 @@
     return n.trim();
   }
 
-  /* Вставка строго имени основного контакта в «Кому» */
+  /* Вставка строго имени основного контакта и телефона в бланк */
   function applyToKp() {
     var w = win();
     var d = doc();
@@ -107,7 +110,7 @@
       if (typeof w.save === 'function') w.save();
     }
 
-    // 2. Заполняем input поля в левой панели
+    // 2. Заполняем input поля в редакторе
     var inClient = d.querySelector('[data-bind="client"]');
     if (inClient && nameToSet) {
       inClient.value = nameToSet;
@@ -126,126 +129,44 @@
       inNum.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    // 3. Вызываем отрисовку бланка документа
+    // 3. Перерисовываем документ
     if (typeof w.renderDoc === 'function') {
       try { w.renderDoc(); } catch (e) {}
     }
   }
 
-  /* Извлечение основного контакта из ответа CRM */
-  function extractClient(res) {
-    var name = '';
-    var phone = '';
-
-    function checkObj(o) {
-      if (!o || typeof o !== 'object') return;
-      if (!name && o.name && typeof o.name === 'string') name = o.name;
-      if (!name && o.first_name && typeof o.first_name === 'string') name = o.first_name;
-      if (!phone && o.phone) phone = String(o.phone);
-      if (!phone && Array.isArray(o.phones) && o.phones[0]) phone = String(o.phones[0].phone || o.phones[0]);
-    }
-
-    // 1. Массив contacts (в EnvyCRM контактное лицо хранится здесь)
-    function checkContacts(list) {
-      if (Array.isArray(list)) {
-        for (var i = 0; i < list.length; i++) {
-          checkObj(list[i]);
-        }
-      }
-    }
-
-    checkContacts(res.contacts);
-    if (res.client) checkContacts(res.client.contacts);
-    if (res.clients && res.clients[0]) checkContacts(res.clients[0].contacts);
-    if (res.result) {
-      checkContacts(res.result.contacts);
-      if (res.result.client) checkContacts(res.result.client.contacts);
-      if (res.result.clients && res.result.clients[0]) checkContacts(res.result.clients[0].contacts);
-    }
-
-    // 2. Верхний уровень
-    checkObj(res);
-    checkObj(res.client);
-    if (res.clients && res.clients[0]) checkObj(res.clients[0]);
-    if (res.result) {
-      checkObj(res.result);
-      checkObj(res.result.client);
-      if (res.result.clients && res.result.clients[0]) checkObj(res.result.clients[0]);
-    }
-
-    // 3. Поиск по всем полям, если имя не найдено
-    if (!name) {
-      (function walk(o) {
-        if (name || !o || typeof o !== 'object') return;
-        if (Array.isArray(o)) { o.forEach(walk); return; }
-        ['first_name', 'name', 'client_name'].forEach(function(k) {
-          if (!name && o[k] && typeof o[k] === 'string') {
-            var v = o[k].trim();
-            if (v && isNaN(Number(v)) && v.length < 50 && v !== 'true' && v !== 'null') {
-              name = v;
-            }
-          }
-        });
-        Object.keys(o).forEach(function(k) { walk(o[k]); });
-      })(res);
-    }
-
-    return { name: cleanName(name), phone: phone };
-  }
-
-  function handleClientResponse(res) {
-    try {
-      var info = extractClient(res);
-      if (info.name) clientName = info.name;
-      if (info.phone) clientPhone = info.phone;
-
-      var label = (clientName ? clientName : '') + (clientPhone ? ' · ' + formatPhone(clientPhone) : '');
-      note(label, 'ok');
-      applyToKp();
-    } catch (err) {}
-  }
-
-  window.testCallback = handleClientResponse;
-  window.jsonpCallback = handleClientResponse;
-
-  function fetchClient() {
-    if (!clientId) return;
-    var sc = document.createElement('script');
-    sc.src = PROXY + '?action=client&client_id=' + encodeURIComponent(clientId) + '&callback=testCallback';
-    document.body.appendChild(sc);
-  }
-
-  frame.onload = function () {
+  // При загрузке бланка сразу вставляем данные из параметров сделки
+  frame.addEventListener('load', function () {
     applyToKp();
-    fetchClient();
-    setTimeout(applyToKp, 300);
-    setTimeout(applyToKp, 800);
-    setTimeout(applyToKp, 1500);
-  };
-
-  /* Кнопки верхней панели */
-  document.getElementById('kpBar').addEventListener('click', function (e) {
-    var act = e.target.getAttribute('data-act');
-    if (!act) return;
-
-    var w = win();
-    if (act === 'pdf') {
-      if (w) w.print();
-    } else if (act === 'copy') {
-      var d = doc();
-      var txt = d ? (d.body.innerText || d.body.textContent) : '';
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(txt).then(function () {
-          note('Текст предложения скопирован в буфер', 'ok');
-        });
-      }
-    } else if (act === 'chat') {
-      note('Скачайте КП (PDF) и отправьте в чат сделки EnvyCRM', 'ok');
-    } else if (act === 'email') {
-      note('Скачайте КП (PDF) и отправьте на e-mail клиента', 'ok');
-    }
+    setTimeout(applyToKp, 200);
   });
 
+  // Кнопки панели
+  var btnChat = document.getElementById('btnChat');
+  if (btnChat) {
+    btnChat.onclick = function () {
+      note('Отправка в чат сделки...', 'ok');
+      fetch(PROXY + '?action=sendChat&deal_id=' + encodeURIComponent(dealId), { method: 'POST' })
+        .then(function () { note('Отправлено в сделку!', 'ok'); })
+        .catch(function () { note('Ошибка отправки', 'err'); });
+    };
+  }
+
+  var btnPrint = document.getElementById('btnPrint');
+  if (btnPrint) {
+    btnPrint.onclick = function () {
+      var w = win();
+      if (w) { w.focus(); w.print(); }
+    };
+  }
+
+  var btnCopy = document.getElementById('btnCopy');
+  if (btnCopy) {
+    btnCopy.onclick = function () {
+      var text = 'КП № ' + proposalNumber() + ' для ' + (clientName || 'клиента');
+      navigator.clipboard.writeText(text).then(function () { note('Скопировано в буфер', 'ok'); });
+    };
+  }
 })();
 </script>
 
