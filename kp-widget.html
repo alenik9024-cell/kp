@@ -38,21 +38,39 @@
   (function () {
     'use strict';
 
+    var VERSION = 'v70';
     var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp.html';
 
     var st = document.getElementById('st');
     var btn = document.getElementById('kpBtn');
 
     var dealId = '', clientId = '';
-    var registered = false, numberWritten = false, fieldId = '', state = '—';
+    var registered = false, numberWritten = false;
 
     function log(m, d) {
-      try { console.log('[KP v60] ' + m, d || ''); } catch (e) {}
+      try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {}
     }
 
     function W() {
       return window.EnvyCrmWidget;
     }
+
+    /* Извлечение ID из любых источников */
+    function extractIds(src) {
+      src = src || {};
+      var d = src.deal_id || src.dealId || src.dealID || (src.deal && (src.deal.id || src.deal.deal_id));
+      var c = src.client_id || src.clientId || src.clientID || (src.deal && (src.deal.client_id || src.deal.clientId));
+      if (d && !dealId) dealId = String(d);
+      if (c && !clientId) clientId = String(c);
+
+      try {
+        var sp = new URLSearchParams(window.location.search);
+        if (!dealId && sp.get('deal_id')) dealId = sp.get('deal_id');
+        if (!clientId && sp.get('client_id')) clientId = sp.get('client_id');
+      } catch (e) {}
+    }
+
+    extractIds();
 
     function proposalNumber() {
       if (!dealId) return '';
@@ -61,31 +79,11 @@
       return dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
     }
 
-    function readIds() {
-      return new Promise(function (res) {
-        var w = W();
-        if (!w || typeof w.getDeal !== 'function') { res(); return; }
-        try {
-          var r = w.getDeal();
-          if (r && typeof r.then === 'function') {
-            r.then(function (d) {
-              d = d || {};
-              dealId = String(d.id || d.deal_id || dealId || '');
-              clientId = String(d.client_id || d.clientId || clientId || '');
-              log('getDeal', { deal_id: dealId, client_id: clientId });
-              res();
-            }).catch(function (e) { log('getDeal ошибка', e); res(); });
-          } else res();
-        } catch (e) { res(); }
-      });
-    }
-
     function findFieldId(data, wanted) {
       var found = '';
       (function walk(o) {
         if (found || !o || typeof o !== 'object') return;
         if (Array.isArray(o)) { o.forEach(walk); return; }
-
         var nm = String(o.name || o.title || o.label || o.name_id || '').toLowerCase().trim();
         var iid = o.input_id || o.id;
         if (nm && iid) {
@@ -104,56 +102,50 @@
       if (!w || typeof w.getDealValues !== 'function') return;
 
       w.getDealValues().then(function (data) {
-        fieldId = findFieldId(data, ['кп', 'номер кп', 'номер кп (кп)', 'коммерческое предложение']);
-        if (!fieldId || typeof w.changeDealValue !== 'function') return;
+        var fid = findFieldId(data, ['кп', 'номер кп', 'номер кп (кп)', 'коммерческое предложение']);
+        if (!fid || typeof w.changeDealValue !== 'function') return;
 
-        w.changeDealValue({ input_id: fieldId, value: proposalNumber() })
-          .then(function () {
-            numberWritten = true;
-            state = 'номер записан';
-            show();
-          });
+        w.changeDealValue({ input_id: fid, value: proposalNumber() }).then(function () {
+          numberWritten = true;
+        }).catch(function () {});
       }).catch(function () {});
     }
 
     function openWindow() {
-      readIds().then(function () {
-        writeNumber();
-        var url = CONSTRUCTOR_URL +
-          (dealId ? '?deal_id=' + encodeURIComponent(dealId) : '?') +
-          (clientId ? '&client_id=' + encodeURIComponent(clientId) : '');
-        var pNum = proposalNumber();
-        if (pNum) url += '&num=' + encodeURIComponent(pNum);
+      writeNumber();
+      var url = CONSTRUCTOR_URL +
+        (dealId ? '?deal_id=' + encodeURIComponent(dealId) : '?') +
+        (clientId ? '&client_id=' + encodeURIComponent(clientId) : '');
+      var pNum = proposalNumber();
+      if (pNum) url += '&num=' + encodeURIComponent(pNum);
 
-        log('открытие КП', url);
-        window.open(url, '_blank');
-      });
-    }
-
-    function show() {
-      if (!st) return;
-      st.innerHTML = 'v60 | ' +
-        (dealId ? 'сделка <b>' + dealId + '</b>' : 'сделка не определена') +
-        '<br>кнопка: ' + (registered ? '<span class="ok">внедрена</span>' : '<span class="err">ожидание</span>');
+      log('Открытие КП: ' + url);
+      window.open(url, '_blank');
     }
 
     if (btn) {
-      btn.onclick = openWindow;
+      btn.onclick = function () {
+        extractIds();
+        openWindow();
+      };
     }
 
+    /* Слушаем клик по кнопке из CRM */
     window.addEventListener('message', function (e) {
       if (!e || !e.data) return;
       if (e.data.type === 'kp-btn:click') {
-        log('клик по кнопке Envy');
+        log('Клик по кнопке EnvyCRM', e.data);
+        extractIds(e.data);
         openWindow();
       }
     }, false);
 
+    /* РЕГИСТРАЦИЯ КНОПКИ — ЗАПУСКАЕТСЯ СРАЗУ, БЕЗ ОЖИДАНИЯ */
     function register() {
       if (registered) return;
       var w = W();
       if (!w || typeof w.init !== 'function') {
-        setTimeout(register, 150);
+        setTimeout(register, 80);
         return;
       }
       try {
@@ -169,18 +161,15 @@
           ]
         });
         registered = true;
-        state = 'кнопка зарегистрирована';
-        log('кнопка зарегистрирована');
-        show();
+        log('Кнопка успешно зарегистрирована в CRM');
+        if (st) st.innerHTML = 'v' + VERSION + ' | <span class="ok">кнопка активна</span>';
       } catch (err) {
-        log('ошибка w.init', err);
+        log('Ошибка w.init: ' + err);
+        setTimeout(register, 200);
       }
     }
 
-    readIds().then(function () {
-      show();
-      register();
-    });
+    register();
   })();
   </script>
 </body>
