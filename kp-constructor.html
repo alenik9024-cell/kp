@@ -43,14 +43,14 @@
 
   var PROXY = 'https://script.google.com/macros/s/AKfycbwTIDBQvAu7q2WFEOr6F8AQ_gJdjnSxYAJrtrd04QODVyoVoR085ZdtsiwpXE7Z26AQ/exec';
 
-  var params   = new URLSearchParams(location.search);
-  var dealId   = params.get('deal_id')   || '';
-  var clientId = params.get('client_id') || '';
+  var params      = new URLSearchParams(location.search);
+  var dealId      = params.get('deal_id')      || '';
+  var clientId    = params.get('client_id')    || '';
+  var clientName  = params.get('client_name')  || '';
+  var clientPhone = params.get('client_phone') || '';
 
   var frame = document.getElementById('kp-frame');
-  var clientName = '', clientPhone = '';
 
-  function log(m, d) { try { console.log('[KP CONST] ' + m, d || ''); } catch (e) {} }
   function doc() { try { return frame.contentDocument || frame.contentWindow.document || null; } catch (e) { return null; } }
   function win() { try { return frame.contentWindow; } catch (e) { return null; } }
 
@@ -71,30 +71,52 @@
     return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
   }
 
+  function formatPhone(p) {
+    if (!p) return '';
+    var d = String(p).replace(/\D/g, '');
+    if (d.length === 11 && (d[0] === '7' || d[0] === '8')) {
+      return '+7 (' + d.slice(1, 4) + ') ' + d.slice(4, 7) + '-' + d.slice(7, 9) + '-' + d.slice(9, 11);
+    }
+    return p;
+  }
+
+  function cleanName(n) {
+    if (!n || typeof n !== 'string') return '';
+    if (n.indexOf('*') !== -1) {
+      var p = n.split('*');
+      return (p[1] && p[1].trim()) ? p[1].trim() : (p[0] ? p[0].trim() : '');
+    }
+    return n.trim();
+  }
+
+  /* Вставка строго имени основного контакта в «Кому» */
   function applyToKp() {
     var w = win();
     var d = doc();
     if (!w || !d) return;
 
     var pNum = proposalNumber();
+    var nameToSet = cleanName(clientName);
+    var phoneToSet = formatPhone(clientPhone);
 
     // 1. Обновляем объект state внутри kp.html
     if (w.state) {
-      if (clientName) w.state.client = clientName;
-      if (clientPhone) w.state.clientContact = clientPhone;
+      if (nameToSet) w.state.client = nameToSet;
+      if (phoneToSet) w.state.clientContact = phoneToSet;
       if (pNum) w.state.docNumber = pNum;
+      if (typeof w.save === 'function') w.save();
     }
 
-    // 2. Заполняем input поля в редакторе
+    // 2. Заполняем input поля в левой панели
     var inClient = d.querySelector('[data-bind="client"]');
-    if (inClient && clientName) {
-      inClient.value = clientName;
+    if (inClient && nameToSet) {
+      inClient.value = nameToSet;
       inClient.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
     var inPhone = d.querySelector('[data-bind="clientContact"]');
-    if (inPhone && clientPhone) {
-      inPhone.value = clientPhone;
+    if (inPhone && phoneToSet) {
+      inPhone.value = phoneToSet;
       inPhone.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
@@ -104,63 +126,83 @@
       inNum.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    // 3. Вызываем отрисовку бланка
+    // 3. Вызываем отрисовку бланка документа
     if (typeof w.renderDoc === 'function') {
       try { w.renderDoc(); } catch (e) {}
     }
   }
 
-  /* Глубокий поиск имени в объекте EnvyCRM */
-  function findName(r) {
-    if (!r) return '';
-    if (r.name && typeof r.name === 'string' && isNaN(Number(r.name))) return r.name;
-    if (r.client_name && typeof r.client_name === 'string') return r.client_name;
-    if (r.first_name && typeof r.first_name === 'string') return r.first_name;
-    if (r.title && typeof r.title === 'string' && r.title.indexOf('Сделка') === -1) return r.title;
-    if (r.company && typeof r.company === 'string') return r.company;
-    if (r.company_name && typeof r.company_name === 'string') return r.company_name;
+  /* Извлечение основного контакта из ответа CRM */
+  function extractClient(res) {
+    var name = '';
+    var phone = '';
 
-    // Проверяем кастомные поля
-    var fields = r.values_custom || r.custom_values || r.values || [];
-    if (Array.isArray(fields)) {
-      for (var i = 0; i < fields.length; i++) {
-        var v = String(fields[i].value || '').trim();
-        var n = String(fields[i].name || '').toLowerCase();
-        if (v && isNaN(Number(v)) && (n.indexOf('имя') !== -1 || n.indexOf('клиент') !== -1 || n.indexOf('фио') !== -1)) {
-          return v;
+    function checkObj(o) {
+      if (!o || typeof o !== 'object') return;
+      if (!name && o.name && typeof o.name === 'string') name = o.name;
+      if (!name && o.first_name && typeof o.first_name === 'string') name = o.first_name;
+      if (!phone && o.phone) phone = String(o.phone);
+      if (!phone && Array.isArray(o.phones) && o.phones[0]) phone = String(o.phones[0].phone || o.phones[0]);
+    }
+
+    // 1. Массив contacts (в EnvyCRM контактное лицо хранится здесь)
+    function checkContacts(list) {
+      if (Array.isArray(list)) {
+        for (var i = 0; i < list.length; i++) {
+          checkObj(list[i]);
         }
       }
     }
-    return '';
+
+    checkContacts(res.contacts);
+    if (res.client) checkContacts(res.client.contacts);
+    if (res.clients && res.clients[0]) checkContacts(res.clients[0].contacts);
+    if (res.result) {
+      checkContacts(res.result.contacts);
+      if (res.result.client) checkContacts(res.result.client.contacts);
+      if (res.result.clients && res.result.clients[0]) checkContacts(res.result.clients[0].contacts);
+    }
+
+    // 2. Верхний уровень
+    checkObj(res);
+    checkObj(res.client);
+    if (res.clients && res.clients[0]) checkObj(res.clients[0]);
+    if (res.result) {
+      checkObj(res.result);
+      checkObj(res.result.client);
+      if (res.result.clients && res.result.clients[0]) checkObj(res.result.clients[0]);
+    }
+
+    // 3. Поиск по всем полям, если имя не найдено
+    if (!name) {
+      (function walk(o) {
+        if (name || !o || typeof o !== 'object') return;
+        if (Array.isArray(o)) { o.forEach(walk); return; }
+        ['first_name', 'name', 'client_name'].forEach(function(k) {
+          if (!name && o[k] && typeof o[k] === 'string') {
+            var v = o[k].trim();
+            if (v && isNaN(Number(v)) && v.length < 50 && v !== 'true' && v !== 'null') {
+              name = v;
+            }
+          }
+        });
+        Object.keys(o).forEach(function(k) { walk(o[k]); });
+      })(res);
+    }
+
+    return { name: cleanName(name), phone: phone };
   }
 
-  /* Обработка ответа прокси */
   function handleClientResponse(res) {
     try {
-      log('Ответ CRM:', res);
-      var r = (res && res.result) ? res.result : res;
-      if (r) {
-        clientName = findName(r);
+      var info = extractClient(res);
+      if (info.name) clientName = info.name;
+      if (info.phone) clientPhone = info.phone;
 
-        // Очищаем от технических символов вроде звёздочек (Цветаева* Наталья -> Цветаева Наталья)
-        if (clientName) {
-          clientName = clientName.replace(/\*/g, ' ').replace(/\s+/g, ' ').trim();
-        }
-
-        // Телефон
-        clientPhone = r.phone || r.client_phone || '';
-        if (Array.isArray(r.phones) && r.phones[0]) {
-          clientPhone = r.phones[0].phone || r.phones[0];
-        }
-
-        var label = (clientName ? clientName : '') + (clientPhone ? ' · ' + clientPhone : '');
-        note(label, 'ok');
-
-        applyToKp();
-      }
-    } catch (err) {
-      log('Ошибка обработки', err);
-    }
+      var label = (clientName ? clientName : '') + (clientPhone ? ' · ' + formatPhone(clientPhone) : '');
+      note(label, 'ok');
+      applyToKp();
+    } catch (err) {}
   }
 
   window.testCallback = handleClientResponse;
@@ -168,7 +210,6 @@
 
   function fetchClient() {
     if (!clientId) return;
-
     var sc = document.createElement('script');
     sc.src = PROXY + '?action=client&client_id=' + encodeURIComponent(clientId) + '&callback=testCallback';
     document.body.appendChild(sc);
@@ -177,9 +218,9 @@
   frame.onload = function () {
     applyToKp();
     fetchClient();
-
     setTimeout(applyToKp, 300);
     setTimeout(applyToKp, 800);
+    setTimeout(applyToKp, 1500);
   };
 
   /* Кнопки верхней панели */
@@ -188,7 +229,6 @@
     if (!act) return;
 
     var w = win();
-
     if (act === 'pdf') {
       if (w) w.print();
     } else if (act === 'copy') {
