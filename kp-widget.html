@@ -1,29 +1,234 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<title>КП — виджет</title>
-<style>
-body{margin:0;padding:12px;box-sizing:border-box;background:#fff;font:13px/1.5 -apple-system,sans-serif}
-#kpBtn{display:block;width:100%;padding:13px 16px;border:0;border-radius:10px;background:#2F6BFF;color:#fff;font:600 14px/1 inherit;cursor:pointer}
-#kpBtn:hover{background:#1f57e0}
-#st{margin-top:10px;font-size:12px;color:#666}
-</style>
+  <meta charset="utf-8">
+  <title>КП — виджет EnvyCRM</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 12px;
+      box-sizing: border-box;
+      background: #fff;
+      color: #2b2b2b;
+      font: 13px/1.5 -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    #kpBtn {
+      display: block;
+      width: 100%;
+      padding: 13px 16px;
+      border: 0;
+      border-radius: 10px;
+      background: #2F6BFF;
+      color: #fff;
+      font: 600 14px/1 inherit;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #kpBtn:hover {
+      background: #1f57e0;
+    }
+    #st {
+      margin-top: 10px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #666;
+      word-break: break-all;
+    }
+    .ok { color: #0a7d33; font-weight: 600; }
+    .err { color: #c0392b; font-weight: 600; }
+  </style>
+  <!-- Официальная библиотека EnvyCRM Widget API (обязательно ДО скрипта) -->
+  <script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 </head>
 <body>
-<button id="kpBtn">📄 Сформировать КП</button>
-<div id="st">Готов к работе</div>
+  <button id="kpBtn" type="button">📄 Сформировать КП</button>
+  <div id="st">Инициализация…</div>
 
-<script>
-(function(){
-  var btn = document.getElementById('kpBtn');
-  btn.onclick = function(){
-    var params = new URLSearchParams(location.search);
-    var dealId = params.get('deal_id') || params.get('dealId') || '';
-    var clientId = params.get('client_id') || params.get('clientId') || '';
-    window.open('https://alenik9024-cell.github.io/kp/kp-constructor.html?deal_id=' + dealId + '&client_id=' + clientId, '_blank');
-  };
-})();
-</script>
+  <script>
+  (function () {
+    'use strict';
+
+    var VERSION = 'v55';
+    var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp-constructor.html';
+
+    var st = document.getElementById('st');
+    var btn = document.getElementById('kpBtn');
+
+    var dealId = '';
+    var clientId = '';
+    var numberWritten = false;
+
+    function log(m, d) {
+      try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {}
+    }
+
+    function setStatus(html) {
+      if (st) st.innerHTML = html;
+    }
+
+    function W() {
+      return window.EnvyCrmWidget;
+    }
+
+    /* Извлечение ID сделки и клиента */
+    function extractIds(src) {
+      if (!src) return;
+      var d = src.deal_id || src.dealID || src.dealId || (src.deal && (src.deal.id || src.deal.deal_id));
+      var c = src.client_id || src.clientID || src.clientId || (src.deal && (src.deal.client_id || src.deal.clientId));
+      if (d && !dealId) dealId = String(d);
+      if (c && !clientId) clientId = String(c);
+    }
+
+    // Проверяем параметры URL
+    try {
+      var sp = new URLSearchParams(window.location.search);
+      if (sp.get('deal_id')) dealId = sp.get('deal_id');
+      if (sp.get('client_id')) clientId = sp.get('client_id');
+    } catch (e) {}
+
+    /* Формирование номера КП вида <deal_id>/<ДД>/<ММ> */
+    function getProposalNumber() {
+      if (!dealId) return '';
+      var d = new Date();
+      var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+      return dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
+    }
+
+    /* Поиск ID поля для записи номера КП */
+    function findFieldId(data) {
+      var found = '';
+      var wanted = ['кп', 'номер кп', 'коммерческое предложение'];
+      (function walk(o) {
+        if (found || !o || typeof o !== 'object') return;
+        if (Array.isArray(o)) { o.forEach(walk); return; }
+        var nm = String(o.name || o.title || o.label || '').toLowerCase().trim();
+        var iid = o.input_id || o.id;
+        if (nm && iid) {
+          for (var i = 0; i < wanted.length; i++) {
+            if (nm === wanted[i]) { found = String(iid); return; }
+          }
+        }
+        Object.keys(o).forEach(function (k) { walk(o[k]); });
+      })(data);
+      return found;
+    }
+
+    /* Автозапись номера КП в сделку */
+    function writeNumberToDeal() {
+      var w = W();
+      if (numberWritten || !dealId || !w || typeof w.getDealValues !== 'function') return;
+
+      w.getDealValues().then(function (data) {
+        var fid = findFieldId(data);
+        if (!fid || typeof w.changeDealValue !== 'function') return;
+
+        var propNum = getProposalNumber();
+        log('Запись номера ' + propNum + ' в поле ' + fid);
+        w.changeDealValue({ input_id: fid, value: propNum }).then(function () {
+          numberWritten = true;
+          log('Номер КП сохранён в сделке');
+        }).catch(function (e) {
+          log('Ошибка записи номера: ' + e);
+        });
+      }).catch(function (e) {
+        log('Ошибка getDealValues: ' + e);
+      });
+    }
+
+    /* Открытие конструктора КП в новой вкладке */
+    function openConstructor() {
+      var targetUrl = CONSTRUCTOR_URL;
+      var q = [];
+      if (dealId) q.push('deal_id=' + encodeURIComponent(dealId));
+      if (clientId) q.push('client_id=' + encodeURIComponent(clientId));
+      var pNum = getProposalNumber();
+      if (pNum) q.push('num=' + encodeURIComponent(pNum));
+
+      if (q.length > 0) targetUrl += '?' + q.join('&');
+
+      log('Открытие конструктора: ' + targetUrl);
+      window.open(targetUrl, '_blank');
+      writeNumberToDeal();
+    }
+
+    function handleAction(sourceData) {
+      extractIds(sourceData);
+      var w = W();
+      if (!dealId && w && typeof w.getDeal === 'function') {
+        w.getDeal().then(function (dealData) {
+          var d = dealData && dealData.result ? dealData.result : dealData;
+          extractIds(d);
+          openConstructor();
+        }).catch(function () {
+          openConstructor();
+        });
+      } else {
+        openConstructor();
+      }
+    }
+
+    // Резервная кнопка внутри фрейма
+    if (btn) {
+      btn.onclick = function () { handleAction(null); };
+    }
+
+    // Ловим клик по кнопке EnvyCRM из карточки сделки
+    window.addEventListener('message', function (event) {
+      if (event && event.data && event.data.type === 'kp-btn:click') {
+        log('Событие kp-btn:click получено');
+        handleAction(event.data);
+      }
+    }, false);
+
+    // Регистрация кнопки в интерфейсе EnvyCRM
+    function initEnvyWidget() {
+      var w = W();
+      if (!w || typeof w.init !== 'function') {
+        log('EnvyCrmWidget API недоступен');
+        setStatus('<span class="err">EnvyCrmWidget API недоступен</span>');
+        return;
+      }
+
+      try {
+        // Ровно одна кнопка в слоте first
+        w.init({
+          'deal-btn': [
+            {
+              name: 'kp-btn-final-32',
+              title: 'Сформировать КП',
+              icon: 'md-description',
+              clickEventName: 'kp-btn:click',
+              position: ['first'],
+              styles: {
+                'background-color': '#2F6BFF',
+                'color': '#ffffff'
+              }
+            }
+          ]
+        });
+
+        setStatus('<span class="ok">Виджет активен (' + VERSION + ')</span>');
+        log('Кнопка «Сформировать КП» зарегистрирована');
+
+        if (typeof w.getDeal === 'function') {
+          w.getDeal().then(function (d) {
+            var deal = d && d.result ? d.result : d;
+            extractIds(deal);
+            log('Сделка определена: ' + dealId);
+          }).catch(function () {});
+        }
+      } catch (err) {
+        log('Ошибка w.init: ' + err);
+        setStatus('<span class="err">Ошибка: ' + err + '</span>');
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initEnvyWidget);
+    } else {
+      initEnvyWidget();
+    }
+  })();
+  </script>
 </body>
 </html>
