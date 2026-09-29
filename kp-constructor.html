@@ -14,8 +14,8 @@
     #kpBar button.primary{background:#2F6BFF;border-color:#2F6BFF;color:#fff}
     #kpBar button.primary:hover{background:#1f57e0}
     #kpBar .sp{flex:1}
-    #kpNote{font:13px/1.35 inherit;color:#9fb0c8;max-width:46%}
-    #kpNote.err{color:#ff8b8b} #kpNote.ok{color:#7ee0a0}
+    #kpNote{font:13px/1.35 inherit;color:#7ee0a0;max-width:46%}
+    #kpNote.err{color:#ff8b8b}
     #kp-frame{flex:1;width:100%;border:0;display:block}
     #kpToast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:2147483000;
              background:#101722;color:#e8edf5;border:1px solid #26324a;border-radius:10px;padding:9px 14px;
@@ -34,7 +34,7 @@
     <span id="kpNote"></span>
   </div>
 
-  <iframe id="kp-frame" src="kp.html"></iframe>
+  <iframe id="kp-frame" src="about:blank"></iframe>
   <div id="kpToast"></div>
 
 <script>
@@ -47,7 +47,7 @@
   var dealId   = params.get('deal_id') || '';
   var kpNumUrl = params.get('num') || '';
 
-  var clientName = '';
+  var clientName  = '';
   var clientPhone = '';
 
   var frame = document.getElementById('kp-frame');
@@ -82,8 +82,9 @@
     return p;
   }
 
-  function cleanContactName(n) {
+  function cleanName(n) {
     if (!n || typeof n !== 'string') return '';
+    if (n.indexOf('::') !== -1) n = n.split('::')[0].trim();
     if (n.indexOf('*') !== -1) {
       var p = n.split('*');
       n = (p[1] && p[1].trim()) ? p[1].trim() : (p[0] ? p[0].trim() : '');
@@ -91,36 +92,36 @@
     return n.trim();
   }
 
-  /* Запись свежих данных текущей сделки в бланк (стирает чужие остатки) */
+  /* Запись данных строго текущей сделки (сброс старых остатков) */
   function applyToKp() {
     var w = win();
     var d = doc();
     if (!w || !d) return;
 
     var pNum = proposalNumber();
-    var nameToSet = cleanContactName(clientName);
+    var nameToSet = cleanName(clientName);
     var phoneToSet = formatPhone(clientPhone);
 
-    // 1. Очищаем и перезаписываем state текущей сделки
+    // 1. Принудительно перезаписываем state текущей сделки
     if (w.state) {
-      w.state.client = nameToSet;
-      w.state.clientContact = phoneToSet;
+      w.state.client = nameToSet || '';
+      w.state.clientContact = phoneToSet || '';
       if (pNum) w.state.docNumber = pNum;
       if (typeof w.save === 'function') {
         try { w.save(); } catch (e) {}
       }
     }
 
-    // 2. Обновляем инпуты в панели редактора
+    // 2. Обновляем поля формы в левой панели
     var inClient = d.querySelector('[data-bind="client"]');
     if (inClient) {
-      inClient.value = nameToSet;
+      inClient.value = nameToSet || '';
       inClient.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
     var inPhone = d.querySelector('[data-bind="clientContact"]');
     if (inPhone) {
-      inPhone.value = phoneToSet;
+      inPhone.value = phoneToSet || '';
       inPhone.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
@@ -130,14 +131,18 @@
       inNum.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    // 3. Перерисовываем бланк документа
+    // 3. Вызываем отрисовку бланка документа
     if (typeof w.renderDoc === 'function') {
       try { w.renderDoc(); } catch (e) {}
     }
+
+    if (nameToSet || phoneToSet) {
+      note(nameToSet + (phoneToSet ? ' · ' + phoneToSet : ''), 'ok');
+    }
   }
 
-  /* Извлечение строго из блока «Контакты» сделки */
-  function extractFromContacts(res) {
+  /* Универсальное извлечение контакта из блока «Контакты» EnvyCRM */
+  function extractContact(res) {
     var name = '';
     var phone = '';
 
@@ -145,26 +150,49 @@
 
     var root = res.result || res.lead || res.deal || res;
 
-    // Ищем список «Контакты» сделки
-    var contactsList = (root && root.contacts) || res.contacts || [];
+    // 1. Ищем контакт в блоке «Контакты» (как массив или как объект)
+    var clist = (root && root.contacts) || res.contacts || null;
+    var primary = null;
 
-    if (Array.isArray(contactsList) && contactsList.length > 0) {
-      var primary = contactsList[0]; // Первый контакт в блоке «Контакты»
-      if (primary) {
-        name = primary.name || primary.first_name || '';
-        if (Array.isArray(primary.phones) && primary.phones[0]) {
-          phone = String(primary.phones[0].phone || primary.phones[0]);
-        } else if (primary.phone) {
-          phone = String(primary.phone);
-        }
-      }
+    if (Array.isArray(clist) && clist.length > 0) {
+      primary = clist[0];
+    } else if (clist && typeof clist === 'object') {
+      var keys = Object.keys(clist);
+      if (keys.length > 0) primary = clist[keys[0]];
     }
 
-    // Резерв: если контакт лежит напрямую в объекте клиента
-    if (!name && res.client && res.client.name) name = res.client.name;
-    if (!phone && res.client && res.client.phone) phone = res.client.phone;
+    if (primary && typeof primary === 'object') {
+      name = primary.name || primary.first_name || '';
+      if (primary.phones) {
+        if (Array.isArray(primary.phones) && primary.phones[0]) {
+          var p0 = primary.phones[0];
+          phone = typeof p0 === 'object' ? (p0.phone || p0.val || '') : String(p0);
+        } else if (typeof primary.phones === 'object') {
+          var pk = Object.keys(primary.phones);
+          if (pk.length > 0) {
+            var po = primary.phones[pk[0]];
+            phone = typeof po === 'object' ? (po.phone || po.val || '') : String(po);
+          }
+        }
+      }
+      if (!phone && primary.phone) phone = String(primary.phone);
+    }
 
-    return { name: name, phone: phone };
+    // 2. Резерв: объект client
+    var clientObj = (root && root.client) || res.client || null;
+    if (clientObj && typeof clientObj === 'object') {
+      if (!name) name = clientObj.name || clientObj.first_name || '';
+      if (!phone) phone = clientObj.phone || '';
+    }
+
+    // 3. Резерв: кастомные поля 16 (Кому) и 17 (Телефон)
+    var vals = (root && (root.values || root.custom_values)) || null;
+    if (vals && typeof vals === 'object') {
+      if (!name && vals['16']) name = vals['16'];
+      if (!phone && vals['17']) phone = vals['17'];
+    }
+
+    return { name: cleanName(name), phone: phone };
   }
 
   /* Загрузка сделки по ID */
@@ -174,7 +202,7 @@
     fetch(PROXY + '?action=deal&deal_id=' + encodeURIComponent(dealId))
       .then(function (r) { return r.json(); })
       .then(function (res) {
-        var c = extractFromContacts(res);
+        var c = extractContact(res);
         if (c.name) clientName = c.name;
         if (c.phone) clientPhone = c.phone;
         applyToKp();
@@ -182,14 +210,15 @@
       .catch(function () {});
   }
 
+  // Загружаем чистый kp.html с защитой от кэширования прошлой сделки
+  frame.src = 'kp.html?deal_id=' + encodeURIComponent(dealId) + '&t=' + Date.now();
+
   frame.addEventListener('load', function () {
-    // 1. Сразу сбрасываем старую память
     applyToKp();
-    // 2. Загружаем свежие контакты именно этой сделки
     loadCurrentDeal();
   });
 
-  // Кнопки
+  // Кнопки верхней панели
   var btnPrint = document.getElementById('btnPrint');
   if (btnPrint) {
     btnPrint.onclick = function () {
@@ -202,7 +231,7 @@
   if (btnCopy) {
     btnCopy.onclick = function () {
       var pNum = proposalNumber();
-      var cName = cleanContactName(clientName);
+      var cName = cleanName(clientName);
       var text = 'КП' + (pNum ? ' № ' + pNum : '') + (cName ? ' для: ' + cName : '');
       navigator.clipboard.writeText(text).then(function () {
         note('Краткий текст КП скопирован', 'ok');
@@ -215,7 +244,7 @@
     btnChat.onclick = function () {
       note('Отправка в чат сделки...', 'ok');
       fetch(PROXY + '?action=sendChat&deal_id=' + encodeURIComponent(dealId), { method: 'POST' })
-        .then(function () { note('Отправлено в чат сделки', 'ok'); })
+        .then(function () { note('Отправлено в чат сделки!', 'ok'); })
         .catch(function () { note('Ошибка отправки', 'err'); });
     };
   }
