@@ -61,7 +61,7 @@
       return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
     }
 
-    /* ID сделки */
+    /* Получение ID сделки */
     function readIds() {
       return new Promise(function (res) {
         var w = W();
@@ -152,11 +152,12 @@
       }
     }, false);
 
+    /* РЕГИСТРАЦИЯ СО ВСЕМИ ОБЯЗАТЕЛЬНЫМИ ПОЛЯМИ ПО ДОКУМЕНТАЦИИ */
     function register() {
       if (registered) return;
       var w = W();
       if (!w || typeof w.init !== 'function') {
-        setTimeout(register, 200);
+        setTimeout(register, 150);
         return;
       }
       try {
@@ -167,7 +168,11 @@
               title: 'Сформировать КП',
               icon: 'md-description',
               clickEventName: 'kp-btn:click',
-              position: ['first']
+              position: ['first'],
+              styles: {
+                'color': '#ffffff',
+                'background-color': '#2F6BFF'
+              }
             }
           ]
         });
@@ -176,10 +181,8 @@
         log('кнопка зарегистрирована');
         show();
       } catch (err) {
-        state = 'повтор инициализации…';
-        log('ожидание готовности CRM blocks...', err);
-        // Если EnvyCRM еще не инициализировала blocks, повторяем через 300мс
-        setTimeout(register, 300);
+        log('повтор init: ' + err);
+        setTimeout(register, 250);
       }
     }
 
