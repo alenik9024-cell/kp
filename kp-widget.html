@@ -23,15 +23,8 @@
       font: 600 14px/1 inherit;
       cursor: pointer;
     }
-    #kpBtn:hover {
-      background: #1f57e0;
-    }
-    #st {
-      margin-top: 10px;
-      font-size: 12px;
-      line-height: 1.6;
-      color: #666;
-    }
+    #kpBtn:hover { background: #1f57e0; }
+    #st { margin-top: 10px; font-size: 12px; line-height: 1.6; color: #666; }
     .ok { color: #0a7d33; font-weight: 600; }
     .err { color: #c0392b; font-weight: 600; }
   </style>
@@ -45,7 +38,7 @@
   (function () {
     'use strict';
 
-    var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp-constructor.html';
+    var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp.html';
 
     var st = document.getElementById('st');
     var btn = document.getElementById('kpBtn');
@@ -54,7 +47,7 @@
     var registered = false, numberWritten = false, fieldId = '', state = '—';
 
     function log(m, d) {
-      try { console.log('[KP v52] ' + m, d || ''); } catch (e) {}
+      try { console.log('[KP v60] ' + m, d || ''); } catch (e) {}
     }
 
     function W() {
@@ -64,8 +57,8 @@
     function proposalNumber() {
       if (!dealId) return '';
       var d = new Date();
-      var p = function (n) { return (n < 10 ? '0' : '') + n; };
-      return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
+      var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+      return dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
     }
 
     function readIds() {
@@ -81,16 +74,9 @@
               clientId = String(d.client_id || d.clientId || clientId || '');
               log('getDeal', { deal_id: dealId, client_id: clientId });
               res();
-            }).catch(function (e) {
-              log('getDeal ошибка', e);
-              res();
-            });
-          } else {
-            res();
-          }
-        } catch (e) {
-          res();
-        }
+            }).catch(function (e) { log('getDeal ошибка', e); res(); });
+          } else res();
+        } catch (e) { res(); }
       });
     }
 
@@ -115,47 +101,19 @@
     function writeNumber() {
       if (numberWritten || !dealId) return;
       var w = W();
-      if (!w || typeof w.getDealValues !== 'function') {
-        state = 'нет getDealValues';
-        return;
-      }
+      if (!w || typeof w.getDealValues !== 'function') return;
 
       w.getDealValues().then(function (data) {
-        var names = [];
-        (function walk(o) {
-          if (!o || typeof o !== 'object') return;
-          if (Array.isArray(o)) { o.forEach(walk); return; }
-          var nm = o.name || o.title || o.label;
-          if (nm) names.push(nm);
-          Object.keys(o).forEach(function (k) { walk(o[k]); });
-        })(data);
-        log('поля сделки: ' + names.join(' | '));
-
         fieldId = findFieldId(data, ['кп', 'номер кп', 'номер кп (кп)', 'коммерческое предложение']);
-        if (!fieldId) {
-          state = 'поле КП не найдено';
-          log('поле КП не найдено среди: ' + names.join(', '));
-          return;
-        }
+        if (!fieldId || typeof w.changeDealValue !== 'function') return;
 
-        log('input_id поля КП = ' + fieldId);
-        if (typeof w.changeDealValue !== 'function') {
-          state = 'нет changeDealValue';
-          return;
-        }
-
-        return w.changeDealValue({ input_id: fieldId, value: proposalNumber() })
+        w.changeDealValue({ input_id: fieldId, value: proposalNumber() })
           .then(function () {
             numberWritten = true;
-            state = 'номер записан в поле ' + fieldId;
-            log('номер записан: ' + proposalNumber());
+            state = 'номер записан';
             show();
           });
-      }).catch(function (e) {
-        state = 'ошибка записи: ' + e;
-        log('ошибка записи номера', e);
-        show();
-      });
+      }).catch(function () {});
     }
 
     function openWindow() {
@@ -167,17 +125,16 @@
         var pNum = proposalNumber();
         if (pNum) url += '&num=' + encodeURIComponent(pNum);
 
-        log('открываю конструктор', url);
+        log('открытие КП', url);
         window.open(url, '_blank');
       });
     }
 
     function show() {
       if (!st) return;
-      st.innerHTML = 'v52 | ' +
+      st.innerHTML = 'v60 | ' +
         (dealId ? 'сделка <b>' + dealId + '</b>' : 'сделка не определена') +
-        '<br>кнопка: ' + (registered ? '<span class="ok">внедрена</span>' : '<span class="err">ожидание</span>') +
-        '<br>статус: ' + state;
+        '<br>кнопка: ' + (registered ? '<span class="ok">внедрена</span>' : '<span class="err">ожидание</span>');
     }
 
     if (btn) {
@@ -196,7 +153,7 @@
       if (registered) return;
       var w = W();
       if (!w || typeof w.init !== 'function') {
-        setTimeout(register, 100);
+        setTimeout(register, 150);
         return;
       }
       try {
@@ -216,9 +173,7 @@
         log('кнопка зарегистрирована');
         show();
       } catch (err) {
-        state = 'ошибка w.init: ' + err;
-        log('w.init err', err);
-        show();
+        log('ошибка w.init', err);
       }
     }
 
