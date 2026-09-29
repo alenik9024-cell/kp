@@ -37,7 +37,6 @@
     .ok { color: #0a7d33; font-weight: 600; }
     .err { color: #c0392b; font-weight: 600; }
   </style>
-  <!-- Официальная библиотека EnvyCRM Widget API (обязательно ДО скрипта) -->
   <script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 </head>
 <body>
@@ -48,7 +47,7 @@
   (function () {
     'use strict';
 
-    var VERSION = 'v55';
+    var VERSION = 'v56';
     var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp-constructor.html';
 
     var st = document.getElementById('st');
@@ -70,7 +69,6 @@
       return window.EnvyCrmWidget;
     }
 
-    /* Извлечение ID сделки и клиента */
     function extractIds(src) {
       if (!src) return;
       var d = src.deal_id || src.dealID || src.dealId || (src.deal && (src.deal.id || src.deal.deal_id));
@@ -79,14 +77,12 @@
       if (c && !clientId) clientId = String(c);
     }
 
-    // Проверяем параметры URL
     try {
       var sp = new URLSearchParams(window.location.search);
       if (sp.get('deal_id')) dealId = sp.get('deal_id');
       if (sp.get('client_id')) clientId = sp.get('client_id');
     } catch (e) {}
 
-    /* Формирование номера КП вида <deal_id>/<ДД>/<ММ> */
     function getProposalNumber() {
       if (!dealId) return '';
       var d = new Date();
@@ -94,7 +90,6 @@
       return dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
     }
 
-    /* Поиск ID поля для записи номера КП */
     function findFieldId(data) {
       var found = '';
       var wanted = ['кп', 'номер кп', 'коммерческое предложение'];
@@ -113,7 +108,6 @@
       return found;
     }
 
-    /* Автозапись номера КП в сделку */
     function writeNumberToDeal() {
       var w = W();
       if (numberWritten || !dealId || !w || typeof w.getDealValues !== 'function') return;
@@ -135,7 +129,6 @@
       });
     }
 
-    /* Открытие конструктора КП в новой вкладке */
     function openConstructor() {
       var targetUrl = CONSTRUCTOR_URL;
       var q = [];
@@ -167,12 +160,10 @@
       }
     }
 
-    // Резервная кнопка внутри фрейма
     if (btn) {
       btn.onclick = function () { handleAction(null); };
     }
 
-    // Ловим клик по кнопке EnvyCRM из карточки сделки
     window.addEventListener('message', function (event) {
       if (event && event.data && event.data.type === 'kp-btn:click') {
         log('Событие kp-btn:click получено');
@@ -180,53 +171,57 @@
       }
     }, false);
 
-    // Регистрация кнопки в интерфейсе EnvyCRM
-    function initEnvyWidget() {
+    function registerButton() {
       var w = W();
-      if (!w || typeof w.init !== 'function') {
-        log('EnvyCrmWidget API недоступен');
-        setStatus('<span class="err">EnvyCrmWidget API недоступен</span>');
+      if (!w) {
+        log('Библиотека EnvyCrmWidget не найдена');
+        setStatus('<span class="err">API не загружен</span>');
         return;
       }
 
+      var buttonConfig = {
+        type: 'deal-btn',
+        name: 'kp-btn-final-32',
+        title: 'Сформировать КП',
+        icon: 'md-description',
+        clickEventName: 'kp-btn:click',
+        position: ['first'],
+        styles: {
+          'background-color': '#2F6BFF',
+          'color': '#ffffff'
+        }
+      };
+
       try {
-        // Ровно одна кнопка в слоте first
-        w.init({
-          'deal-btn': [
-            {
-              name: 'kp-btn-final-32',
-              title: 'Сформировать КП',
-              icon: 'md-description',
-              clickEventName: 'kp-btn:click',
-              position: ['first'],
-              styles: {
-                'background-color': '#2F6BFF',
-                'color': '#ffffff'
-              }
-            }
-          ]
-        });
+        // Вызываем addApp, поддерживаемый ядром EnvyCRM
+        if (typeof w.addApp === 'function') {
+          w.addApp(buttonConfig);
+          log('Кнопка зарегистрирована через addApp');
+        } else if (typeof w.init === 'function') {
+          // Запасной вызов в форме единичного объекта приложения
+          w.init(buttonConfig);
+          log('Кнопка зарегистрирована через init');
+        }
 
         setStatus('<span class="ok">Виджет активен (' + VERSION + ')</span>');
-        log('Кнопка «Сформировать КП» зарегистрирована');
 
         if (typeof w.getDeal === 'function') {
           w.getDeal().then(function (d) {
             var deal = d && d.result ? d.result : d;
             extractIds(deal);
-            log('Сделка определена: ' + dealId);
+            log('Сделка: ' + dealId);
           }).catch(function () {});
         }
       } catch (err) {
-        log('Ошибка w.init: ' + err);
+        log('Ошибка регистрации кнопки: ' + err);
         setStatus('<span class="err">Ошибка: ' + err + '</span>');
       }
     }
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initEnvyWidget);
+      document.addEventListener('DOMContentLoaded', registerButton);
     } else {
-      initEnvyWidget();
+      registerButton();
     }
   })();
   </script>
