@@ -1,387 +1,506 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Коммерческое предложение — Построение отдела продаж</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Коммерческое предложение — Новиков Ментор</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <style>
-*{box-sizing:border-box}
-:root{
-  --bg:#0B101E;--panel:#111827;--border:#374151;
-  --doc-bg:#FFFFFF;--doc-txt:#0F172A;--doc-sub:#334155;--doc-mut:#64748B;--doc-line:#E2E8F0;--doc-surf:#F8FAFC;
-  --primary:#2563EB;--primary-light:#EFF6FF;--green:#059669;--green-light:#ECFDF5;
+* { box-sizing: border-box; }
+:root {
+  --primary: #2563EB;
+  --primary-dark: #1E3A8A;
+  --primary-light: #EFF6FF;
+  --green: #059669;
+  --green-light: #ECFDF5;
+  --text: #0F172A;
+  --text-sub: #334155;
+  --text-mut: #64748B;
+  --border: #E2E8F0;
+  --bg-surf: #F8FAFC;
 }
-html,body{margin:0;padding:0;background:#080C16;font-family:"Inter",-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased}
 
-/* Панель быстрых правок */
-.toolbar{position:sticky;top:0;background:rgba(15,23,42,.95);backdrop-filter:blur(10px);border-bottom:1px solid #1E293B;padding:10px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;z-index:9999}
-.toolbar-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.tag-mode{background:var(--primary);color:#fff;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:.4px}
-.toolbar-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #334155;background:#1E293B;color:#F1F5F9;transition:.15s}
-.toolbar-btn:hover{border-color:var(--primary);color:#fff}
-.toolbar-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
-.toolbar-btn.save{background:#059669;border-color:#059669;color:#fff}
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #080C16;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
 
-/* Документ формата А4 */
-.sheet-wrap{padding:20px 10px 80px;display:flex;justify-content:center}
-.doc{width:210mm;min-height:297mm;background:var(--doc-bg);color:var(--doc-txt);padding:13mm 14mm 12mm;box-shadow:0 20px 50px rgba(0,0,0,.6);position:relative;display:flex;flex-direction:column;justify-content:space-between}
-.doc::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,#1E3A8A,#2563EB 60%,#60A5FA)}
+/* Панель управления */
+.toolbar {
+  position: sticky;
+  top: 0;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #1E293B;
+  padding: 10px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  z-index: 9999;
+}
+.toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #334155;
+  background: #1E293B;
+  color: #F1F5F9;
+  transition: 0.15s;
+}
+.toolbar-btn:hover { border-color: var(--primary); color: #fff; }
+.toolbar-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.toolbar-btn.print { background: var(--green); border-color: var(--green); color: #fff; }
 
-/* Редактирование текста по клику */
-[contenteditable="true"]{outline:none;transition:.15s;border-radius:3px}
-[contenteditable="true"]:hover{box-shadow:0 0 0 1px rgba(37,99,235,.35);background:rgba(239,246,255,.45)}
-[contenteditable="true"]:focus{box-shadow:0 0 0 2px var(--primary);background:#fff}
+/* Лист А4 */
+.sheet-wrap { padding: 20px 10px 60px; display: flex; justify-content: center; }
+.doc {
+  width: 210mm;
+  min-height: 297mm;
+  background: #FFFFFF;
+  color: var(--text);
+  padding: 12mm 14mm;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.doc::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #1E3A8A, #2563EB 60%, #60A5FA);
+}
 
-/* Шапка документа */
-.doc-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:10px;border-bottom:2px solid var(--doc-line);gap:16px}
-.brand-name{font-size:19px;font-weight:800;color:#0F172A;letter-spacing:-.3px}
-.brand-sub{font-size:11px;color:var(--doc-mut);margin-top:2px}
-.doc-meta{text-align:right}
-.meta-tag{font-size:10px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.6px}
-.meta-num{font-size:12.5px;font-weight:700;color:var(--doc-txt);margin:1px 0}
-.meta-date{font-size:11px;color:var(--doc-mut)}
+[contenteditable="true"] { outline: none; border-radius: 3px; }
+[contenteditable="true"]:hover { box-shadow: 0 0 0 1px rgba(37,99,235,0.35); background: rgba(239,246,255,0.45); }
+[contenteditable="true"]:focus { box-shadow: 0 0 0 2px var(--primary); background: #fff; }
 
-/* Карточка сторон сделки */
-.sides-card{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0;background:var(--doc-surf);padding:9px 12px;border-radius:7px;border:1px solid var(--doc-line);font-size:11px}
-.side-lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--doc-mut);font-weight:700;margin-bottom:2px}
-.side-val{font-weight:700;color:var(--doc-txt);font-size:12px}
-.side-sub{font-size:10.5px;color:var(--doc-mut);margin-top:1px}
+/* Шапка */
+.doc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--border);
+}
+.brand-name { font-size: 19px; font-weight: 800; color: #0F172A; }
+.brand-sub { font-size: 11px; color: var(--text-mut); margin-top: 2px; }
+.doc-meta { text-align: right; }
+.meta-tag { font-size: 10px; font-weight: 800; color: var(--primary); text-transform: uppercase; }
+.meta-num { font-size: 13px; font-weight: 700; color: var(--text); }
+.meta-date { font-size: 11px; color: var(--text-mut); }
 
-/* Главный оффер */
-.main-offer{margin:10px 0 14px;background:linear-gradient(135deg,#EFF6FF,#FFFFFF);border:1px solid #BFDBFE;border-radius:8px;padding:12px 16px}
-.offer-title{font-size:16px;font-weight:800;color:#1E3A8A;margin-bottom:4px;letter-spacing:-.2px}
-.offer-desc{font-size:11.5px;color:var(--doc-sub);line-height:1.5}
+/* Стороны сделки */
+.sides-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 10px 0;
+  background: var(--bg-surf);
+  padding: 9px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+}
+.side-lbl { font-size: 9.5px; text-transform: uppercase; color: var(--text-mut); font-weight: 700; }
+.side-val { font-weight: 700; color: var(--text); font-size: 12px; }
 
-/* Сетка двух направлений структуры */
-.structure-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
-.structure-card{border:1px solid var(--doc-line);border-radius:8px;padding:12px;background:#fff;border-top:3px solid var(--primary)}
-.str-tag{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--primary);font-weight:800;margin-bottom:2px}
-.str-title{font-size:13px;font-weight:800;color:var(--doc-txt);margin-bottom:3px}
-.str-sub{font-size:10.5px;color:var(--doc-mut);margin-bottom:8px;font-style:italic}
-.bullet-list{list-style:none;padding:0;margin:0;font-size:10.5px;color:var(--doc-sub)}
-.bullet-list li{position:relative;padding-left:13px;margin-bottom:5px;line-height:1.4}
-.bullet-list li::before{content:"•";position:absolute;left:2px;color:var(--primary);font-weight:700}
+/* Команда найма */
+.hire-banner {
+  background: #F1F5F9;
+  border: 1px solid #CBD5E1;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+.hire-banner b { color: var(--primary-dark); font-size: 12px; }
 
-/* Сквозная архитектура воронки */
-.flow-box{border:1px solid var(--doc-line);border-radius:8px;background:var(--doc-surf);padding:12px;margin-bottom:14px}
-.sec-title{font-size:12px;font-weight:800;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
-.flow-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.flow-col{background:#fff;border:1px solid var(--doc-line);border-radius:7px;padding:10px}
-.flow-col-title{font-size:10.5px;font-weight:700;color:var(--primary);margin-bottom:5px;text-transform:uppercase}
-.flow-step{font-size:10.5px;color:var(--doc-sub);margin-bottom:4px;line-height:1.4}
-.flow-step b{color:var(--doc-txt)}
-.control-loop{margin-top:8px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:6px;padding:7px 10px;font-size:10.5px;color:#065F46;line-height:1.4}
+/* 2 блока услуг (Действия и Результаты) */
+.services-container { margin-bottom: 12px; }
+.service-view { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: #fff; }
+.service-header {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary-dark);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
+.service-cols { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 14px; }
+.col-h { font-size: 10px; font-weight: 800; text-transform: uppercase; margin-bottom: 6px; }
+.col-h.actions { color: var(--primary); }
+.col-h.results { color: var(--green); }
+.service-list { list-style: none; padding: 0; margin: 0; font-size: 10.5px; }
+.service-list li { position: relative; padding-left: 14px; margin-bottom: 4px; line-height: 1.4; color: var(--text-sub); }
+.service-list.act li::before { content: "▶"; position: absolute; left: 0; font-size: 8px; color: var(--primary); top: 2px; }
+.service-list.res li::before { content: "✔"; position: absolute; left: 0; font-size: 10px; color: var(--green); top: 0; }
 
-/* 3 Зоны РОПа */
-.rop-zones{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:14px}
-.zone-box{background:#fff;border:1px solid var(--doc-line);border-radius:7px;padding:9px}
-.zone-tag{font-size:9px;font-weight:800;color:var(--doc-mut);text-transform:uppercase}
-.zone-title{font-size:11.5px;font-weight:700;color:var(--doc-txt);margin:2px 0 5px}
+/* Каталог и калькулятор */
+.catalog-sec { margin-bottom: 12px; }
+.sec-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0F172A;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.catalog-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+.catalog-table th {
+  background: #F1F5F9;
+  color: var(--text-sub);
+  padding: 6px 8px;
+  text-align: left;
+  border: 1px solid var(--border);
+  font-weight: 700;
+}
+.catalog-table td {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.catalog-table input.num-in {
+  width: 50px;
+  padding: 3px 5px;
+  border: 1px solid #CBD5E1;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-align: center;
+}
+.catalog-table input.price-in {
+  width: 80px;
+  padding: 3px 5px;
+  border: 1px solid #CBD5E1;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-align: right;
+}
+.del-row { color: #EF4444; cursor: pointer; font-weight: bold; border: 0; background: transparent; }
 
-/* Дорожная карта 12 недель */
-.roadmap-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-.roadmap-col{background:#fff;border:1px solid var(--doc-line);border-radius:7px;padding:8px}
-.rm-period{font-size:9px;font-weight:800;color:var(--primary);text-transform:uppercase}
-.rm-title{font-size:11px;font-weight:700;color:var(--doc-txt);margin:2px 0 3px}
-.rm-desc{font-size:9.5px;color:var(--doc-mut);line-height:1.35}
+/* Итоговая панель */
+.total-box {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+  font-size: 11px;
+}
+.total-table { width: 240px; border-collapse: collapse; }
+.total-table td { padding: 3px 6px; }
+.total-table .final-sum { font-size: 13px; font-weight: 800; color: var(--primary-dark); }
 
-/* Инвестиции */
-.pricing-block{display:flex;justify-content:space-between;align-items:center;background:#0F172A;color:#fff;border-radius:8px;padding:12px 16px;margin-bottom:12px}
-.price-title{font-size:12.5px;font-weight:700}
-.price-sub{font-size:10.5px;color:#94A3B8;margin-top:2px}
-.price-val{font-size:22px;font-weight:800;color:#60A5FA;white-space:nowrap}
+/* Подвал / Реквизиты */
+.doc-footer {
+  border-top: 2px solid var(--border);
+  padding-top: 10px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  font-size: 10px;
+  color: var(--text-mut);
+}
+.doc-footer b { color: var(--text); }
+.signature {
+  border-top: 1px dashed #CBD5E1;
+  margin-top: 16px;
+  padding-top: 4px;
+}
 
-/* Подвал и реквизиты */
-.doc-footer{border-top:2px solid var(--doc-line);padding-top:8px;display:flex;justify-content:space-between;align-items:flex-end;font-size:10px;color:var(--doc-mut)}
-.doc-footer b{color:var(--doc-txt)}
-
-@media print{
-  @page{size:A4 portrait;margin:0}
-  html,body{background:#fff;margin:0;padding:0}
-  .toolbar{display:none!important}
-  .sheet-wrap{padding:0}
-  .doc{box-shadow:none;border-radius:0;width:100%;min-height:100vh;padding:12mm}
-  [contenteditable="true"]{box-shadow:none!important;background:none!important}
+@media print {
+  body { background: #fff !important; }
+  .toolbar { display: none !important; }
+  .sheet-wrap { padding: 0 !important; }
+  .doc { box-shadow: none !important; padding: 10mm 12mm !important; width: 100% !important; min-height: auto !important; }
+  .del-row, .btn-add-item { display: none !important; }
+  input { border: 0 !important; background: transparent !important; }
 }
 </style>
 </head>
 <body>
 
-<!-- ВЕРХНЯЯ ПАНЕЛЬ С ПЕРЕКЛЮЧАТЕЛЯМИ И СОХРАНЕНИЕМ -->
-<div class="toolbar no-print">
-  <div class="toolbar-left">
-    <span class="tag-mode">ПРАВКА</span>
-    <span style="color:#94A3B8;font-size:12px">Модель продаж:</span>
-    <button class="toolbar-btn active" id="btnPreset1" onclick="applySalesModel('combined')">Комбинированная (Шоурум/Офис)</button>
-    <button class="toolbar-btn" id="btnPreset2" onclick="applySalesModel('b2b')">Дистанционные B2B (Опт/Поставки)</button>
-    <button class="toolbar-btn" id="btnPreset3" onclick="applySalesModel('meetings')">Встречи и выезды (Услуги/Объекты)</button>
-  </div>
-  <div style="display:flex;gap:8px;align-items:center">
-    <button class="toolbar-btn save" onclick="saveCustomText()">💾 Сохранить текст</button>
-    <button class="toolbar-btn" onclick="resetDefaults()">🔄 Сброс</button>
-    <button class="toolbar-btn" style="background:#2563EB;border-color:#2563EB" onclick="window.print()">🖨️ Печать / PDF</button>
-  </div>
-</div>
-
-<div class="sheet-wrap">
-  <div class="doc" id="mainDoc">
-    
-    <div>
-      <!-- 1. Шапка -->
-      <div class="doc-header">
-        <div>
-          <div class="brand-name" contenteditable="true" id="c_brand">Компания «Платформа»</div>
-          <div class="brand-sub" contenteditable="true" id="c_sub">Системное построение отделов продаж и автоматизация B2B</div>
-        </div>
-        <div class="doc-meta">
-          <div class="meta-tag" contenteditable="true">ПРОЕКТ НА 3 МЕСЯЦА (12 НЕДЕЛЬ)</div>
-          <div class="meta-num" contenteditable="true" id="c_doc_num">№ КП-01/2026</div>
-          <div class="meta-date" contenteditable="true" id="c_doc_date">от 21 сентября 2026 г.</div>
-        </div>
-      </div>
-
-      <!-- 2. Стороны -->
-      <div class="sides-card">
-        <div>
-          <div class="side-lbl">Исполнитель:</div>
-          <div class="side-val" contenteditable="true">ИП Новикова Анна Ивановна</div>
-          <div class="side-sub" contenteditable="true">ИНН 701722216881 | Тел: 8-930-035-23-21 | novikovmentor.ru</div>
-        </div>
-        <div>
-          <div class="side-lbl">Заказчик:</div>
-          <div class="side-val" contenteditable="true" id="c_client_name">ООО «Компания Заказчика»</div>
-          <div class="side-sub" contenteditable="true">Генеральному директору / Собственнику бизнеса</div>
-        </div>
-      </div>
-
-      <!-- 3. Главный оффер -->
-      <div class="main-offer">
-        <div class="offer-title" contenteditable="true" id="c_offer_title">
-          Построение комбинированной системы продаж с выходом на автономность
-        </div>
-        <div class="offer-desc" contenteditable="true" id="c_offer_desc">
-          Мы выстраиваем масштабируемую систему продаж за 3 месяца с ежедневным улучшением процессов с первого дня внедрения и передаем полностью автономный, работающий отдел в конце срока.
-        </div>
-      </div>
-
-      <!-- 4. Два направления структуры -->
-      <div class="structure-grid">
-        <div class="structure-card">
-          <div class="str-tag" contenteditable="true">НАПРАВЛЕНИЕ 1 • СТАРТ С 3-Й НЕДЕЛИ</div>
-          <div class="str-title" contenteditable="true" id="c_team1_title">2 Удаленных менеджера</div>
-          <div class="str-sub" contenteditable="true" id="c_team1_sub">Быстрый результат: забирают лиды с входящих каналов и оживляют спящую базу</div>
-          <ul class="bullet-list" contenteditable="true" id="c_team1_list">
-            <li><b>Входящий поток:</b> реакция за 5–10 минут, экспертная квалификация, выявление потребности и бюджета.</li>
-            <li><b>Реанимация базы:</b> точечные предложения по сегментам и сезонным потребностям клиентов.</li>
-            <li><b>Дистанционный цикл:</b> ведение сделки полного цикла «под ключ» до поступления оплаты и отгрузки.</li>
-            <li><b>Контрольный звонок:</b> обязательная проверка доезда клиентов на встречи/шоурум и аудит причин отказов.</li>
-          </ul>
-        </div>
-
-        <div class="structure-card">
-          <div class="str-tag" contenteditable="true">НАПРАВЛЕНИЕ 2 • ВЫВОД НА 3–4 НЕДЕЛЕ</div>
-          <div class="str-title" contenteditable="true" id="c_team2_title">Офисный РОП (на месте)</div>
-          <div class="str-sub" contenteditable="true" id="c_team2_sub">Организует продажи на объекте/в офисе и гарантирует железную дисциплину в CRM</div>
-          <ul class="bullet-list" contenteditable="true" id="c_team2_list">
-            <li><b>Формирование команды:</b> подбор продавцов в штат по утвержденному профилю компетенций.</li>
-            <li><b>Обучение технике продаж:</b> стандарты живых встреч, презентация ценности, кросс-сейл и допродажи.</li>
-            <li><b>Дисциплина в CRM:</b> 100% фиксация всех входящих обращений, встреч и причин отказов.</li>
-            <li><b>Операционка:</b> ежедневные планерки, разбор зависших сделок, помощь в дожиме крупных чеков.</li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- 5. Сквозная архитектура движения клиентов -->
-      <div class="flow-box">
-        <div class="sec-title" contenteditable="true">Сквозная архитектура движения клиентов и петли контроля</div>
-        <div class="flow-grid">
-          <div class="flow-col">
-            <div class="flow-col-title" contenteditable="true" id="c_flow_a_title">Сценарий А: Онлайн-сделка (Полный цикл)</div>
-            <div class="flow-step" contenteditable="true" id="c_flow_a_1">1. <b>Квалификация:</b> выявление задачи, бюджета и сроков за 10 минут.</div>
-            <div class="flow-step" contenteditable="true" id="c_flow_a_2">2. <b>Презентация:</b> видеообзор продукции со склада / коммерческий расчет.</div>
-            <div class="flow-step" contenteditable="true" id="c_flow_a_3">3. <b>Оформление:</b> договор, выставление счета, координация отгрузки.</div>
-          </div>
-          <div class="flow-col">
-            <div class="flow-col-title" contenteditable="true" id="c_flow_b_title">Сценарий Б: Личный визит / Встреча</div>
-            <div class="flow-step" contenteditable="true" id="c_flow_b_1">1. <b>Запись:</b> первая линия согласует время визита и отправляет геолокацию.</div>
-            <div class="flow-step" contenteditable="true" id="c_flow_b_2">2. <b>Встреча:</b> РОП и менеджеры на месте проводят живую презентацию.</div>
-            <div class="flow-step" contenteditable="true" id="c_flow_b_3">3. <b>Закрытие:</b> согласование условий на месте, подписание договора.</div>
-          </div>
-        </div>
-        <div class="control-loop" contenteditable="true" id="c_flow_loop">
-          <b>☑ ОБЯЗАТЕЛЬНАЯ ПЕТЛЯ КОНТРОЛЯ (Звонок службы качества):</b> Звонок клиенту после встречи или отправки КП: <i>«Как прошла встреча? Какое решение приняли? Почему отложили покупку?»</i> — исключает сговор менеджеров, слив трафика и увод клиентов.
-        </div>
-      </div>
-
-      <!-- 6. 3 Зоны ответственности РОПа -->
-      <div class="sec-title" contenteditable="true">Методология ведения РОПа нашими экспертами (все 3 месяца)</div>
-      <div class="rop-zones">
-        <div class="zone-box">
-          <div class="zone-tag" contenteditable="true">ЗОНА 1 • КОМАНДА</div>
-          <div class="zone-title" contenteditable="true">Рекрутинг и ввод в должность</div>
-          <div class="flow-step" contenteditable="true">Передаем профиль эффективного продавца, собеседуем финалистов, утверждаем кандидатов с собственником.</div>
-        </div>
-        <div class="zone-box">
-          <div class="zone-tag" contenteditable="true">ЗОНА 2 • НАВЫКИ</div>
-          <div class="zone-title" contenteditable="true">Стандарты техники продаж</div>
-          <div class="flow-step" contenteditable="true">Внедряем регламенты живой презентации, скрипты кросс-сейла и допродаж, разбираем сложные реальные сделки.</div>
-        </div>
-        <div class="zone-box">
-          <div class="zone-tag" contenteditable="true">ЗОНА 3 • УЧЕТ</div>
-          <div class="zone-title" contenteditable="true">Железная дисциплина в CRM</div>
-          <div class="flow-step" contenteditable="true">Внедряем стандарт 100% фиксации лидов, обучаем РОПа ежедневному аудиту просрочек и контролю отказов.</div>
-        </div>
-      </div>
-
-      <!-- 7. Дорожная карта на 12 недель -->
-      <div class="sec-title" contenteditable="true">Дорожная карта проекта • 3 месяца (12 недель к автономности)</div>
-      <div class="roadmap-grid">
-        <div class="roadmap-col">
-          <div class="rm-period" contenteditable="true">НЕДЕЛИ 1–2</div>
-          <div class="rm-title" contenteditable="true">Фундамент и рекрутинг</div>
-          <div class="rm-desc" contenteditable="true">Регламенты квалификации, сценарии дожима, запуск поиска 2 удаленщиков и РОПа.</div>
-        </div>
-        <div class="roadmap-col">
-          <div class="rm-period" contenteditable="true">НЕДЕЛИ 3–4</div>
-          <div class="rm-title" contenteditable="true">Старт в бою</div>
-          <div class="rm-desc" contenteditable="true">Удаленщики забирают лиды с сайта и базы. Вывод РОПа. Ежедневная калибровка скриптов.</div>
-        </div>
-        <div class="roadmap-col">
-          <div class="rm-period" contenteditable="true">НЕДЕЛИ 5–8</div>
-          <div class="rm-title" contenteditable="true">Отточка навыков</div>
-          <div class="rm-desc" contenteditable="true">Тренировка живых продаж, допродаж, жесткий аудит ведения CRM, ежедневный ОКК.</div>
-        </div>
-        <div class="roadmap-col">
-          <div class="rm-period" contenteditable="true">НЕДЕЛИ 9–12</div>
-          <div class="rm-title" contenteditable="true">Автономная передача</div>
-          <div class="rm-desc" contenteditable="true">РОП управляет отделом самостоятельно. Итоговая аттестация, передача системы собственнику.</div>
-        </div>
-      </div>
-
-      <!-- 8. Инвестиции -->
-      <div class="pricing-block">
-        <div>
-          <div class="price-title" contenteditable="true">Стоимость реализации проекта под ключ:</div>
-          <div class="price-sub" contenteditable="true">Оплата помесячно (3 транша). Сопутствующие расходы (лицензии CRM, телефония) оплачиваются напрямую вендорам.</div>
-        </div>
-        <div class="price-val" contenteditable="true">160 000 ₽ / мес</div>
-      </div>
-
+  <!-- Меню управления -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="toolbar-btn active" id="btnSrv1" onclick="selectService(1)">Услуга 1: Отдел с нуля</button>
+      <button class="toolbar-btn" id="btnSrv2" onclick="selectService(2)">Услуга 2: Развитие ОП</button>
+      <span style="color:#64748B; margin: 0 4px;">|</span>
+      <button class="toolbar-btn" onclick="setTeam(2, 1)">2 Мен. + РОП</button>
+      <button class="toolbar-btn" onclick="setTeam(3, 1)">3 Мен. + РОП</button>
+      <button class="toolbar-btn" onclick="setTeam(1, 0)">1 Мен. без РОПа</button>
     </div>
+    <div class="toolbar-right">
+      <button class="toolbar-btn print" onclick="window.print()">🖨️ Печать / Сохранить в PDF</button>
+    </div>
+  </div>
 
-    <!-- 9. Подвал и реквизиты -->
-    <div class="doc-footer">
+  <div class="sheet-wrap">
+    <div class="doc">
       <div>
-        <b>ИП Новикова Анна Ивановна</b> · ИНН 701722216881 · ОГРНИП 325700000051823<br>
-        Р/с 40802810864710003143 в Томском отделении № 8616 ПАО Сбербанк · БИК 046902606 · Без НДС (УСН)
+        <!-- Шапка -->
+        <div class="doc-header">
+          <div>
+            <div class="brand-name" contenteditable="true">НОВИКОВ МЕНТОР</div>
+            <div class="brand-sub" contenteditable="true">Построение и усиление системных отделов продаж</div>
+          </div>
+          <div class="doc-meta">
+            <div class="meta-tag">КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ</div>
+            <div class="meta-num">№ <span id="docNum" contenteditable="true">б/н</span></div>
+            <div class="meta-date">от <span id="docDate" contenteditable="true">29.09.2026</span></div>
+          </div>
+        </div>
+
+        <!-- Стороны -->
+        <div class="sides-card">
+          <div>
+            <div class="side-lbl">Исполнитель:</div>
+            <div class="side-val">ИП Новикова Анна Ивановна</div>
+            <div class="side-sub">ИНН 701722216881 | ОГРНИП 325700000051823</div>
+          </div>
+          <div>
+            <div class="side-lbl">Заказчик:</div>
+            <div class="side-val" id="clientCompany" contenteditable="true">ООО «ДонПласт»</div>
+            <div class="side-sub" id="clientContact" contenteditable="true">Контактное лицо: Сергей | +7 (903) 438-78-08</div>
+          </div>
+        </div>
+
+        <!-- Блок выбора найма -->
+        <div class="hire-banner">
+          <div>Структура команды под найм: <b id="teamHireLabel">2 менеджера по продажам + 1 Руководитель отдела (РОП)</b></div>
+          <div>Формат: <b id="teamFormatLabel" contenteditable="true">Удаленный отдел</b> | Срок запуска: <b contenteditable="true">14–21 день</b></div>
+        </div>
+
+        <!-- Блоки 2 услуг (Действия и Результаты) -->
+        <div class="services-container">
+          <div class="service-view" id="srvBlock1">
+            <div class="service-header" contenteditable="true">Услуга: Построение отдела продаж с нуля (под ключ)</div>
+            <div class="service-cols">
+              <div>
+                <div class="col-h actions">▶ Что делаем (Действия):</div>
+                <ul class="service-list act" contenteditable="true">
+                  <li>Создаем профиль должности, регламенты и прозрачную мотивацию (KPI).</li>
+                  <li>Собираем воронку в CRM, настраиваем этапы квалификации и автозадачи.</li>
+                  <li>Пишем сценарии звонков под КЭВ (видеовстреча / замер) и снятие возражений.</li>
+                  <li>Проводим конкурсный найм: публикации, анкетирование, интервью кандидатов.</li>
+                  <li>Проводим 3-дневный интенсив, аттестуем и выводим менеджеров в линию.</li>
+                  <li>Внедряем регламент планерок и ежедневного контроля нормативов звонков.</li>
+                </ul>
+              </div>
+              <div>
+                <div class="col-h results">✔ Что получаете (Результаты):</div>
+                <ul class="service-list res" contenteditable="true">
+                  <li>Готовая укомплектованная команда, обученная продукту и скриптам.</li>
+                  <li>Ни один входящий лид не теряется: реакция до 2 минут, фиксация в CRM.</li>
+                  <li>Собственник видит показатели, конверсии и отчеты в реальном времени.</li>
+                  <li>Выход на стабильные сделки и окупаемость системы уже в первый месяц.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="service-view" id="srvBlock2" style="display:none;">
+            <div class="service-header" contenteditable="true">Услуга: Развитие и аудит существующего отдела продаж</div>
+            <div class="service-cols">
+              <div>
+                <div class="col-h actions">▶ Что делаем (Действия):</div>
+                <ul class="service-list act" contenteditable="true">
+                  <li>Проводим сплошной аудит звонков, переписок и причин отказов в CRM.</li>
+                  <li>Находим ключевые этапы слива лидов и полностью переписываем скрипты.</li>
+                  <li>Внедряем регламент реанимации базы и дожима зависших сделок.</li>
+                  <li>Нанимаем дополнительных сильных продавцов на усиление текущей команды.</li>
+                  <li>Обучаем РОПа управлению по метрикам и переводу фокуса на конверсии.</li>
+                  <li>Подключаем внешний контроль качества звонков (ОКК).</li>
+                </ul>
+              </div>
+              <div>
+                <div class="col-h results">✔ Что получаете (Результаты):</div>
+                <ul class="service-list res" contenteditable="true">
+                  <li>Рост конверсии из заявки в оплату на 25–40% на текущем потоке рекламы.</li>
+                  <li>Возврат в воронку отказников и повторные продажи по старой базе.</li>
+                  <li>Отдел работает автономно без ежедневного ручного вмешательства владельца.</li>
+                  <li>Прогнозируемый и управляемый объем выручки каждый месяц.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- КАТАЛОГ УСЛУГ И СПЕЦИФИКАЦИЯ -->
+        <div class="catalog-sec">
+          <div class="sec-title">
+            <span>Спецификация и расчет стоимости услуг (Каталог):</span>
+            <button class="toolbar-btn btn-add-item" onclick="addCatalogRow()" style="padding:2px 8px; font-size:10px;">+ Добавить услугу</button>
+          </div>
+          <table class="catalog-table" id="catalogTable">
+            <thead>
+              <tr>
+                <th style="width:40px;">№</th>
+                <th>Наименование услуги / пакета</th>
+                <th style="width:70px; text-align:center;">Кол-во</th>
+                <th style="width:110px; text-align:right;">Цена, ₽</th>
+                <th style="width:110px; text-align:right;">Сумма, ₽</th>
+                <th style="width:30px;" class="del-row"></th>
+              </tr>
+            </thead>
+            <tbody id="catalogBody">
+              <tr>
+                <td>1</td>
+                <td contenteditable="true">Комплекс «Построение отдела продаж под ключ» (1 РОП + 2 менеджера)</td>
+                <td style="text-align:center;"><input class="num-in" type="number" value="1" min="1" oninput="calcTotals()"></td>
+                <td style="text-align:right;"><input class="price-in" type="number" value="150000" step="1000" oninput="calcTotals()"></td>
+                <td style="text-align:right; font-weight:700;" class="row-sum">150 000</td>
+                <td class="del-row" onclick="removeCatalogRow(this)">✕</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td contenteditable="true">Конкурсный найм и аттестация менеджеров по продажам</td>
+                <td style="text-align:center;"><input class="num-in" type="number" value="2" min="1" oninput="calcTotals()"></td>
+                <td style="text-align:right;"><input class="price-in" type="number" value="30000" step="1000" oninput="calcTotals()"></td>
+                <td style="text-align:right; font-weight:700;" class="row-sum">60 000</td>
+                <td class="del-row" onclick="removeCatalogRow(this)">✕</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="total-box">
+            <table class="total-table">
+              <tr>
+                <td style="color:var(--text-mut);">Итого по каталогу:</td>
+                <td style="text-align:right; font-weight:700;" id="subTotalVal">210 000 ₽</td>
+              </tr>
+              <tr>
+                <td style="color:var(--text-mut);">Скидка / Бонус:</td>
+                <td style="text-align:right;"><input class="price-in" id="discountIn" type="number" value="0" oninput="calcTotals()" style="width:65px;"> ₽</td>
+              </tr>
+              <tr style="border-top:1px solid var(--border);">
+                <td><b>К оплате:</b></td>
+                <td style="text-align:right;" class="final-sum" id="totalVal">210 000 ₽</td>
+              </tr>
+            </table>
+          </div>
+        </div>
       </div>
-      <div style="text-align:right">
-        Руководитель: <b>Александр Новиков</b> · Тел: <b>8-930-035-23-21</b><br>
-        Сайт: <b>novikovmentor.ru</b> · Telegram: <b>@novikovmentor</b>
+
+      <!-- Подвал -->
+      <div class="doc-footer">
+        <div>
+          <div><b>Банковские реквизиты:</b></div>
+          <div>Р/с: 40802810864000109961 в ПАО СБЕРБАНК</div>
+          <div>БИК: 046902602 | К/с: 30101810800000000602</div>
+          <div style="margin-top:4px;">Тел: +7 (903) 438-78-08 | Email: novikov-to@yandex.ru</div>
+        </div>
+        <div>
+          <div><b>Условия расчетов:</b></div>
+          <div contenteditable="true">Оплата: 50% аванс / 50% после вывода сотрудников</div>
+          <div class="signature">
+            Подпись Заказчика: ___________________
+          </div>
+        </div>
       </div>
     </div>
-
   </div>
-</div>
 
-<script>
-/* =========================================================================
-   АВТОСОХРАНЕНИЕ ПРАВОК В ПАМЯТИ БРАУЗЕРА
-   ========================================================================= */
-const STORAGE_KEY = 'kp_sales_dept_doc_v1';
+  <script>
+    // Чтение параметров URL из EnvyCRM
+    (function initFromUrl() {
+      var params = new URLSearchParams(window.location.search);
+      var dealId = params.get('deal_id') || params.get('dealId');
+      var num = params.get('num');
+      var d = new Date();
+      var pad = function(n) { return (n < 10 ? '0' : '') + n; };
 
-function saveCustomText(){
-  const editables = document.querySelectorAll("[contenteditable='true']");
-  const data = {};
-  editables.forEach((el, idx) => {
-    const k = el.id || ('idx_' + idx);
-    data[k] = el.innerHTML;
-  });
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  alert("Правки сохранены! Они сохранятся даже при обновлении страницы.");
-}
-
-function loadSavedText(){
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    Object.keys(data).forEach(k => {
-      let el = null;
-      if (k.startsWith('idx_')) {
-        const i = Number(k.replace('idx_', ''));
-        el = document.querySelectorAll("[contenteditable='true']")[i];
-      } else {
-        el = document.getElementById(k);
+      if (num) {
+        document.getElementById('docNum').textContent = num;
+      } else if (dealId) {
+        document.getElementById('docNum').textContent = dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
       }
-      if (el) el.innerHTML = data[k];
-    });
-  } catch(e){}
-}
+      document.getElementById('docDate').textContent = pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
+    })();
 
-function resetDefaults(){
-  if (!confirm("Сбросить все внесенные тексты к исходному шаблону?")) return;
-  localStorage.removeItem(STORAGE_KEY);
-  location.reload();
-}
+    // Переключение между 2 услугами
+    function selectService(num) {
+      document.getElementById('srvBlock1').style.display = (num === 1 ? 'block' : 'none');
+      document.getElementById('srvBlock2').style.display = (num === 2 ? 'block' : 'none');
+      document.getElementById('btnSrv1').classList.toggle('active', num === 1);
+      document.getElementById('btnSrv2').classList.toggle('active', num === 2);
+    }
 
-/* =========================================================================
-   БЫСТРЫЕ ПРЕСЕТЫ МОДЕЛИ ПРОДАЖ
-   ========================================================================= */
-function applySalesModel(type){
-  document.querySelectorAll(".toolbar-btn").forEach(b => b.classList.remove("active"));
+    // Выбор найма
+    function setTeam(mgrCount, hasRop) {
+      var txt = mgrCount + ' ' + (mgrCount === 1 ? 'менеджер' : 'менеджера') + ' по продажам';
+      if (hasRop) txt += ' + 1 Руководитель отдела (РОП)';
+      document.getElementById('teamHireLabel').textContent = txt;
+    }
 
-  if (type === 'combined'){
-    document.getElementById("btnPreset1").classList.add("active");
-    document.getElementById("c_offer_title").textContent = "Построение комбинированной системы продаж с выходом на автономность";
-    document.getElementById("c_team1_title").textContent = "2 Удаленных менеджера";
-    document.getElementById("c_team1_sub").textContent = "Быстрый результат: забирают лиды с входящих каналов и оживляют спящую базу";
-    document.getElementById("c_team2_title").textContent = "Офисный РОП (на месте)";
-    document.getElementById("c_team2_sub").textContent = "Организует продажи на объекте/в офисе и гарантирует железную дисциплину в CRM";
-    document.getElementById("c_flow_a_title").textContent = "Сценарий А: Онлайн-сделка (Полный цикл)";
-    document.getElementById("c_flow_b_title").textContent = "Сценарий Б: Личный визит / Встреча";
-  } else if (type === 'b2b'){
-    document.getElementById("btnPreset2").classList.add("active");
-    document.getElementById("c_offer_title").textContent = "Построение удаленного отдела оптовых B2B-продаж под ключ";
-    document.getElementById("c_team1_title").textContent = "2 Менеджера по оптовым продажам";
-    document.getElementById("c_team1_sub").textContent = "Быстрый расчет спецификаций, выставление счетов и дожим до оплаты";
-    document.getElementById("c_team2_title").textContent = "Управляющий РОП (дистанционно)";
-    document.getElementById("c_team2_sub").textContent = "Ежедневный аудит зависших счетов, контроль маржинальности и выполнение плана";
-    document.getElementById("c_flow_a_title").textContent = "Сценарий А: Входящие заявки и счета";
-    document.getElementById("c_flow_b_title").textContent = "Сценарий Б: Регулярные повторные поставки";
-  } else if (type === 'meetings'){
-    document.getElementById("btnPreset3").classList.add("active");
-    document.getElementById("c_offer_title").textContent = "Построение системы продаж через выезды, замеры и очные встречи";
-    document.getElementById("c_team1_title").textContent = "Первая линия (Лидорубы)";
-    document.getElementById("c_team1_sub").textContent = "Скоростной отбор целевых клиентов и квалификация на встречу/замер";
-    document.getElementById("c_team2_title").textContent = "Ведущие менеджеры / РОП";
-    document.getElementById("c_team2_sub").textContent = "Очные переговоры, защита сметы на объекте и подписание договора";
-    document.getElementById("c_flow_a_title").textContent = "Сценарий А: Запись на замер / встречу";
-    document.getElementById("c_flow_b_title").textContent = "Сценарий Б: Защита сметы и закрытие";
-  }
-}
+    // Расчет каталога
+    function calcTotals() {
+      var body = document.getElementById('catalogBody');
+      var rows = body.querySelectorAll('tr');
+      var subTotal = 0;
 
-/* =========================================================================
-   АВТОНОМНЫЙ НОМЕР ИЗ ENVYBOX CRM
-   ========================================================================= */
-(function autoEnvyCRM(){
-  const params = new URLSearchParams(location.search);
-  const dealId = params.get('deal_id') || params.get('dealId') || '';
+      rows.forEach(function(r, idx) {
+        r.children[0].textContent = idx + 1;
+        var q = parseFloat(r.querySelector('.num-in').value) || 0;
+        var p = parseFloat(r.querySelector('.price-in').value) || 0;
+        var sum = q * p;
+        r.querySelector('.row-sum').textContent = sum.toLocaleString('ru-RU');
+        subTotal += sum;
+      });
 
-  if (dealId) {
-    const now = new Date();
-    const p = n => String(n).padStart(2, '0');
-    const autoNum = dealId + '/' + p(now.getDate()) + '/' + p(now.getMonth() + 1);
-    
-    const numEl = document.getElementById("c_doc_num");
-    if (numEl) numEl.textContent = "№ " + autoNum;
-  }
+      var disc = parseFloat(document.getElementById('discountIn').value) || 0;
+      var total = Math.max(0, subTotal - disc);
 
-  loadSavedText();
-})();
-</script>
+      document.getElementById('subTotalVal').textContent = subTotal.toLocaleString('ru-RU') + ' ₽';
+      document.getElementById('totalVal').textContent = total.toLocaleString('ru-RU') + ' ₽';
+    }
+
+    function addCatalogRow() {
+      var body = document.getElementById('catalogBody');
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td></td>' +
+        '<td contenteditable="true">Новая позиция каталога / этап</td>' +
+        '<td style="text-align:center;"><input class="num-in" type="number" value="1" min="1" oninput="calcTotals()"></td>' +
+        '<td style="text-align:right;"><input class="price-in" type="number" value="10000" step="1000" oninput="calcTotals()"></td>' +
+        '<td style="text-align:right; font-weight:700;" class="row-sum">10 000</td>' +
+        '<td class="del-row" onclick="removeCatalogRow(this)">✕</td>';
+      body.appendChild(tr);
+      calcTotals();
+    }
+
+    function removeCatalogRow(btn) {
+      var body = document.getElementById('catalogBody');
+      if (body.querySelectorAll('tr').length > 1) {
+        btn.closest('tr').remove();
+        calcTotals();
+      }
+    }
+
+    calcTotals();
+  </script>
 </body>
 </html>
