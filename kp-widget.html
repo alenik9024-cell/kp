@@ -41,7 +41,15 @@
     return n.trim();
   }
 
-  function launchFrame() {
+  // Мгновенное открытие окна (без асинхронных задержек)
+  function open(sourceParams) {
+    if (sourceParams) {
+      dealId   = String(sourceParams.dealID   || sourceParams.deal_id   || sourceParams.dealId   || dealId   || '');
+      clientId = String(sourceParams.clientID || sourceParams.client_id || sourceParams.clientId || clientId || '');
+      var raw = (sourceParams.deal && (sourceParams.deal.client_name || sourceParams.deal.name)) || sourceParams.client_name || '';
+      if (raw) clientName = cleanName(raw);
+    }
+
     var pad = function (n) { return (n < 10 ? '0' : '') + n; };
     var d = new Date();
     var num = dealId ? (dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1)) : '';
@@ -70,41 +78,6 @@
     window.open(url, '_blank');
   }
 
-  function open(sourceParams) {
-    if (sourceParams) {
-      dealId   = String(sourceParams.dealID   || sourceParams.deal_id   || sourceParams.dealId   || dealId   || '');
-      clientId = String(sourceParams.clientID || sourceParams.client_id || sourceParams.clientId || clientId || '');
-    }
-
-    var w = W();
-
-    // Запрос по документации EnvyCRM: 1001 — имя контакта, 1002 — телефон
-    if (w && typeof w.getClientValue === 'function') {
-      Promise.all([
-        w.getClientValue({ input_id: 1001, type: 'service' }).catch(function () { return ''; }),
-        w.getClientValue({ input_id: 1002, type: 'service' }).catch(function () { return ''; })
-      ]).then(function (res) {
-        var extract = function (v) {
-          if (!v) return '';
-          if (typeof v === 'object' && v.value !== undefined) return v.value;
-          return v;
-        };
-
-        var nameVal  = extract(res[0]);
-        var phoneVal = extract(res[1]);
-
-        if (nameVal)  clientName  = cleanName(String(nameVal));
-        if (phoneVal) clientPhone = String(phoneVal).trim();
-
-        launchFrame();
-      }).catch(function () {
-        launchFrame();
-      });
-    } else {
-      launchFrame();
-    }
-  }
-
   if (btn) btn.onclick = function() { open(null); };
 
   window.addEventListener('message', function (event) {
@@ -123,6 +96,23 @@
           params = params || {};
           dealId   = String(params.dealID   || params.deal_id   || params.dealId   || dealId   || '');
           clientId = String(params.clientID || params.client_id || params.clientId || clientId || '');
+          var raw = (params.deal && (params.deal.client_name || params.deal.name)) || '';
+          if (raw) clientName = cleanName(raw);
+
+          // Фоновый опрос по документации EnvyCRM (1001 — имя контакта, 1002 — телефон)
+          try {
+            if (typeof w.getClientValue === 'function') {
+              w.getClientValue({ input_id: 1001, type: 'service' }).then(function (res) {
+                var v = (res && typeof res === 'object' && res.value !== undefined) ? res.value : res;
+                if (v) clientName = cleanName(String(v));
+              }).catch(function () {});
+
+              w.getClientValue({ input_id: 1002, type: 'service' }).then(function (res) {
+                var v = (res && typeof res === 'object' && res.value !== undefined) ? res.value : res;
+                if (v) clientPhone = String(v).trim();
+              }).catch(function () {});
+            }
+          } catch (err) {}
 
           return [{
             title: 'Сформировать КП',
