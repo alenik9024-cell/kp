@@ -6,27 +6,26 @@
   <style>
     body {
       margin: 0;
-      padding: 12px;
+      padding: 10px;
       box-sizing: border-box;
       background: #fff;
-      color: #2b2b2b;
-      font: 13px/1.5 -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font: 13px/1.4 -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
     #kpBtn {
       display: block;
       width: 100%;
-      padding: 13px 16px;
+      padding: 12px 14px;
       border: 0;
-      border-radius: 10px;
+      border-radius: 8px;
       background: #2F6BFF;
       color: #fff;
-      font: 600 14px/1 inherit;
+      font: 600 13px/1 inherit;
       cursor: pointer;
+      text-align: center;
     }
     #kpBtn:hover { background: #1f57e0; }
-    #st { margin-top: 10px; font-size: 12px; line-height: 1.6; color: #666; }
+    #st { margin-top: 8px; font-size: 11px; color: #666; }
     .ok { color: #0a7d33; font-weight: 600; }
-    .err { color: #c0392b; font-weight: 600; }
   </style>
   <script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
 </head>
@@ -38,7 +37,7 @@
   (function () {
     'use strict';
 
-    var VERSION = 'v70';
+    var VERSION = 'v75';
     var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp.html';
 
     var st = document.getElementById('st');
@@ -46,16 +45,28 @@
 
     var dealId = '', clientId = '';
     var registered = false, numberWritten = false;
+    var widgetInstance = null;
 
     function log(m, d) {
       try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {}
     }
 
-    function W() {
-      return window.EnvyCrmWidget;
+    /* Создание экземпляра через new EnvyCrmWidget() */
+    function getWidget() {
+      if (!widgetInstance) {
+        if (typeof window.EnvyCrmWidget === 'function') {
+          try {
+            widgetInstance = new window.EnvyCrmWidget();
+          } catch (e) {
+            widgetInstance = window.EnvyCrmWidget;
+          }
+        } else if (window.EnvyCrmWidget) {
+          widgetInstance = window.EnvyCrmWidget;
+        }
+      }
+      return widgetInstance;
     }
 
-    /* Извлечение ID из любых источников */
     function extractIds(src) {
       src = src || {};
       var d = src.deal_id || src.dealId || src.dealID || (src.deal && (src.deal.id || src.deal.deal_id));
@@ -98,7 +109,7 @@
 
     function writeNumber() {
       if (numberWritten || !dealId) return;
-      var w = W();
+      var w = getWidget();
       if (!w || typeof w.getDealValues !== 'function') return;
 
       w.getDealValues().then(function (data) {
@@ -130,7 +141,7 @@
       };
     }
 
-    /* Слушаем клик по кнопке из CRM */
+    /* Слушаем клик по кнопке сделки из CRM */
     window.addEventListener('message', function (e) {
       if (!e || !e.data) return;
       if (e.data.type === 'kp-btn:click') {
@@ -140,10 +151,10 @@
       }
     }, false);
 
-    /* РЕГИСТРАЦИЯ КНОПКИ — ЗАПУСКАЕТСЯ СРАЗУ, БЕЗ ОЖИДАНИЯ */
+    /* Регистрация кнопки */
     function register() {
       if (registered) return;
-      var w = W();
+      var w = getWidget();
       if (!w || typeof w.init !== 'function') {
         setTimeout(register, 80);
         return;
@@ -156,13 +167,25 @@
               title: 'Сформировать КП',
               icon: 'md-description',
               clickEventName: 'kp-btn:click',
-              position: ['first']
+              position: ['first'],
+              styles: {
+                'background-color': '#2F6BFF',
+                'color': '#ffffff'
+              }
             }
           ]
         });
         registered = true;
         log('Кнопка успешно зарегистрирована в CRM');
         if (st) st.innerHTML = 'v' + VERSION + ' | <span class="ok">кнопка активна</span>';
+
+        if (typeof w.getDeal === 'function') {
+          w.getDeal().then(function (d) {
+            d = d || {};
+            var res = d.result || d;
+            extractIds(res);
+          }).catch(function () {});
+        }
       } catch (err) {
         log('Ошибка w.init: ' + err);
         setTimeout(register, 200);
