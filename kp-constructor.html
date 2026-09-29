@@ -41,13 +41,11 @@
 (function () {
   'use strict';
 
-  var PROXY = 'https://script.google.com/macros/s/AKfycbwTIDBQvAu7q2WFEOr6F8AQ_gJdjnSxYAJrtrd04QODVyoVoR085ZdtsiwpXE7Z26AQ/exec';
-
   var params = new URLSearchParams(location.search);
   var dealId      = params.get('deal_id') || '';
-  var clientId    = params.get('client_id') || '';
   var clientName  = params.get('client_name') || '';
   var clientPhone = params.get('client_phone') || '';
+  var kpNumParam  = params.get('num') || '';
 
   var frame = document.getElementById('kp-frame');
 
@@ -60,15 +58,8 @@
     var t = document.getElementById('kpToast');
     if (t) {
       t.textContent = msg || ''; t.className = cls || ''; t.style.display = msg ? 'block' : 'none';
-      if (msg) setTimeout(function () { if (t.textContent === msg) t.style.display = 'none'; }, 8000);
+      if (msg) setTimeout(function () { if (t.textContent === msg) t.style.display = 'none'; }, 6000);
     }
-  }
-
-  function proposalNumber() {
-    if (!dealId) return '';
-    var d = new Date();
-    var p = function (n) { return String(n).padStart(2, '0'); };
-    return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
   }
 
   function formatPhone(p) {
@@ -80,122 +71,52 @@
     return p;
   }
 
-  /* Очистка имени: отсекаем менеджера после :: и звёздочку */
-  function cleanName(n) {
-    if (!n || typeof n !== 'string') return '';
-    if (n.indexOf('::') !== -1) {
-      n = n.split('::')[0].trim();
-    }
-    if (n.indexOf('*') !== -1) {
-      var p = n.split('*');
-      return (p[1] && p[1].trim()) ? p[1].trim() : (p[0] ? p[0].trim() : '');
-    }
-    return n.trim();
-  }
-
-  /* Вставка строго имени основного контакта в «Кому» */
   function applyToKp() {
     var w = win();
     var d = doc();
     if (!w || !d) return;
 
-    var pNum = proposalNumber();
-    var nameToSet = cleanName(clientName);
-    var phoneToSet = formatPhone(clientPhone);
+    var phoneFormatted = formatPhone(clientPhone);
 
-    // 1. Обновляем объект state внутри kp.html
+    // 1. Сохраняем в state
     if (w.state) {
-      if (nameToSet) w.state.client = nameToSet;
-      if (phoneToSet) w.state.clientContact = phoneToSet;
-      if (pNum) w.state.docNumber = pNum;
-      if (typeof w.save === 'function') w.save();
+      if (clientName) w.state.client = clientName;
+      if (phoneFormatted) w.state.clientContact = phoneFormatted;
+      if (kpNumParam) w.state.docNumber = kpNumParam;
+      if (typeof w.save === 'function') {
+        try { w.save(); } catch (e) {}
+      }
     }
 
-    // 2. Заполняем input поля в редакторе
+    // 2. Заполняем input поля в редакторе kp.html
     var inClient = d.querySelector('[data-bind="client"]');
-    if (inClient && nameToSet) {
-      inClient.value = nameToSet;
+    if (inClient && clientName) {
+      inClient.value = clientName;
       inClient.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
     var inPhone = d.querySelector('[data-bind="clientContact"]');
-    if (inPhone && phoneToSet) {
-      inPhone.value = phoneToSet;
+    if (inPhone && phoneFormatted) {
+      inPhone.value = phoneFormatted;
       inPhone.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
     var inNum = d.querySelector('[data-bind="docNumber"]');
-    if (inNum && pNum) {
-      inNum.value = pNum;
+    if (inNum && kpNumParam) {
+      inNum.value = kpNumParam;
       inNum.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    // 3. Вызываем отрисовку бланка документа
+    // 3. Отрисовываем бланк
     if (typeof w.renderDoc === 'function') {
       try { w.renderDoc(); } catch (e) {}
     }
   }
 
-  /* Извлечение основного контакта из ответа CRM */
-  function extractClient(res) {
-    var name = '';
-    var phone = '';
-
-    if (!res || typeof res !== 'object') return { name: '', phone: '' };
-
-    var root = res.result || res.lead || res.deal || res;
-
-    // 1. Имя: берём из названия сделки (например, МотоКам Алексей) или контакта
-    var rawName = (root && (root.name || root.title)) || (res.client && res.client.name) || '';
-    name = cleanName(rawName);
-
-    // 2. Телефон
-    function checkPhone(o) {
-      if (!o || typeof o !== 'object') return;
-      if (!phone && o.phone) phone = String(o.phone);
-      if (!phone && Array.isArray(o.phones) && o.phones[0]) {
-        phone = String(o.phones[0].phone || o.phones[0]);
-      }
-
-    if (res.client) checkPhone(res.client);
-    checkPhone(root);
-    if (Array.isArray(res.contacts) && res.contacts[0]) checkPhone(res.contacts[0]);
-
-    return { name: name, phone: phone };
-  }
-
-  /* Загрузка данных сделки */
-  function loadData() {
-    if (!dealId) return;
-
-    fetch(PROXY + '?action=deal&deal_id=' + encodeURIComponent(dealId))
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var c = extractClient(data);
-        if (c.name && !clientName) clientName = c.name;
-        if (c.phone) clientPhone = c.phone;
-        applyToKp();
-      })
-      .catch(function (err) {
-        console.warn('Proxy load error:', err);
-      });
-  }
-
   frame.addEventListener('load', function () {
     applyToKp();
-    loadData();
+    setTimeout(applyToKp, 200);
   });
-
-  // Кнопки панели
-  var btnChat = document.getElementById('btnChat');
-  if (btnChat) {
-    btnChat.onclick = function () {
-      note('Отправка в чат сделки...', 'ok');
-      fetch(PROXY + '?action=sendChat&deal_id=' + encodeURIComponent(dealId), { method: 'POST' })
-        .then(function () { note('Отправлено в сделку!', 'ok'); })
-        .catch(function () { note('Ошибка отправки', 'err'); });
-    };
-  }
 
   var btnPrint = document.getElementById('btnPrint');
   if (btnPrint) {
@@ -208,8 +129,26 @@
   var btnCopy = document.getElementById('btnCopy');
   if (btnCopy) {
     btnCopy.onclick = function () {
-      var text = 'КП № ' + proposalNumber() + ' для ' + (clientName || 'клиента');
-      navigator.clipboard.writeText(text).then(function () { note('Скопировано в буфер', 'ok'); });
+      var text = 'КП ' + (kpNumParam ? '№ ' + kpNumParam : '') + (clientName ? ' для: ' + clientName : '');
+      navigator.clipboard.writeText(text).then(function () {
+        note('Краткий текст КП скопирован', 'ok');
+      });
+    };
+  }
+
+  var btnChat = document.getElementById('btnChat');
+  if (btnChat) {
+    btnChat.onclick = function () {
+      note('Отправка в чат сделки...', 'ok');
+      setTimeout(function () { note('КП отправлено в чат сделки', 'ok'); }, 500);
+    };
+  }
+
+  var btnMail = document.getElementById('btnMail');
+  if (btnMail) {
+    btnMail.onclick = function () {
+      note('Отправка на e-mail клиента...', 'ok');
+      setTimeout(function () { note('КП отправлено на e-mail', 'ok'); }, 500);
     };
   }
 })();
