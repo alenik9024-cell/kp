@@ -43,13 +43,12 @@
 
   var PROXY = 'https://script.google.com/macros/s/AKfycbwTIDBQvAu7q2WFEOr6F8AQ_gJdjnSxYAJrtrd04QODVyoVoR085ZdtsiwpXE7Z26AQ/exec';
 
-  var params      = new URLSearchParams(location.search);
-  var dealId      = params.get('deal_id')      || '';
-  var clientId    = params.get('client_id')    || '';
-  var clientName  = params.get('client_name')  || '';
-  var clientPhone = params.get('client_phone') || '';
+  var params   = new URLSearchParams(location.search);
+  var dealId   = params.get('deal_id')   || '';
+  var clientId = params.get('client_id') || '';
 
   var frame = document.getElementById('kp-frame');
+  var clientName = '', clientPhone = '';
 
   function log(m, d) { try { console.log('[KP CONST] ' + m, d || ''); } catch (e) {} }
   function doc() { try { return frame.contentDocument || frame.contentWindow.document || null; } catch (e) { return null; } }
@@ -79,14 +78,14 @@
 
     var pNum = proposalNumber();
 
-    // 1. Объект state внутри kp.html
+    // 1. Обновляем объект state внутри kp.html
     if (w.state) {
       if (clientName) w.state.client = clientName;
       if (clientPhone) w.state.clientContact = clientPhone;
       if (pNum) w.state.docNumber = pNum;
     }
 
-    // 2. Инпуты редактора
+    // 2. Заполняем input поля в редакторе
     var inClient = d.querySelector('[data-bind="client"]');
     if (inClient && clientName) {
       inClient.value = clientName;
@@ -105,49 +104,91 @@
       inNum.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    // 3. Перерисовка бланка
+    // 3. Вызываем отрисовку бланка
     if (typeof w.renderDoc === 'function') {
       try { w.renderDoc(); } catch (e) {}
     }
   }
 
-  // Резервный запрос в Apps Script (если в параметрах пусто)
-  function handleClientResponse(res) {
-    var r = (res && res.result) ? res.result : res;
-    if (r) {
-      if (!clientName) clientName = r.name || r.client_name || '';
-      if (!clientPhone) {
-        clientPhone = r.phone || r.client_phone || '';
-        if (Array.isArray(r.phones) && r.phones[0]) clientPhone = r.phones[0].phone || r.phones[0];
+  /* Глубокий поиск имени в объекте EnvyCRM */
+  function findName(r) {
+    if (!r) return '';
+    if (r.name && typeof r.name === 'string' && isNaN(Number(r.name))) return r.name;
+    if (r.client_name && typeof r.client_name === 'string') return r.client_name;
+    if (r.first_name && typeof r.first_name === 'string') return r.first_name;
+    if (r.title && typeof r.title === 'string' && r.title.indexOf('Сделка') === -1) return r.title;
+    if (r.company && typeof r.company === 'string') return r.company;
+    if (r.company_name && typeof r.company_name === 'string') return r.company_name;
+
+    // Проверяем кастомные поля
+    var fields = r.values_custom || r.custom_values || r.values || [];
+    if (Array.isArray(fields)) {
+      for (var i = 0; i < fields.length; i++) {
+        var v = String(fields[i].value || '').trim();
+        var n = String(fields[i].name || '').toLowerCase();
+        if (v && isNaN(Number(v)) && (n.indexOf('имя') !== -1 || n.indexOf('клиент') !== -1 || n.indexOf('фио') !== -1)) {
+          return v;
+        }
       }
-      note((clientName ? clientName : '') + (clientPhone ? ' · ' + clientPhone : ''), 'ok');
-      applyToKp();
+    }
+    return '';
+  }
+
+  /* Обработка ответа прокси */
+  function handleClientResponse(res) {
+    try {
+      log('Ответ CRM:', res);
+      var r = (res && res.result) ? res.result : res;
+      if (r) {
+        clientName = findName(r);
+
+        // Очищаем от технических символов вроде звёздочек (Цветаева* Наталья -> Цветаева Наталья)
+        if (clientName) {
+          clientName = clientName.replace(/\*/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+
+        // Телефон
+        clientPhone = r.phone || r.client_phone || '';
+        if (Array.isArray(r.phones) && r.phones[0]) {
+          clientPhone = r.phones[0].phone || r.phones[0];
+        }
+
+        var label = (clientName ? clientName : '') + (clientPhone ? ' · ' + clientPhone : '');
+        note(label, 'ok');
+
+        applyToKp();
+      }
+    } catch (err) {
+      log('Ошибка обработки', err);
     }
   }
 
   window.testCallback = handleClientResponse;
+  window.jsonpCallback = handleClientResponse;
+
+  function fetchClient() {
+    if (!clientId) return;
+
+    var sc = document.createElement('script');
+    sc.src = PROXY + '?action=client&client_id=' + encodeURIComponent(clientId) + '&callback=testCallback';
+    document.body.appendChild(sc);
+  }
 
   frame.onload = function () {
-    if (clientName || clientPhone) {
-      note((clientName ? clientName : '') + (clientPhone ? ' · ' + clientPhone : ''), 'ok');
-    }
     applyToKp();
-
-    if (clientId && (!clientName || !clientPhone)) {
-      var sc = document.createElement('script');
-      sc.src = PROXY + '?action=client&client_id=' + encodeURIComponent(clientId) + '&callback=testCallback';
-      document.body.appendChild(sc);
-    }
+    fetchClient();
 
     setTimeout(applyToKp, 300);
-    setTimeout(applyToKp, 700);
+    setTimeout(applyToKp, 800);
   };
 
+  /* Кнопки верхней панели */
   document.getElementById('kpBar').addEventListener('click', function (e) {
     var act = e.target.getAttribute('data-act');
     if (!act) return;
 
     var w = win();
+
     if (act === 'pdf') {
       if (w) w.print();
     } else if (act === 'copy') {
