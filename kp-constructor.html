@@ -72,53 +72,45 @@
     return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
   }
 
-  function setFieldValue(el, val) {
-    if (!el || !val) return;
-    el.value = val;
-    var w = el.ownerDocument ? el.ownerDocument.defaultView : window;
-    ['input', 'change', 'blur'].forEach(function (evName) {
-      el.dispatchEvent(new w.Event(evName, { bubbles: true }));
-    });
-  }
-
-  /* Заполнение документа kp.html */
-  function fillDoc() {
-    var d = doc();
-    if (!d) return;
-
-    // 1. Поле заказчика
-    var cInput = d.querySelector('[data-bind="client"]') || d.querySelector('input[placeholder*="ООО"]');
-    if (cInput && clientName && cInput.value !== clientName) {
-      setFieldValue(cInput, clientName);
-      log('Записано имя клиента:', clientName);
-    }
-
-    // 2. Поле контакта / телефона
-    var pInput = d.querySelector('[data-bind="clientContact"]');
-    if (pInput && clientPhone) {
-      setFieldValue(pInput, clientPhone);
-      log('Записан телефон:', clientPhone);
-    }
-
-    // 3. Номер КП
-    var nInput = d.querySelector('[data-bind="docNumber"]');
-    var pNum = proposalNumber();
-    if (nInput && pNum) {
-      setFieldValue(nInput, pNum);
-      log('Записан номер КП:', pNum);
-    }
-
-    // 4. Если внутри есть скрипт renderDoc — вызываем для мгновенного обновления предпросмотра
+  /* ПРЯМОЕ ОБНОВЛЕНИЕ ДАННЫХ ВНУТРИ KP.HTML */
+  function applyToKp() {
     var w = win();
-    if (w && typeof w.renderDoc === 'function') {
-      try { w.renderDoc(); } catch (e) {}
+    var d = doc();
+    if (!w || !d) return;
+
+    var pNum = proposalNumber();
+
+    // 1. Обновляем объект state внутри kp.html (если он есть)
+    if (w.state) {
+      if (clientName) w.state.client = clientName;
+      if (clientPhone) w.state.clientContact = clientPhone;
+      if (pNum) w.state.docNumber = pNum;
     }
+
+    // 2. Обновляем поля ввода в левой панели редактора kp.html
+    var inClient = d.querySelector('[data-bind="client"]');
+    if (inClient && clientName) inClient.value = clientName;
+
+    var inPhone = d.querySelector('[data-bind="clientContact"]');
+    if (inPhone && clientPhone) inPhone.value = clientPhone;
+
+    var inNum = d.querySelector('[data-bind="docNumber"]');
+    if (inNum && pNum) inNum.value = pNum;
+
+    // 3. Вызываем перерисовку бланка
+    if (typeof w.renderDoc === 'function') {
+      try {
+        w.renderDoc();
+        log('renderDoc() успешно выполнен');
+      } catch (e) {
+        log('Ошибка renderDoc', e);
+      }
   }
 
-  /* Запрос данных клиента через JSONP Google Apps Script */
+  /* Запрос данных клиента через Google Apps Script proxy */
   function fetchClient() {
     if (!clientId) {
-      note('Номер КП: ' + proposalNumber(), 'ok');
+      log('Нет clientId');
       return;
     }
 
@@ -139,7 +131,7 @@
           var label = (clientName ? clientName : '') + (clientPhone ? ' (' + clientPhone + ')' : '');
           note(label ? label : 'Данные загружены', 'ok');
 
-          fillDoc();
+          applyToKp();
         }
       } catch (err) {
         log('Ошибка обработки данных', err);
@@ -157,15 +149,17 @@
   }
 
   frame.onload = function () {
-    log('Фрейм загружен');
-    fillDoc();
+    log('Фрейм kp.html загружен');
+    applyToKp();
     fetchClient();
-    // Повторяем заполнение через 300мс на случай медленной инициализации kp.html
-    setTimeout(fillDoc, 300);
-    setTimeout(fillDoc, 800);
+
+    // Повторяем синхронизацию через небольшие задержки
+    setTimeout(applyToKp, 300);
+    setTimeout(applyToKp, 800);
+    setTimeout(applyToKp, 1500);
   };
 
-  /* Обработка верхней панели кнопок */
+  /* Кнопки верхней панели */
   document.getElementById('kpBar').addEventListener('click', function (e) {
     var act = e.target.getAttribute('data-act');
     if (!act) return;
@@ -183,7 +177,7 @@
         });
       }
     } else if (act === 'chat') {
-      note('Скачайте КП (PDF) и прикрепите в чат сделки EnvyCRM', 'ok');
+      note('Скачайте КП (PDF) и отправьте в чат сделки EnvyCRM', 'ok');
     } else if (act === 'email') {
       note('Скачайте КП (PDF) и отправьте на e-mail клиента', 'ok');
     }
