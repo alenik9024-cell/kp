@@ -52,7 +52,6 @@
     var w = W();
     var launched = false;
 
-    // Функция финального открытия окна
     function launch() {
       if (launched) return;
       launched = true;
@@ -84,18 +83,18 @@
       window.open(url, '_blank');
     }
 
-    // Защитный таймер: если CRM не ответит за 600мс, откроем с тем, что есть
-    var timer = setTimeout(launch, 600);
+    // Защита от зависания: если CRM не отдаст данные за 500мс, откроет форму без задержки
+    var timer = setTimeout(launch, 500);
 
-    // Запрашиваем имя контакта (1001), телефон (1002) и поле 16 (резерв)
+    // Забираем имя из поля контакта 1001 и поля сделки 16
     if (w && typeof w.getClientValue === 'function') {
-      var pName  = w.getClientValue({ input_id: 1001, type: 'service' }).catch(function () { return ''; });
-      var pPhone = w.getClientValue({ input_id: 1002, type: 'service' }).catch(function () { return ''; });
+      var pName = w.getClientValue({ input_id: 1001, type: 'service' }).catch(function () { return ''; });
       var pDeal16 = (typeof w.getDealValue === 'function')
         ? w.getDealValue({ input_id: 16, type: 'custom' }).catch(function () { return ''; })
         : Promise.resolve('');
+      var pPhone = w.getClientValue({ input_id: 1002, type: 'service' }).catch(function () { return ''; });
 
-      Promise.all([pName, pPhone, pDeal16]).then(function (res) {
+      Promise.all([pName, pDeal16, pPhone]).then(function (res) {
         clearTimeout(timer);
         var extract = function (v) {
           if (!v) return '';
@@ -104,8 +103,8 @@
         };
 
         var n1001 = cleanName(extract(res[0]));
-        var ph    = String(extract(res[1]) || '').trim();
-        var n16   = cleanName(extract(res[2]));
+        var n16   = cleanName(extract(res[1]));
+        var ph    = String(extract(res[2]) || '').trim();
 
         if (n1001) {
           clientName = n1001;
