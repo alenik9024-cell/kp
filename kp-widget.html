@@ -41,103 +41,67 @@
     return n.trim();
   }
 
-  function extractVal(v) {
-    if (!v) return '';
-    if (typeof v === 'object' && v.value !== undefined) return String(v.value || '');
-    if (typeof v === 'string' || typeof v === 'number') return String(v);
-    return '';
+  function launchFrame() {
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    var d = new Date();
+    var num = dealId ? (dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1)) : '';
+
+    var url = CONSTRUCTOR_URL +
+      (dealId      ? '?deal_id='      + encodeURIComponent(dealId)      : '?') +
+      (clientId    ? '&client_id='    + encodeURIComponent(clientId)    : '') +
+      (clientName  ? '&client_name='  + encodeURIComponent(clientName)  : '') +
+      (clientPhone ? '&client_phone=' + encodeURIComponent(clientPhone) : '') +
+      (num         ? '&num='          + encodeURIComponent(num)         : '');
+
+    var content = '<iframe src="' + url + '" style="width:100%;height:88vh;border:0;display:block"></iframe>';
+
+    var w = W();
+    try {
+      if (w && typeof w.openPage === 'function') {
+        w.openPage({ content: content });
+        return;
+      }
+      if (w && typeof w.openModal === 'function') {
+        w.openModal({ title: 'Коммерческое предложение', content: content, width: 1250 });
+        return;
+      }
+    } catch (e) {}
+
+    window.open(url, '_blank');
   }
 
   function open(sourceParams) {
-    var w = W();
-
     if (sourceParams) {
       dealId   = String(sourceParams.dealID   || sourceParams.deal_id   || sourceParams.dealId   || dealId   || '');
       clientId = String(sourceParams.clientID || sourceParams.client_id || sourceParams.clientId || clientId || '');
-      var raw = (sourceParams.deal && (sourceParams.deal.client_name || sourceParams.deal.name)) || sourceParams.client_name || clientName || '';
-      if (raw) clientName = cleanName(raw);
     }
 
-    var launched = false;
-    function launch() {
-      if (launched) return;
-      launched = true;
+    var w = W();
 
-      var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-      var d = new Date();
-      var num = dealId ? (dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1)) : '';
+    // Запрашиваем имя контакта (1001) и телефон (1002) по официальной документации EnvyCRM
+    if (w && typeof w.getClientValue === 'function') {
+      Promise.all([
+        w.getClientValue({ input_id: 1001, type: 'service' }).catch(function () { return ''; }),
+        w.getClientValue({ input_id: 1002, type: 'service' }).catch(function () { return ''; })
+      ]).then(function (res) {
+        var extract = function (v) {
+          if (!v) return '';
+          if (typeof v === 'object' && v.value !== undefined) return v.value;
+          return v;
+        };
 
-      var url = CONSTRUCTOR_URL +
-        (dealId      ? '?deal_id='      + encodeURIComponent(dealId)      : '?') +
-        (clientId    ? '&client_id='    + encodeURIComponent(clientId)    : '') +
-        (clientName  ? '&client_name='  + encodeURIComponent(clientName)  : '') +
-        (clientPhone ? '&client_phone=' + encodeURIComponent(clientPhone) : '') +
-        (num         ? '&num='          + encodeURIComponent(num)         : '');
+        var nameVal  = extract(res[0]);
+        var phoneVal = extract(res[1]);
 
-      var content = '<iframe src="' + url + '" style="width:100%;height:88vh;border:0;display:block"></iframe>';
+        if (nameVal)  clientName  = cleanName(String(nameVal));
+        if (phoneVal) clientPhone = String(phoneVal).trim();
 
-      try {
-        if (w && typeof w.openPage === 'function') {
-          w.openPage({ content: content });
-          return;
-        }
-        if (w && typeof w.openModal === 'function') {
-          w.openModal({ title: 'Коммерческое предложение', content: content, width: 1250 });
-          return;
-        }
-      } catch (e) {}
-
-      window.open(url, '_blank');
-    }
-
-    // Страховочный таймер: максимум 400мс ожидания ответа CRM
-    var timer = setTimeout(launch, 400);
-
-    // Запрашиваем поля: 16 (Кому) и 1001 (имя контакта), 17 (телефон) и 1002 (телефон)
-    if (w && (typeof w.getDealValue === 'function' || typeof w.getClientValue === 'function')) {
-      var pDeal16 = (typeof w.getDealValue === 'function')
-        ? w.getDealValue({ input_id: 16, type: 'custom' }).catch(function () { return ''; })
-        : Promise.resolve('');
-      var pClient1001 = (typeof w.getClientValue === 'function')
-        ? w.getClientValue({ input_id: 1001, type: 'service' }).catch(function () { return ''; })
-        : Promise.resolve('');
-      var pDeal17 = (typeof w.getDealValue === 'function')
-        ? w.getDealValue({ input_id: 17, type: 'custom' }).catch(function () { return ''; })
-        : Promise.resolve('');
-      var pClient1002 = (typeof w.getClientValue === 'function')
-        ? w.getClientValue({ input_id: 1002, type: 'service' }).catch(function () { return ''; })
-        : Promise.resolve('');
-
-      Promise.all([pDeal16, pClient1001, pDeal17, pClient1002]).then(function (res) {
-        clearTimeout(timer);
-
-        var v16   = cleanName(extractVal(res[0]));
-        var v1001 = cleanName(extractVal(res[1]));
-        var v17   = extractVal(res[2]).trim();
-        var v1002 = extractVal(res[3]).trim();
-
-        // Имя: приоритет полю 16 («Кому»), затем 1001
-        if (v16) {
-          clientName = v16;
-        } else if (v1001) {
-          clientName = v1001;
-        }
-
-        // Телефон: приоритет полю 17 («Контакт»), затем 1002
-        if (v17) {
-          clientPhone = v17;
-        } else if (v1002) {
-          clientPhone = v1002;
-        }
-
-        launch();
+        launchFrame();
       }).catch(function () {
-        clearTimeout(timer);
-        launch();
+        launchFrame();
       });
     } else {
-      clearTimeout(timer);
-      launch();
+      launchFrame();
     }
   }
 
@@ -159,8 +123,6 @@
           params = params || {};
           dealId   = String(params.dealID   || params.deal_id   || params.dealId   || dealId   || '');
           clientId = String(params.clientID || params.client_id || params.clientId || clientId || '');
-          var raw = (params.deal && (params.deal.client_name || params.deal.name)) || '';
-          if (raw) clientName = cleanName(raw);
 
           return [{
             title: 'Сформировать КП',
