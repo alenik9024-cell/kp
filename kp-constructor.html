@@ -1,174 +1,28 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <title>Коммерческое предложение</title>
-  <style>
-    html,body{margin:0;height:100%;background:#fff;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-    body{display:flex;flex-direction:column}
-    #kpBar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;
-           background:#101722;border-bottom:1px solid #26324a;color:#e8edf5}
-    #kpBar button{padding:10px 14px;border-radius:10px;border:1px solid #33415c;background:#182233;
-                  color:#e8edf5;cursor:pointer;font:600 13px/1 inherit}
-    #kpBar button:hover{background:#1f2b40}
-    #kpBar button.primary{background:#2F6BFF;border-color:#2F6BFF;color:#fff}
-    #kpBar button.primary:hover{background:#1f57e0}
-    #kpBar .sp{flex:1}
-    #kpNote{font:13px/1.35 inherit;color:#9fb0c8;max-width:46%}
-    #kpNote.err{color:#ff8b8b} #kpNote.ok{color:#7ee0a0}
-    #kp-frame{flex:1;width:100%;border:0;display:block}
-    #kpToast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:2147483000;
-             background:#101722;color:#e8edf5;border:1px solid #26324a;border-radius:10px;padding:9px 14px;
-             font:13px/1.4 inherit;display:none;max-width:80vw;text-align:center;pointer-events:none}
-    #kpToast.err{color:#ff8b8b} #kpToast.ok{color:#7ee0a0}
-  </style>
-</head>
-<body>
+  /* Извлечение основного контакта из ответа CRM */
+  function extractClient(res) {
+    var name = '';
+    var phone = '';
 
-  <div id="kpBar">
-    <button type="button" class="primary" id="btnChat">📩 В чат сделки</button>
-    <button type="button" id="btnMail">✉️ На e-mail</button>
-    <button type="button" id="btnPrint">💾 Скачать КП</button>
-    <button type="button" id="btnCopy">📋 Текст</button>
-    <span class="sp"></span>
-    <span id="kpNote"></span>
-  </div>
+    if (!res || typeof res !== 'object') return { name: '', phone: '' };
 
-  <iframe id="kp-frame" src="kp.html"></iframe>
-  <div id="kpToast"></div>
+    var root = res.result || res.lead || res.deal || res;
 
-<script>
-(function () {
-  'use strict';
+    // 1. Имя: берём из названия сделки (где лежит «Цветаева* Наталья :: ...») или клиента
+    var rawName = (root && (root.name || root.title)) || (res.client && res.client.name) || '';
+    name = cleanName(rawName);
 
-  var PROXY = 'https://script.google.com/macros/s/AKfycbwTIDBQvAu7q2WFEOr6F8AQ_gJdjnSxYAJrtrd04QODVyoVoR085ZdtsiwpXE7Z26AQ/exec';
-
-  var params = new URLSearchParams(location.search);
-  var dealId      = params.get('deal_id') || '';
-  var clientId    = params.get('client_id') || '';
-  var clientName  = params.get('client_name') || '';
-  var clientPhone = params.get('client_phone') || '';
-
-  var frame = document.getElementById('kp-frame');
-
-  function doc() { try { return frame.contentDocument || frame.contentWindow.document || null; } catch (e) { return null; } }
-  function win() { try { return frame.contentWindow; } catch (e) { return null; } }
-
-  function note(msg, cls) {
-    var n = document.getElementById('kpNote');
-    if (n) { n.textContent = msg || ''; n.className = cls || ''; }
-    var t = document.getElementById('kpToast');
-    if (t) {
-      t.textContent = msg || ''; t.className = cls || ''; t.style.display = msg ? 'block' : 'none';
-      if (msg) setTimeout(function () { if (t.textContent === msg) t.style.display = 'none'; }, 8000);
+    // 2. Телефон
+    function checkPhone(o) {
+      if (!o || typeof o !== 'object') return;
+      if (!phone && o.phone) phone = String(o.phone);
+      if (!phone && Array.isArray(o.phones) && o.phones[0]) {
+        phone = String(o.phones[0].phone || o.phones[0]);
+      }
     }
+
+    if (res.client) checkPhone(res.client);
+    checkPhone(root);
+    if (Array.isArray(res.contacts) && res.contacts[0]) checkPhone(res.contacts[0]);
+
+    return { name: name, phone: phone };
   }
-
-  function proposalNumber() {
-    if (!dealId) return '';
-    var d = new Date();
-    var p = function (n) { return String(n).padStart(2, '0'); };
-    return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
-  }
-
-  function formatPhone(p) {
-    if (!p) return '';
-    var d = String(p).replace(/\D/g, '');
-    if (d.length === 11 && (d[0] === '7' || d[0] === '8')) {
-      return '+7 (' + d.slice(1, 4) + ') ' + d.slice(4, 7) + '-' + d.slice(7, 9) + '-' + d.slice(9, 11);
-    }
-    return p;
-  }
-
-  function cleanName(n) {
-    if (!n || typeof n !== 'string') return '';
-    if (n.indexOf('::') !== -1) {
-      n = n.split('::')[0].trim();
-    }
-    if (n.indexOf('*') !== -1) {
-      var p = n.split('*');
-      return (p[1] && p[1].trim()) ? p[1].trim() : (p[0] ? p[0].trim() : '');
-    }
-    return n.trim();
-  }
-
-  /* Вставка строго имени основного контакта и телефона в бланк */
-  function applyToKp() {
-    var w = win();
-    var d = doc();
-    if (!w || !d) return;
-
-    var pNum = proposalNumber();
-    var nameToSet = cleanName(clientName);
-    var phoneToSet = formatPhone(clientPhone);
-
-    // 1. Обновляем объект state внутри kp.html
-    if (w.state) {
-      if (nameToSet) w.state.client = nameToSet;
-      if (phoneToSet) w.state.clientContact = phoneToSet;
-      if (pNum) w.state.docNumber = pNum;
-      if (typeof w.save === 'function') w.save();
-    }
-
-    // 2. Заполняем input поля в редакторе
-    var inClient = d.querySelector('[data-bind="client"]');
-    if (inClient && nameToSet) {
-      inClient.value = nameToSet;
-      inClient.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-
-    var inPhone = d.querySelector('[data-bind="clientContact"]');
-    if (inPhone && phoneToSet) {
-      inPhone.value = phoneToSet;
-      inPhone.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-
-    var inNum = d.querySelector('[data-bind="docNumber"]');
-    if (inNum && pNum) {
-      inNum.value = pNum;
-      inNum.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-
-    // 3. Перерисовываем документ
-    if (typeof w.renderDoc === 'function') {
-      try { w.renderDoc(); } catch (e) {}
-    }
-  }
-
-  // При загрузке бланка сразу вставляем данные из параметров сделки
-  frame.addEventListener('load', function () {
-    applyToKp();
-    setTimeout(applyToKp, 200);
-  });
-
-  // Кнопки панели
-  var btnChat = document.getElementById('btnChat');
-  if (btnChat) {
-    btnChat.onclick = function () {
-      note('Отправка в чат сделки...', 'ok');
-      fetch(PROXY + '?action=sendChat&deal_id=' + encodeURIComponent(dealId), { method: 'POST' })
-        .then(function () { note('Отправлено в сделку!', 'ok'); })
-        .catch(function () { note('Ошибка отправки', 'err'); });
-    };
-  }
-
-  var btnPrint = document.getElementById('btnPrint');
-  if (btnPrint) {
-    btnPrint.onclick = function () {
-      var w = win();
-      if (w) { w.focus(); w.print(); }
-    };
-  }
-
-  var btnCopy = document.getElementById('btnCopy');
-  if (btnCopy) {
-    btnCopy.onclick = function () {
-      var text = 'КП № ' + proposalNumber() + ' для ' + (clientName || 'клиента');
-      navigator.clipboard.writeText(text).then(function () { note('Скопировано в буфер', 'ok'); });
-    };
-  }
-})();
-</script>
-
-</body>
-</html>
