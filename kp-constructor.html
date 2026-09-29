@@ -80,14 +80,12 @@
     return p;
   }
 
-  /* Очистка имени контакта */
+  /* Очистка имени: отсекаем менеджера после :: и звёздочку */
   function cleanName(n) {
     if (!n || typeof n !== 'string') return '';
-    // 1. Отрезаем менеджера после :: (Цветаева* Наталья :: Новиков Александр -> Цветаева* Наталья)
     if (n.indexOf('::') !== -1) {
       n = n.split('::')[0].trim();
     }
-    // 2. Если есть звёздочка, берём имя после неё
     if (n.indexOf('*') !== -1) {
       var p = n.split('*');
       return (p[1] && p[1].trim()) ? p[1].trim() : (p[0] ? p[0].trim() : '');
@@ -147,7 +145,7 @@
 
     var root = res.result || res.lead || res.deal || res;
 
-    // 1. Имя: проверяем название сделки и имя клиента
+    // 1. Имя: берём из названия сделки (например, МотоКам Алексей) или контакта
     var rawName = (root && (root.name || root.title)) || (res.client && res.client.name) || '';
     name = cleanName(rawName);
 
@@ -158,7 +156,6 @@
       if (!phone && Array.isArray(o.phones) && o.phones[0]) {
         phone = String(o.phones[0].phone || o.phones[0]);
       }
-    }
 
     if (res.client) checkPhone(res.client);
     checkPhone(root);
@@ -175,9 +172,8 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var c = extractClient(data);
-        if (c.name) clientName = c.name;
+        if (c.name && !clientName) clientName = c.name;
         if (c.phone) clientPhone = c.phone;
-        note(formatPhone(clientPhone));
         applyToKp();
       })
       .catch(function (err) {
@@ -190,7 +186,7 @@
     loadData();
   });
 
-  // Кнопки верхней панели
+  // Кнопки панели
   var btnChat = document.getElementById('btnChat');
   if (btnChat) {
     btnChat.onclick = function () {
