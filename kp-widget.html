@@ -25,7 +25,7 @@
       cursor: pointer;
     }
     #kpBtn:hover { background: #1f57e0; }
-    #st { margin-top: 10px; font-size: 12px; line-height: 1.6; color: #666; }
+    #st { margin-top: 10px; font-size: 12px; line-height: 1.6; color: #666; word-break: break-all; }
     .ok { color: #0a7d33; font-weight: 600; }
     .err { color: #c0392b; font-weight: 600; }
   </style>
@@ -57,11 +57,11 @@
     function proposalNumber() {
       if (!dealId) return '';
       var d = new Date();
-      var p = function (n) { return (n < 10 ? '0' : '') + n; };
-      return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
+      var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+      return dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
     }
 
-    /* Получение ID сделки */
+    /* 1. Дожидаемся ID сделки от EnvyCRM */
     function readIds() {
       return new Promise(function (res) {
         var w = W();
@@ -73,14 +73,22 @@
               d = d || {};
               dealId = String(d.id || d.deal_id || dealId || '');
               clientId = String(d.client_id || d.clientId || clientId || '');
-              log('getDeal', { deal_id: dealId, client_id: clientId });
+              log('getDeal получен', { deal_id: dealId, client_id: clientId });
               res();
-            }).catch(function (e) { log('getDeal ошибка', e); res(); });
-          } else res();
-        } catch (e) { res(); }
+            }).catch(function (e) {
+              log('getDeal ошибка', e);
+              res();
+            });
+          } else {
+            res();
+          }
+        } catch (e) {
+          res();
+        }
       });
     }
 
+    /* 2. Поиск поля сделки для записи номера */
     function findFieldId(data, wanted) {
       var found = '';
       (function walk(o) {
@@ -116,9 +124,13 @@
             state = 'номер записан: ' + proposalNumber();
             show();
           });
-      }).catch(function (e) { state = 'ошибка записи: ' + e; show(); });
+      }).catch(function (e) {
+        state = 'ошибка записи: ' + e;
+        show();
+      });
     }
 
+    /* 3. Открытие конструктора КП */
     function openWindow() {
       readIds().then(function () {
         writeNumber();
@@ -128,7 +140,7 @@
         var pNum = proposalNumber();
         if (pNum) url += '&num=' + encodeURIComponent(pNum);
 
-        log('открываю КП', url);
+        log('открытие КП', url);
         window.open(url, '_blank');
       });
     }
@@ -144,52 +156,64 @@
       btn.onclick = openWindow;
     }
 
+    /* Ловим нажатие по кнопке EnvyCRM */
     window.addEventListener('message', function (e) {
       if (!e || !e.data) return;
       if (e.data.type === 'kp-btn:click') {
-        log('клик по кнопке Envy');
+        log('клик по кнопке EnvyCRM');
         openWindow();
       }
     }, false);
 
-    /* РЕГИСТРАЦИЯ СО ВСЕМИ ОБЯЗАТЕЛЬНЫМИ ПОЛЯМИ ПО ДОКУМЕНТАЦИИ */
+    /* 4. Регистрация кнопки со всеми обязательными полями */
     function register() {
       if (registered) return;
       var w = W();
       if (!w || typeof w.init !== 'function') {
-        setTimeout(register, 150);
+        setTimeout(register, 200);
         return;
       }
-      try {
-        w.init({
-          'deal-btn': [
-            {
-              name: 'kp-btn-final-32',
-              title: 'Сформировать КП',
-              icon: 'md-description',
-              clickEventName: 'kp-btn:click',
-              position: ['first'],
-              styles: {
-                'color': '#ffffff',
-                'background-color': '#2F6BFF'
-              }
+
+      var initPromise = w.init({
+        'deal-btn': [
+          {
+            name: 'kp-btn-final-32',
+            title: 'Сформировать КП',
+            icon: 'md-description',
+            clickEventName: 'kp-btn:click',
+            position: ['first'],
+            styles: {
+              'color': '#ffffff',
+              'background-color': '#2F6BFF'
             }
-          ]
+          }
+        ]
+      });
+
+      if (initPromise && typeof initPromise.then === 'function') {
+        initPromise.then(function () {
+          registered = true;
+          state = 'кнопка зарегистрирована';
+          log('кнопка зарегистрирована успешно');
+          show();
+        }).catch(function (err) {
+          state = 'ошибка w.init: ' + err;
+          log('ошибка w.init', err);
+          show();
         });
+      } else {
         registered = true;
         state = 'кнопка зарегистрирована';
-        log('кнопка зарегистрирована');
         show();
-      } catch (err) {
-        log('повтор init: ' + err);
-        setTimeout(register, 250);
       }
     }
 
+    /* Старт строго в историческом порядке: сначала считывание данных, затем регистрация */
     readIds().then(function () {
       show();
       register();
     });
+
   })();
   </script>
 </body>
