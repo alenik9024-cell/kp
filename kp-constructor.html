@@ -78,7 +78,7 @@
 
     var phoneFormatted = formatPhone(clientPhone);
 
-    // 1. Сохраняем в state
+    // 1. Записываем строго имя основного контакта и телефон в state
     if (w.state) {
       if (clientName) w.state.client = clientName;
       if (phoneFormatted) w.state.clientContact = phoneFormatted;
@@ -88,7 +88,7 @@
       }
     }
 
-    // 2. Заполняем input поля в редакторе kp.html
+    // 2. Заполняем input поля в редакторе
     var inClient = d.querySelector('[data-bind="client"]');
     if (inClient && clientName) {
       inClient.value = clientName;
@@ -107,7 +107,7 @@
       inNum.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    // 3. Отрисовываем бланк
+    // 3. Отрисовываем документ
     if (typeof w.renderDoc === 'function') {
       try { w.renderDoc(); } catch (e) {}
     }
