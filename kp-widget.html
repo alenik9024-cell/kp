@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>КП — виджет EnvyCRM</title>
+  <title>КП — виджет</title>
   <style>
     body {
       margin: 0;
@@ -22,7 +22,6 @@
       color: #fff;
       font: 600 14px/1 inherit;
       cursor: pointer;
-      transition: background 0.2s;
     }
     #kpBtn:hover {
       background: #1f57e0;
@@ -41,62 +40,83 @@
 </head>
 <body>
   <button id="kpBtn" type="button">📄 Сформировать КП</button>
-  <div id="st">Инициализация…</div>
+  <div id="st">запуск…</div>
 
   <script>
   (function () {
     'use strict';
 
-    var VERSION = 'v56';
+    var VERSION = 'v57';
     var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp-constructor.html';
 
     var st = document.getElementById('st');
     var btn = document.getElementById('kpBtn');
 
-    var dealId = '';
-    var clientId = '';
-    var numberWritten = false;
+    var dealId = '', clientId = '';
+    var registered = false, numberWritten = false, fieldId = '';
+    var state = '—';
 
     function log(m, d) {
       try { console.log('[KP ' + VERSION + '] ' + m, d || ''); } catch (e) {}
-    }
-
-    function setStatus(html) {
-      if (st) st.innerHTML = html;
     }
 
     function W() {
       return window.EnvyCrmWidget;
     }
 
-    function extractIds(src) {
-      if (!src) return;
-      var d = src.deal_id || src.dealID || src.dealId || (src.deal && (src.deal.id || src.deal.deal_id));
-      var c = src.client_id || src.clientID || src.clientId || (src.deal && (src.deal.client_id || src.deal.clientId));
-      if (d && !dealId) dealId = String(d);
-      if (c && !clientId) clientId = String(c);
+    function show() {
+      if (!st) return;
+      st.innerHTML = 'v' + VERSION + ' | ' +
+        (dealId ? 'сделка <b>' + dealId + '</b>' : 'сделка не определена') +
+        '<br>кнопка: ' + (registered ? '<span class="ok">внедрена</span>' : '<span class="err">ожидание</span>') +
+        '<br>статус: ' + state;
     }
 
-    try {
-      var sp = new URLSearchParams(window.location.search);
-      if (sp.get('deal_id')) dealId = sp.get('deal_id');
-      if (sp.get('client_id')) clientId = sp.get('client_id');
-    } catch (e) {}
-
-    function getProposalNumber() {
+    /* Формирование номера КП: ID/ДД/ММ */
+    function proposalNumber() {
       if (!dealId) return '';
       var d = new Date();
       var pad = function (n) { return (n < 10 ? '0' : '') + n; };
       return dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1);
     }
 
-    function findFieldId(data) {
+    /* Получение ID сделки и клиента */
+    function readIds() {
+      return new Promise(function (resolve) {
+        var w = W();
+        if (!w || typeof w.getDeal !== 'function') {
+          resolve();
+          return;
+        }
+        try {
+          var r = w.getDeal();
+          if (r && typeof r.then === 'function') {
+            r.then(function (d) {
+              d = (d && d.result) ? d.result : (d || {});
+              dealId = String(d.id || d.deal_id || dealId || '');
+              clientId = String(d.client_id || d.clientId || clientId || '');
+              log('Сделка определена', { dealId: dealId, clientId: clientId });
+              resolve();
+            }).catch(function (e) {
+              log('Ошибка getDeal', e);
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        } catch (e) {
+          resolve();
+        }
+      });
+    }
+
+    /* Поиск ID поля для номера КП */
+    function findFieldId(data, wanted) {
       var found = '';
-      var wanted = ['кп', 'номер кп', 'коммерческое предложение'];
       (function walk(o) {
         if (found || !o || typeof o !== 'object') return;
         if (Array.isArray(o)) { o.forEach(walk); return; }
-        var nm = String(o.name || o.title || o.label || '').toLowerCase().trim();
+        var nm = String(o.name || o.title || o.label || o.name_id || '').toLowerCase().trim();
         var iid = o.input_id || o.id;
         if (nm && iid) {
           for (var i = 0; i < wanted.length; i++) {
@@ -108,121 +128,98 @@
       return found;
     }
 
-    function writeNumberToDeal() {
+    /* Фоновая запись номера КП в сделку */
+    function writeNumber() {
+      if (numberWritten || !dealId) return;
       var w = W();
-      if (numberWritten || !dealId || !w || typeof w.getDealValues !== 'function') return;
+      if (!w || typeof w.getDealValues !== 'function') return;
 
       w.getDealValues().then(function (data) {
-        var fid = findFieldId(data);
-        if (!fid || typeof w.changeDealValue !== 'function') return;
+        fieldId = findFieldId(data, ['кп', 'номер кп', 'номер кп (кп)', 'коммерческое предложение']);
+        if (!fieldId || typeof w.changeDealValue !== 'function') return;
 
-        var propNum = getProposalNumber();
-        log('Запись номера ' + propNum + ' в поле ' + fid);
-        w.changeDealValue({ input_id: fid, value: propNum }).then(function () {
+        var pNum = proposalNumber();
+        w.changeDealValue({ input_id: fieldId, value: pNum }).then(function () {
           numberWritten = true;
-          log('Номер КП сохранён в сделке');
-        }).catch(function (e) {
-          log('Ошибка записи номера: ' + e);
-        });
-      }).catch(function (e) {
-        log('Ошибка getDealValues: ' + e);
+          state = 'номер записан: ' + pNum;
+          show();
+        }).catch(function () {});
+      }).catch(function () {});
+    }
+
+    /* Переход в конструктор */
+    function openConstructor() {
+      readIds().then(function () {
+        writeNumber();
+
+        var url = CONSTRUCTOR_URL +
+          (dealId ? '?deal_id=' + encodeURIComponent(dealId) : '?') +
+          (clientId ? '&client_id=' + encodeURIComponent(clientId) : '');
+
+        var pNum = proposalNumber();
+        if (pNum) url += '&num=' + encodeURIComponent(pNum);
+
+        log('Открытие конструктора', url);
+        window.open(url, '_blank');
       });
     }
 
-    function openConstructor() {
-      var targetUrl = CONSTRUCTOR_URL;
-      var q = [];
-      if (dealId) q.push('deal_id=' + encodeURIComponent(dealId));
-      if (clientId) q.push('client_id=' + encodeURIComponent(clientId));
-      var pNum = getProposalNumber();
-      if (pNum) q.push('num=' + encodeURIComponent(pNum));
-
-      if (q.length > 0) targetUrl += '?' + q.join('&');
-
-      log('Открытие конструктора: ' + targetUrl);
-      window.open(targetUrl, '_blank');
-      writeNumberToDeal();
-    }
-
-    function handleAction(sourceData) {
-      extractIds(sourceData);
-      var w = W();
-      if (!dealId && w && typeof w.getDeal === 'function') {
-        w.getDeal().then(function (dealData) {
-          var d = dealData && dealData.result ? dealData.result : dealData;
-          extractIds(d);
-          openConstructor();
-        }).catch(function () {
-          openConstructor();
-        });
-      } else {
-        openConstructor();
-      }
-    }
-
     if (btn) {
-      btn.onclick = function () { handleAction(null); };
+      btn.onclick = openConstructor;
     }
 
-    window.addEventListener('message', function (event) {
-      if (event && event.data && event.data.type === 'kp-btn:click') {
-        log('Событие kp-btn:click получено');
-        handleAction(event.data);
+    /* Слушаем клик по внешней кнопке EnvyCRM */
+    window.addEventListener('message', function (e) {
+      if (!e || !e.data) return;
+      if (e.data.type === 'kp-btn:click') {
+        log('Клик по кнопке EnvyCRM');
+        openConstructor();
       }
     }, false);
 
-    function registerButton() {
+    /* Регистрация кнопки deal-btn */
+    function register() {
+      if (registered) return;
       var w = W();
-      if (!w) {
-        log('Библиотека EnvyCrmWidget не найдена');
-        setStatus('<span class="err">API не загружен</span>');
+      if (!w || typeof w.init !== 'function') {
+        setTimeout(register, 200);
         return;
       }
 
-      var buttonConfig = {
-        type: 'deal-btn',
-        name: 'kp-btn-final-32',
-        title: 'Сформировать КП',
-        icon: 'md-description',
-        clickEventName: 'kp-btn:click',
-        position: ['first'],
-        styles: {
-          'background-color': '#2F6BFF',
-          'color': '#ffffff'
-        }
-      };
-
       try {
-        // Вызываем addApp, поддерживаемый ядром EnvyCRM
-        if (typeof w.addApp === 'function') {
-          w.addApp(buttonConfig);
-          log('Кнопка зарегистрирована через addApp');
-        } else if (typeof w.init === 'function') {
-          // Запасной вызов в форме единичного объекта приложения
-          w.init(buttonConfig);
-          log('Кнопка зарегистрирована через init');
-        }
+        w.init({
+          'deal-btn': [
+            {
+              name: 'kp-btn-final-32',
+              title: 'Сформировать КП',
+              icon: 'md-description',
+              clickEventName: 'kp-btn:click',
+              position: ['first'],
+              styles: {
+                'background-color': '#2F6BFF',
+                'color': '#ffffff'
+              }
+            }
+          ]
+        });
 
-        setStatus('<span class="ok">Виджет активен (' + VERSION + ')</span>');
-
-        if (typeof w.getDeal === 'function') {
-          w.getDeal().then(function (d) {
-            var deal = d && d.result ? d.result : d;
-            extractIds(deal);
-            log('Сделка: ' + dealId);
-          }).catch(function () {});
-        }
+        registered = true;
+        state = 'кнопка зарегистрирована';
+        log('Кнопка успешно внедрена в EnvyCRM');
+        show();
       } catch (err) {
-        log('Ошибка регистрации кнопки: ' + err);
-        setStatus('<span class="err">Ошибка: ' + err + '</span>');
+        state = 'ошибка w.init: ' + err;
+        log('Ошибка w.init', err);
+        show();
       }
     }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', registerButton);
-    } else {
-      registerButton();
-    }
+    // Старт
+    readIds().then(function () {
+      show();
+      register();
+    });
+
   })();
   </script>
 </body>
