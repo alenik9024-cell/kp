@@ -78,7 +78,7 @@
 
     var w = W();
 
-    // Запрашиваем имя контакта (1001) и телефон (1002) по официальной документации EnvyCRM
+    // Запрос по документации EnvyCRM: 1001 — имя контакта, 1002 — телефон
     if (w && typeof w.getClientValue === 'function') {
       Promise.all([
         w.getClientValue({ input_id: 1001, type: 'service' }).catch(function () { return ''; }),
