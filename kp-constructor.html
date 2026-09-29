@@ -57,10 +57,12 @@
 
   function note(msg, cls) {
     var n = document.getElementById('kpNote');
-    n.textContent = msg || ''; n.className = cls || '';
+    if (n) { n.textContent = msg || ''; n.className = cls || ''; }
     var t = document.getElementById('kpToast');
-    t.textContent = msg || ''; t.className = cls || ''; t.style.display = msg ? 'block' : 'none';
-    if (msg) setTimeout(function () { if (t.textContent === msg) t.style.display = 'none'; }, 8000);
+    if (t) {
+      t.textContent = msg || ''; t.className = cls || ''; t.style.display = msg ? 'block' : 'none';
+      if (msg) setTimeout(function () { if (t.textContent === msg) t.style.display = 'none'; }, 8000);
+    }
   }
 
   function proposalNumber() {
@@ -70,93 +72,120 @@
     return dealId + '/' + p(d.getDate()) + '/' + p(d.getMonth() + 1);
   }
 
-  /* Запись данных в поля конструктора kp.html */
-  function injectData() {
+  function setFieldValue(el, val) {
+    if (!el || !val) return;
+    el.value = val;
+    var w = el.ownerDocument ? el.ownerDocument.defaultView : window;
+    ['input', 'change', 'blur'].forEach(function (evName) {
+      el.dispatchEvent(new w.Event(evName, { bubbles: true }));
+    });
+  }
+
+  /* Заполнение документа kp.html */
+  function fillDoc() {
     var d = doc();
     if (!d) return;
 
-    // Вставляем имя клиента
-    var clientInput = d.querySelector('[data-bind="client"]');
-    if (clientInput && clientName && !clientInput.value) {
-      clientInput.value = clientName;
-      clientInput.dispatchEvent(new Event('input', { bubbles: true }));
-      log('Имя вставлено:', clientName);
+    // 1. Поле заказчика
+    var cInput = d.querySelector('[data-bind="client"]') || d.querySelector('input[placeholder*="ООО"]');
+    if (cInput && clientName && cInput.value !== clientName) {
+      setFieldValue(cInput, clientName);
+      log('Записано имя клиента:', clientName);
     }
 
-    // Вставляем контакт / телефон
-    var contactInput = d.querySelector('[data-bind="clientContact"]');
-    if (contactInput && clientPhone) {
-      contactInput.value = clientPhone;
-      contactInput.dispatchEvent(new Event('input', { bubbles: true }));
-      log('Телефон вставлен:', clientPhone);
+    // 2. Поле контакта / телефона
+    var pInput = d.querySelector('[data-bind="clientContact"]');
+    if (pInput && clientPhone) {
+      setFieldValue(pInput, clientPhone);
+      log('Записан телефон:', clientPhone);
     }
 
-    // Вставляем номер КП
-    var numInput = d.querySelector('[data-bind="docNumber"]');
+    // 3. Номер КП
+    var nInput = d.querySelector('[data-bind="docNumber"]');
     var pNum = proposalNumber();
-    if (numInput && pNum) {
-      numInput.value = pNum;
-      numInput.dispatchEvent(new Event('input', { bubbles: true }));
+    if (nInput && pNum) {
+      setFieldValue(nInput, pNum);
+      log('Записан номер КП:', pNum);
+    }
+
+    // 4. Если внутри есть скрипт renderDoc — вызываем для мгновенного обновления предпросмотра
+    var w = win();
+    if (w && typeof w.renderDoc === 'function') {
+      try { w.renderDoc(); } catch (e) {}
     }
   }
 
-  /* Получение данных клиента из CRM через Apps Script прокси */
-  function loadClientData() {
+  /* Запрос данных клиента через JSONP Google Apps Script */
+  function fetchClient() {
     if (!clientId) {
-      log('Нет clientId, пропускаем запрос');
+      note('Номер КП: ' + proposalNumber(), 'ok');
       return;
     }
 
-    var cbName = 'cb_' + Math.random().toString(36).slice(2, 9);
+    note('Загрузка данных клиента…', '');
+
+    var cbName = 'jsonp_cb_' + Date.now();
     window[cbName] = function (res) {
       try {
-        log('Ответ прокси получен:', res);
-        if (res && res.result) {
-          var r = res.result;
-          clientName = r.name || r.client_name || '';
+        log('Ответ от CRM получен:', res);
+        var r = (res && res.result) ? res.result : res;
+        if (r) {
+          clientName  = r.name || r.client_name || r.company || '';
           clientPhone = r.phone || r.client_phone || '';
-          if (Array.isArray(r.phones) && r.phones[0]) clientPhone = r.phones[0].phone || r.phones[0];
+          if (Array.isArray(r.phones) && r.phones[0]) {
+            clientPhone = r.phones[0].phone || r.phones[0];
+          }
 
-          note((clientName ? clientName + ' ' : '') + (clientPhone || ''), 'ok');
-          injectData();
+          var label = (clientName ? clientName : '') + (clientPhone ? ' (' + clientPhone + ')' : '');
+          note(label ? label : 'Данные загружены', 'ok');
+
+          fillDoc();
         }
       } catch (err) {
-        log('Ошибка обработки ответа', err);
+        log('Ошибка обработки данных', err);
       } finally {
         delete window[cbName];
-        var sc = document.getElementById(cbName);
-        if (sc) sc.remove();
+        var s = document.getElementById(cbName);
+        if (s) s.remove();
       }
     };
 
-    var script = document.createElement('script');
-    script.id = cbName;
-    script.src = PROXY + '?action=client&client_id=' + encodeURIComponent(clientId) + '&callback=' + cbName;
-    document.body.appendChild(script);
+    var sc = document.createElement('script');
+    sc.id = cbName;
+    sc.src = PROXY + '?action=client&client_id=' + encodeURIComponent(clientId) + '&callback=' + cbName;
+    document.body.appendChild(sc);
   }
 
   frame.onload = function () {
-    log('Фрейм kp.html загружен');
-    injectData();
-    loadClientData();
+    log('Фрейм загружен');
+    fillDoc();
+    fetchClient();
+    // Повторяем заполнение через 300мс на случай медленной инициализации kp.html
+    setTimeout(fillDoc, 300);
+    setTimeout(fillDoc, 800);
   };
 
-  // Кнопки панели
+  /* Обработка верхней панели кнопок */
   document.getElementById('kpBar').addEventListener('click', function (e) {
     var act = e.target.getAttribute('data-act');
     if (!act) return;
 
     var w = win();
+
     if (act === 'pdf') {
       if (w) w.print();
     } else if (act === 'copy') {
       var d = doc();
-      var text = d ? (d.body.innerText || d.body.textContent) : '';
-      navigator.clipboard.writeText(text).then(function () {
-        note('Текст КП скопирован в буфер', 'ok');
-      });
-    } else if (act === 'chat' || act === 'email') {
-      note('Для отправки нажмите "Скачать КП" (PDF) и прикрепите к сообщению', 'ok');
+      var txt = d ? (d.body.innerText || d.body.textContent) : '';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(function () {
+          note('Текст предложения скопирован в буфер', 'ok');
+        });
+      }
+    } else if (act === 'chat') {
+      note('Скачайте КП (PDF) и прикрепите в чат сделки EnvyCRM', 'ok');
+    } else if (act === 'email') {
+      note('Скачайте КП (PDF) и отправьте на e-mail клиента', 'ok');
     }
   });
 
