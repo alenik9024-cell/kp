@@ -24,7 +24,7 @@
 (function () {
   'use strict';
 
-  var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp.html';
+  var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp-constructor.html';
 
   var st  = document.getElementById('st');
   var btn = document.getElementById('kpBtn');
@@ -34,7 +34,6 @@
   function log(m, d) { try { console.log('[KP] ' + m, d || ''); } catch (e) {} }
   function W() { return window.EnvyCrmWidget; }
 
-  /* Мгновенное открытие без зависающего getDeal */
   function open() {
     var pad = function (n) { return (n < 10 ? '0' : '') + n; };
     var d = new Date();
@@ -47,13 +46,8 @@
 
     log('открываю конструктор', url);
 
-    var content =
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:#0F1622;border-bottom:1px solid #22304A;">' +
-      '<span style="color:#E7EDF8;font-size:13px;font-weight:700;">Коммерческое предложение ' + (dealId ? '№ ' + num : '') + '</span>' +
-      '<a href="' + url + '" target="_blank" style="color:#7FD1FF;font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px;background:#141D2C;padding:6px 12px;border:1px solid #22304A;border-radius:6px;">' +
-      '↗ Открыть в новой вкладке во весь экран</a>' +
-      '</div>' +
-      '<iframe src="' + url + '" style="width:100%;height:85vh;border:0;display:block;background:#070A10;"></iframe>';
+    var content = '<iframe src="' + url +
+      '" style="width:100%;height:85vh;border:0;display:block"></iframe>';
 
     var w = W();
     try {
@@ -72,15 +66,13 @@
 
   if (btn) btn.onclick = open;
 
-  /* Клик по кнопке сделки в CRM */
   window.addEventListener('message', function (event) {
     if (event.data && event.data.type === 'kp-btn:click') {
-      log('клик получен, открываю…');
+      log('клик по кнопке сделки');
       open();
     }
   }, false);
 
-  /* Регистрация кнопки через функцию */
   function register() {
     var w = W();
     if (!w || typeof w.init !== 'function') return;
@@ -91,7 +83,7 @@
           params = params || {};
           dealId   = String(params.dealID   || params.deal_id   || params.dealId   || dealId   || '');
           clientId = String(params.clientID || params.client_id || params.clientId || clientId || '');
-          log('params кнопки получены', params);
+          log('params кнопки', params);
 
           return [{
             title: 'Сформировать КП',
