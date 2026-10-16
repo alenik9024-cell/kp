@@ -2,122 +2,123 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>КП — виджет</title>
-  <script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
+  <title>Коммерческое предложение</title>
   <style>
-    body{margin:0;padding:12px;box-sizing:border-box;background:#fff;color:#2b2b2b;
-         font:13px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
-    #kpBtn{display:block;width:100%;padding:13px 16px;border:0;border-radius:10px;
-           background:#2F6BFF;color:#fff;font:600 14px/1 inherit;cursor:pointer}
-    #kpBtn:hover{background:#1f57e0}
-    #st{margin-top:10px;font-size:12px;line-height:1.6;color:#666}
-    .ok{color:#0a7d33;font-weight:600}
+    html,body{margin:0;height:100%;background:#fff;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    body{display:flex;flex-direction:column}
+    #kpBar{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;
+           background:#101722;border-bottom:1px solid #26324a;color:#e8edf5}
+    #kpBar button{padding:10px 14px;border-radius:10px;border:1px solid #33415c;background:#182233;
+                  color:#e8edf5;cursor:pointer;font:600 13px/1 inherit}
+    #kpBar button:hover{background:#1f2b40}
+    #kpBar button.primary{background:#2F6BFF;border-color:#2F6BFF;color:#fff}
+    #kpBar button.primary:hover{background:#1f57e0}
+    #kpBar .sp{flex:1}
+    #kpNote{font:13px/1.35 inherit;color:#7ee0a0;max-width:46%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #kpNote.err{color:#ff8b8b}
+    #kp-frame{flex:1;width:100%;border:0;display:block}
   </style>
 </head>
 <body>
 
-<button id="kpBtn" type="button">📄 Сформировать КП</button>
-<div id="st">запуск…</div>
+  <div id="kpBar">
+    <button type="button" class="primary" id="btnChat">📩 В чат сделки</button>
+    <button type="button" id="btnMail">✉️ На e-mail</button>
+    <button type="button" id="btnPrint">💾 Скачать КП</button>
+    <button type="button" id="btnCopy">📋 Текст</button>
+    <span class="sp"></span>
+    <span id="kpNote"></span>
+  </div>
+
+  <iframe id="kp-frame" src="kp.html"></iframe>
 
 <script>
 (function () {
   'use strict';
 
-  var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp-constructor.html';
+  var params = new URLSearchParams(location.search);
+  var dealId     = params.get('deal_id') || '';
+  var clientName = params.get('client_name') || '';
+  var clientPhone = params.get('client_phone') || '';
+  var kpNum      = params.get('num') || '';
 
-  var st  = document.getElementById('st');
-  var btn = document.getElementById('kpBtn');
+  var frame = document.getElementById('kp-frame');
 
-  var dealId = '', clientId = '', clientName = '';
+  function note(msg, cls) {
+    var n = document.getElementById('kpNote');
+    if (n) { n.textContent = msg || ''; n.className = cls || ''; }
+  }
 
-  function W() { return window.EnvyCrmWidget; }
+  function doc() { try { return frame.contentDocument || frame.contentWindow.document || null; } catch (e) { return null; } }
+  function win() { try { return frame.contentWindow; } catch (e) { return null; } }
 
-  function cleanName(n) {
-    if (!n || typeof n !== 'string') return '';
-    if (n.indexOf('*') !== -1) {
-      var p = n.split('*');
-      return (p[1] && p[1].trim()) ? p[1].trim() : (p[0] ? p[0].trim() : '');
+  function formatPhone(p) {
+    if (!p) return '';
+    var d = String(p).replace(/\D/g, '');
+    if (d.length === 11 && (d[0] === '7' || d[0] === '8')) {
+      return '+7 (' + d.slice(1, 4) + ') ' + d.slice(4, 7) + '-' + d.slice(7, 9) + '-' + d.slice(9, 11);
     }
-    return n.trim();
+    return p;
   }
 
-  function open(sourceParams) {
-    if (sourceParams) {
-      dealId   = String(sourceParams.dealID   || sourceParams.deal_id   || sourceParams.dealId   || dealId   || '');
-      clientId = String(sourceParams.clientID || sourceParams.client_id || sourceParams.clientId || clientId || '');
-      var raw = (sourceParams.deal && (sourceParams.deal.client_name || sourceParams.deal.name)) || sourceParams.client_name || clientName || '';
-      clientName = cleanName(raw);
+  function applyToKp() {
+    var w = win();
+    var d = doc();
+    if (!w || !d) return;
+
+    var phone = formatPhone(clientPhone);
+
+    if (w.state) {
+      if (clientName) w.state.client = clientName;
+      if (phone) w.state.clientContact = phone;
+      if (kpNum) w.state.docNumber = kpNum;
+      if (typeof w.save === 'function') { try { w.save(); } catch (e) {} }
     }
 
-    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-    var d = new Date();
-    var num = dealId ? (dealId + '/' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1)) : '';
-
-    var url = CONSTRUCTOR_URL +
-      (dealId     ? '?deal_id='     + encodeURIComponent(dealId)     : '?') +
-      (clientId   ? '&client_id='   + encodeURIComponent(clientId)   : '') +
-      (clientName ? '&client_name=' + encodeURIComponent(clientName) : '') +
-      (num        ? '&num='         + encodeURIComponent(num)        : '');
-
-    var content = '<iframe src="' + url + '" style="width:100%;height:88vh;border:0;display:block"></iframe>';
-
-    var w = W();
-    try {
-      if (w && typeof w.openPage === 'function') {
-        w.openPage({ content: content });
-        return;
-      }
-      if (w && typeof w.openModal === 'function') {
-        w.openModal({ title: 'Коммерческое предложение', content: content, width: 1250 });
-        return;
-      }
-    } catch (e) {}
-
-    window.open(url, '_blank');
-  }
-
-  if (btn) btn.onclick = function() { open(null); };
-
-  window.addEventListener('message', function (event) {
-    if (event.data && event.data.type === 'kp-btn:click') {
-      open(event.data);
+    var inClient = d.querySelector('[data-bind="client"]');
+    if (inClient && clientName) {
+      inClient.value = clientName;
+      inClient.dispatchEvent(new Event('input', { bubbles: true }));
     }
-  }, false);
 
-  function register() {
-    var w = W();
-    if (!w || typeof w.init !== 'function') return;
+    var inPhone = d.querySelector('[data-bind="clientContact"]');
+    if (inPhone && phone) {
+      inPhone.value = phone;
+      inPhone.dispatchEvent(new Event('input', { bubbles: true }));
+    }
 
-    try {
-      w.init({
-        'deal-btn': function (params) {
-          params = params || {};
-          dealId   = String(params.dealID   || params.deal_id   || params.dealId   || dealId   || '');
-          clientId = String(params.clientID || params.client_id || params.clientId || clientId || '');
-          var raw = (params.deal && (params.deal.client_name || params.deal.name)) || '';
-          clientName = cleanName(raw);
+    var inNum = d.querySelector('[data-bind="docNumber"]');
+    if (inNum && kpNum) {
+      inNum.value = kpNum;
+      inNum.dispatchEvent(new Event('input', { bubbles: true }));
+    }
 
-          return [{
-            title: 'Сформировать КП',
-            styles: { color: '#fff', 'background-color': '#2F6BFF' },
-            icon: 'md-description',
-            clickEventName: 'kp-btn:click',
-            position: ['first'],
-            name: 'kp-btn'
-          }];
-        }
-      });
-      if (st) st.innerHTML = '<span class="ok">Кнопка активна</span>';
-    } catch (e) {}
+    if (typeof w.renderDoc === 'function') { try { w.renderDoc(); } catch (e) {} }
+
+    note(clientName ? clientName + (phone ? ' · ' + phone : '') : 'контакт не передан из CRM', clientName ? '' : 'err');
   }
 
-  function wait(n) {
-    if (W()) { register(); return; }
-    if (n >= 50) return;
-    setTimeout(function () { wait(n + 1); }, 100);
-  }
+  frame.addEventListener('load', applyToKp);
 
-  wait(0);
+  document.getElementById('btnPrint').onclick = function () {
+    var w = win();
+    if (w) { w.focus(); w.print(); }
+  };
+
+  document.getElementById('btnCopy').onclick = function () {
+    var text = 'КП' + (kpNum ? ' № ' + kpNum : '') + (clientName ? ' для: ' + clientName : '');
+    navigator.clipboard.writeText(text).then(function () {
+      note('Краткий текст скопирован', '');
+    });
+  };
+
+  document.getElementById('btnChat').onclick = function () {
+    note('Отправка в чат сделки пока не подключена', 'err');
+  };
+
+  document.getElementById('btnMail').onclick = function () {
+    note('Отправка на e-mail пока не подключена', 'err');
+  };
 })();
 </script>
 
