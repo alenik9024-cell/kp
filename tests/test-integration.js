@@ -1,0 +1,10 @@
+'use strict';
+const fs=require('node:fs'), assert=require('node:assert/strict'),vm=require('node:vm');
+const html=fs.readFileSync(require('node:path').join(__dirname,'../kp.html'),'utf8');
+assert.match(html, /src="kp-plan.js"/, 'plan module loaded before app');
+assert.match(html,/function planEditor\(/);
+assert.match(html,/KPPlan.renderPlan/);
+assert.match(html,/function validateDraft\(/);
+assert.ok(html.includes('.sec>h2{break-after:avoid}'),'print section headings stay with their content');
+for(const [,script] of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) new vm.Script(script);
+console.log('PASS: plan editor/document/import integration and all inline JavaScript syntax');

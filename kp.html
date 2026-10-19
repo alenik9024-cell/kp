@@ -240,6 +240,45 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
   .doc{width:auto;min-height:auto;margin:0;border:0;border-radius:0;box-shadow:none}
   .svc,.exblock,.totals,.terms,.sec,.dhead{break-inside:avoid}
 }
+/* Structured sales proposal: editor and client composition stay separate. */
+.main{grid-template-columns:minmax(520px,40%) minmax(0,1fr)}
+.editor,.preview,.grid2>*{min-width:0}
+.plan-editor{margin-top:16px;border-top:2px solid var(--blue);padding-top:12px}
+.plan-editor summary{cursor:pointer;font-weight:650;padding:10px 0}
+.plan-editor label{display:block;color:var(--mut);font-size:12px;margin:8px 0}
+.plan-editor textarea,textarea[data-f=desc]{min-height:110px}
+.plan-editor textarea.big{min-height:150px}
+.plan-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}
+.plan-actions input[type=checkbox]{width:auto}
+.plan-section{border-top:1px solid var(--line);margin-top:12px}
+.plan-row{border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 0;background:var(--panel)}
+.sales-service{margin:18px 0 24px;overflow-wrap:anywhere}
+.sales-band{padding:15px 18px;background:var(--stripe);color:#fff;font-size:17px;font-weight:750;border-radius:10px 10px 0 0;break-after:avoid}
+.sales-summary{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:18px;padding:18px;border:1px solid var(--dline);background:var(--surf);break-inside:avoid}
+.sales-service h3{font-size:13px;margin:0 0 8px;color:var(--dhtxt)}
+.sales-service h3:not(:first-child){margin-top:16px}
+.plan-copy{white-space:pre-wrap;font-size:12px;line-height:1.65;color:var(--dbody);margin:8px 0}
+.sales-price{align-self:start;padding:16px 12px;border:2px solid var(--blue);border-radius:10px;background:rgba(var(--accRgb),.12)}
+.sales-price span,.sales-price small{display:block;font-size:11px;color:var(--dmut);white-space:pre-wrap}
+.sales-price b{display:block;font-size:21px;color:var(--dhtxt);margin:8px 0}
+.implementation-plan{border:2px solid rgba(var(--accRgb),.45);padding:16px;margin-top:16px;border-radius:12px}
+.plan-group h4{font-size:13px;color:var(--dhtxt);margin:18px 0 8px;break-after:avoid}
+.plan-stage{border:1px solid var(--dline);border-left:4px solid var(--blue);border-radius:8px;margin:10px 0;background:var(--surf);break-inside:avoid}
+.plan-stage h5{margin:0;padding:10px 12px;font-size:12px;color:var(--dhtxt);background:rgba(var(--accRgb),.16);break-after:avoid}
+.plan-stage dl{margin:0;padding:8px 12px;font-size:11px}
+.plan-stage dl>div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;padding:5px 0}
+.plan-stage dt{color:var(--dmut);font-weight:650}
+.plan-stage dd{margin:0;white-space:pre-wrap;color:var(--dbody)}
+@media(max-width:1300px){.main{grid-template-columns:1fr}.editor{max-height:55vh}.preview{min-height:0}}
+@media(max-width:600px){.appbar{flex-wrap:wrap}.editor{padding:8px}.grid2,.ctrl.c3{grid-template-columns:1fr}.row-head{flex-wrap:wrap}.row-head input{flex:1;min-width:160px}.doc{width:100%;padding:16px}.preview{padding:8px}.dhead,.recip,.sales-summary{grid-template-columns:1fr}.dmeta{text-align:left}.plan-stage dl>div{grid-template-columns:1fr;gap:2px}.brand{flex-wrap:wrap}}
+@page{size:A4;margin:10mm}
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .main{display:block}.doc{width:100%;padding:0;overflow:visible}.sec,.sales-service,.implementation-plan,.plan-group{break-inside:auto}
+  .sales-summary{grid-template-columns:minmax(0,1fr) 170px}.plan-stage dl>div{grid-template-columns:120px minmax(0,1fr)}
+  .sec>h2{break-after:avoid}
+  .sales-band,.plan-group h4,.implementation-plan>h3{break-after:avoid}.plan-stage{box-decoration-break:clone}
+}
 </style>
 </head>
 <body>
@@ -385,6 +424,7 @@ td .w{display:block;color:var(--dmut);font-size:10.5px;font-weight:400;margin-to
 
 <div class="toast" id="toast"></div>
 
+<script src="kp-plan.js"></script>
 <script>
 var $ = function(s){ return document.querySelector(s); };
 var uid = function(){ return Math.random().toString(36).slice(2,9); };
@@ -757,6 +797,14 @@ function exPriceHTML(e){
 function cards(list, cls){
   var h = '';
   list.forEach(function(s, i){
+    if (KPPlan.isPlanItem(s)) {
+      if (!s.plan) s.plan = KPPlan.migrateItem(s).plan;
+      h += '<section class="sales-service"><header class="sales-band">' + esc(s.title) + '</header>' +
+        '<div class="sales-summary"><div><h3>Что входит</h3><p class="plan-copy">' + esc(s.desc) + '</p>' +
+        '<h3>Ценность для бизнеса</h3><p class="plan-copy">' + esc(s.plan.value) + '</p></div>' +
+        '<aside class="sales-price"><span>Стоимость</span>' + priceHTML(s) + '</aside></div>' + KPPlan.renderPlan(s.plan) + '</section>';
+      return;
+    }
     h += '<div class="svc ' + cls + '"><div><div class="t"><span class="n">' + (i+1) + '</span>' +
          esc(s.title || 'Позиция') + tagHTML(s) + '</div>';
     if (String(s.desc || '').trim()) h += '<p class="d">' + esc(s.desc) + '</p>';
@@ -911,6 +959,25 @@ function renderDoc(){
   $('#doc').innerHTML = h;
 }
 
+function planEditor(s){
+  if (!KPPlan.isPlanItem(s)) return '';
+  if (!s.plan) s.plan = KPPlan.migrateItem(s).plan;
+  var p=s.plan, h='<details class="plan-editor" open><summary>План отдела продаж</summary><p class="hint">Настройки ниже — только для менеджера, в КП не выводятся. Сроки и критерии согласуйте с клиентом.</p><div class="grid2">';
+  Object.keys(KPPlan.config).forEach(function(k){
+    h+='<label>'+KPPlan.configLabels[k]+'<select data-plan-config="'+k+'">';
+    Object.keys(KPPlan.config[k]).forEach(function(v){h+='<option value="'+v+'"'+(p.config[k]===v?' selected':'')+'>'+KPPlan.config[k][v]+'</option>';});h+='</select></label>';
+  });
+  h+='</div><div class="plan-actions"><button class="btn" data-plan-action="preset">Обновить типовые тексты</button><button class="btn" data-plan-action="reset">Сбросить план…</button></div><p class="hint">Обновление сохраняет ручные правки, порядок, скрытые и удалённые строки. Сброс заменяет весь план после подтверждения.</p>';
+  [['objective','Цель проекта'],['value','Ценность для бизнеса']].forEach(function(f){h+='<label>'+f[1]+'<textarea class="big" data-plan-text="'+f[0]+'">'+esc(p[f[0]])+'</textarea></label>';});
+  Object.keys(KPPlan.groups).forEach(function(g){
+    h+='<details class="plan-section"><summary>'+KPPlan.groups[g]+' · '+p[g].length+'</summary><div data-plan-group="'+g+'">';
+    p[g].forEach(function(r){h+='<div class="plan-row" data-plan-row="'+esc(r.id)+'"><div class="plan-actions"><label><input type="checkbox" data-plan-visible'+(r.visible?' checked':'')+'> Включить в КП</label>';
+      [['up','↑ Выше'],['down','↓ Ниже'],['delete','Удалить']].forEach(function(a){h+='<button class="btn mini" data-plan-action="'+a[0]+'">'+a[1]+'</button>';});h+='</div>';
+      Object.keys(KPPlan.fields).forEach(function(k){h+='<label>'+KPPlan.fields[k]+'<textarea data-plan-field="'+k+'">'+esc(r[k])+'</textarea></label>';});h+='</div>';});
+    h+='<button class="btn dashed" data-plan-action="add">+ Добавить строку</button></div></details>';
+  });return h+'</details>';
+}
+
 function itemRow(s, i, kind){
   var isEx = (kind === 'ex');
   var isShare = (s.mode === 'share');
@@ -952,18 +1019,25 @@ function itemRow(s, i, kind){
     ? '<input data-f="note" placeholder="Комментарий (необязательно)" value="' + esc(s.note || '') + '">'
     : '<textarea data-f="desc" placeholder="Краткое описание">' + esc(s.desc) + '</textarea>';
 
-  return '<div class="row" data-id="' + s.id + '">' + head +
+  return '<div class="row" data-id="' + esc(s.id) + '">' + head +
     '<div class="row-tools">' +
     '<button class="btn mini" data-act="save" title="Сохранить в каталог">\u2605</button>' +
     '<button class="btn mini" data-act="up" title="Выше">\u2191</button>' +
     '<button class="btn mini" data-act="down" title="Ниже">\u2193</button>' +
     '<button class="btn mini" data-act="del" title="Удалить">\u2715</button>' +
     '</div></div>' +
-    note + r + '</div>';
+    note + r + (kind === 'svc' ? planEditor(s) : '') + '</div>';
 }
 
 function renderLists(){
+  var expanded={};
+  document.querySelectorAll('#servicesEditor [data-id]').forEach(function(row){
+    expanded[row.dataset.id]=Array.from(row.querySelectorAll('.plan-section[open] [data-plan-group]')).map(function(el){return el.dataset.planGroup;});
+  });
   $('#servicesEditor').innerHTML = state.services.map(function(s,i){ return itemRow(s,i,'svc'); }).join('');
+  document.querySelectorAll('#servicesEditor [data-id]').forEach(function(row){
+    row.querySelectorAll('[data-plan-group]').forEach(function(el){if((expanded[row.dataset.id]||[]).indexOf(el.dataset.planGroup)>=0) el.parentElement.open=true;});
+  });
   $('#partnerEditor').innerHTML = state.partner.map(function(s,i){ return itemRow(s,i,'prt'); }).join('');
   $('#extrasEditor').innerHTML = state.extras.map(function(s,i){ return itemRow(s,i,'ex'); }).join('');
   $('#cntServices').textContent = state.services.length;
@@ -1071,6 +1145,17 @@ function findItem(row){
   return item;
 }
 function syncField(e){
+  if (e.target.closest('.plan-editor')) {
+    var item=findItem(e.target.closest('[data-id]')), p=item.plan, el=e.target;
+    if(el.hasAttribute('data-plan-config')) p.config[el.dataset.planConfig]=el.value;
+    if(el.hasAttribute('data-plan-text')) p[el.dataset.planText]=el.value;
+    if(el.hasAttribute('data-plan-field') || el.hasAttribute('data-plan-visible')) {
+      var g=el.closest('[data-plan-group]').dataset.planGroup, id=el.closest('[data-plan-row]').dataset.planRow;
+      var r=p[g].find(function(x){return x.id===id;});
+      if(el.hasAttribute('data-plan-visible')) r.visible=el.checked; else r[el.dataset.planField]=el.value;
+    }
+    save(); renderDoc(); return false;
+  }
   var f = e.target.getAttribute('data-f');
   if (!f) return false;
   var row = e.target.closest('[data-id]');
@@ -1086,6 +1171,23 @@ editor.addEventListener('input', function(e){ syncField(e); });
 editor.addEventListener('change', function(e){ if (syncField(e)) renderLists(); });
 
 editor.addEventListener('click', function(e){
+  var planButton=e.target.closest('[data-plan-action]');
+  if(planButton){
+    var item=findItem(planButton.closest('[data-id]')), p=item.plan, action=planButton.dataset.planAction;
+    if(action==='preset' || action==='reset') {
+      if(action==='reset' && !confirm('Заменить весь план типовым? Ручные правки будут удалены.')) return;
+      item.plan=KPPlan.applyPreset(p,action==='reset');
+    } else {
+      var group=planButton.closest('[data-plan-group]').dataset.planGroup, rows=p[group];
+      if(action==='add') {var r={id:uid(),visible:true};Object.keys(KPPlan.fields).forEach(function(k){r[k]='';});rows.push(r);}
+      else {
+        var id=planButton.closest('[data-plan-row]').dataset.planRow, index=rows.findIndex(function(r){return r.id===id;});
+        if(action==='delete') rows.splice(index,1);
+        else {var next=index+(action==='up'?-1:1);if(next>=0 && next<rows.length){var moved=rows.splice(index,1)[0];rows.splice(next,0,moved);}}
+      }
+    }
+    save(); renderLists(); renderDoc(); return;
+  }
   var deluc = e.target.closest('[data-delucat]');
   if (deluc){
     var parts = deluc.getAttribute('data-delucat').split(':');
@@ -1126,7 +1228,7 @@ editor.addEventListener('click', function(e){
     var kind = pickId === '#svcPick' ? 'svc' : pickId === '#prtPick' ? 'prt' : 'ex';
     var src = catalogFor(kind);
     var dst = kind === 'svc' ? state.services : kind === 'prt' ? state.partner : state.extras;
-    (src[cat] || []).forEach(function(it){ dst.push(Object.assign({}, it, { id: uid() })); });
+    (src[cat] || []).forEach(function(it){ dst.push(Object.assign(KPPlan.migrateItem(it), { id: uid() })); });
     save(); renderLists(); renderDoc();
     return;
   }
@@ -1162,7 +1264,7 @@ function addFromPicker(pickId, kind, dst, boxId){
   var catalog = catalogFor(kind);
   var item = catalog[parts[0]] ? catalog[parts[0]][Number(parts[1])] : null;
   if (!item) return;
-  dst.push(Object.assign({}, item, { id: uid() }));
+  dst.push(Object.assign(KPPlan.migrateItem(item), { id: uid() }));
   save(); renderLists(); renderDoc();
   $(pickId).value = '';
   var box = $(boxId);
@@ -1197,10 +1299,25 @@ $('#btnBgSave').addEventListener('click', function(){
 });
 
 var KEY = 'speshu_kp_builder_v9';
-function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(_){} }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(_){ toast('Не удалось сохранить черновик. Экспортируйте JSON, чтобы не потерять правки.'); } }
+function validateDraft(d){
+  if(!d || typeof d!=='object' || !Array.isArray(d.services)) throw Error('Некорректное КП');
+  ['services','partner','extras'].forEach(function(k){
+    if(d[k]==null) d[k]=[];
+    if(!Array.isArray(d[k]) || d[k].length>500) throw Error('Некорректный список');
+    d[k]=d[k].map(function(s){
+      if(!s || typeof s!=='object' || typeof s.title!=='string') throw Error('Некорректная услуга');
+      var out=KPPlan.migrateItem(s); out.id=uid(); return out;
+    });
+  });
+  if(d.bgSaves!=null && !Array.isArray(d.bgSaves)) throw Error('Некорректные фоны');
+  (d.bgSaves||[]).forEach(function(s){if(!s || typeof s.id!=='string' || !/^[a-zA-Z0-9_-]+$/.test(s.id) || !/^#[0-9a-f]{6}$/i.test(s.base)) throw Error('Некорректный фон');});
+  ['themeAccent','themeStripe','bgCustom'].forEach(function(k){if(d[k] && !/^#[0-9a-f]{6}$/i.test(d[k])) throw Error('Некорректный цвет');});
+  return d;
+}
 function load(){
   try { var raw = localStorage.getItem(KEY); if (!raw) return null;
-        var d = JSON.parse(raw); return (d && d.services) ? d : null; } catch(_){ return null; }
+        return validateDraft(JSON.parse(raw)); } catch(_){ toast('Черновик не загружен: некорректный формат. Сохранённые данные не удалены.'); return null; }
 }
 $('#btnExport').addEventListener('click', function(){
   var blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
@@ -1215,8 +1332,7 @@ $('#fileImport').addEventListener('change', function(e){
   r.onload = function(){
     try {
       var d = JSON.parse(r.result);
-      if (!d.services){ alert('Файл не похож на сохранённое КП.'); return; }
-      state = Object.assign(defaults(), d); save(); location.reload();
+      state = Object.assign(defaults(), validateDraft(d)); save(); location.reload();
     } catch(_){ alert('Не удалось прочитать файл.'); }
   };
   r.readAsText(f);
