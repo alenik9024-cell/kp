@@ -12,7 +12,8 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v14';
+  function boot() {
+  var VERSION = 'v15';
   var CONSTRUCTOR_URL = 'https://alenik9024-cell.github.io/kp/kp.html';
   var STORAGE_KEY = 'kp_current_deal_context';
 
@@ -22,8 +23,9 @@
     console.log('[KP ' + VERSION + '] ' + message, data || '');
   }
 
-  if (!w) {
-    log('EnvyCrmWidget не загрузилась');
+  if (!w || typeof w.init !== 'function') {
+    log('EnvyCrmWidget ещё не готова, повторная попытка');
+    setTimeout(boot, 250);
     return;
   }
 
@@ -341,6 +343,9 @@
   } catch (error) {
     log('ошибка регистрации кнопки', error);
   }
+  }
+
+  boot();
 })();
 </script>
 
