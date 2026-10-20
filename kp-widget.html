@@ -129,6 +129,9 @@
   var BUTTON_NAME = 'kp-btn-1';
   var BUTTON_EVENT = 'kp-btn:click';
   var attempts = 0;
+  // The CRM supplies the current deal context when it asks for blocks.
+  // Keep it so a click never waits on a possibly unresolved getDeal request.
+  var lastDealContext = null;
 
   function register() {
     var w = window.EnvyCrmWidget;
@@ -138,7 +141,8 @@
     }
     try {
       w.init({
-        'deal-btn': function () {
+        'deal-btn': function (params) {
+          lastDealContext = params || null;
           return [{
             title: 'Сформировать КП',
             styles: { color: '#fff', 'background-color': '#2F6BFF' },
@@ -155,22 +159,27 @@
     }
   }
 
+  function findDealId(value, depth) {
+    if (!value || depth > 3 || typeof value !== 'object') return '';
+    for (var key in value) {
+      if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+      if (/^(id|deal_id|dealId)$/i.test(key) && value[key] != null) return String(value[key]);
+    }
+    for (var nested in value) {
+      if (!Object.prototype.hasOwnProperty.call(value, nested)) continue;
+      var found = findDealId(value[nested], depth + 1);
+      if (found) return found;
+    }
+    return '';
+  }
+
   window.addEventListener('message', function (event) {
     if (!event.data || event.data.type !== BUTTON_EVENT) return;
-    var w = window.EnvyCrmWidget;
-    var dealId = '';
-    try {
-      if (w && typeof w.getDeal === 'function') {
-        w.getDeal().then(function (deal) {
-          deal = deal || {};
-          var d = deal.result || deal;
-          dealId = d.id || d.deal_id || '';
-          openConstructor(dealId);
-        }).catch(function () { openConstructor(''); });
-      } else {
-        openConstructor('');
-      }
-    } catch (e) { openConstructor(''); }
+    // Do not await getDeal here: the CRM request can remain pending and leave
+    // the user with no visible response. The SDK's documented button callback
+    // already receives the current block context; use it when available.
+    var dealId = findDealId(event.data, 0) || findDealId(lastDealContext, 0);
+    openConstructor(dealId);
   }, false);
 
   function openConstructor(dealId) {
@@ -179,8 +188,24 @@
     var content = '<iframe src="' + url + '" style="width:100%;height:calc(100vh - 70px);min-height:600px;border:0" allowfullscreen></iframe>';
     var w = window.EnvyCrmWidget;
     try {
-      if (w && typeof w.openPage === 'function') { w.openPage({ content: content }); return; }
-      if (w && typeof w.openModal === 'function') { w.openModal({ title: 'Конструктор КП', content: content, width: 1150 }); return; }
+      if (w && typeof w.openPage === 'function') {
+        var page = w.openPage({ content: content });
+        if (page && typeof page.catch === 'function') {
+          page.catch(function () {
+            if (w && typeof w.openModal === 'function') {
+              w.openModal({ title: 'Конструктор КП', content: content, width: 1150 });
+            } else {
+              window.open(url, '_blank');
+            }
+          });
+        }
+        return;
+      }
+      if (w && typeof w.openModal === 'function') {
+        var modal = w.openModal({ title: 'Конструктор КП', content: content, width: 1150 });
+        if (modal && typeof modal.catch === 'function') modal.catch(function () { window.open(url, '_blank'); });
+        return;
+      }
     } catch (e) {}
     window.open(url, '_blank');
   }
