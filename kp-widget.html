@@ -122,5 +122,72 @@
 })();
 </script>
 
+<script src="https://cdn.saas-support.com/crm_assets/build/widget/js/envycrmwidget.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  var BUTTON_NAME = 'kp-btn-1';
+  var BUTTON_EVENT = 'kp-btn:click';
+  var attempts = 0;
+
+  function register() {
+    var w = window.EnvyCrmWidget;
+    if (!w || typeof w.init !== 'function') {
+      if (attempts++ < 80) setTimeout(register, 250);
+      return;
+    }
+    try {
+      w.init({
+        'deal-btn': function () {
+          return [{
+            title: 'Сформировать КП',
+            styles: { color: '#fff', 'background-color': '#2F6BFF' },
+            icon: 'md-description',
+            clickEventName: BUTTON_EVENT,
+            position: ['first'],
+            name: BUTTON_NAME
+          }];
+        }
+      });
+      console.log('[KP v16] кнопка зарегистрирована');
+    } catch (error) {
+      console.error('[KP v16] ошибка регистрации кнопки', error);
+    }
+  }
+
+  window.addEventListener('message', function (event) {
+    if (!event.data || event.data.type !== BUTTON_EVENT) return;
+    var w = window.EnvyCrmWidget;
+    var dealId = '';
+    try {
+      if (w && typeof w.getDeal === 'function') {
+        w.getDeal().then(function (deal) {
+          deal = deal || {};
+          var d = deal.result || deal;
+          dealId = d.id || d.deal_id || '';
+          openConstructor(dealId);
+        }).catch(function () { openConstructor(''); });
+      } else {
+        openConstructor('');
+      }
+    } catch (e) { openConstructor(''); }
+  }, false);
+
+  function openConstructor(dealId) {
+    var url = 'https://alenik9024-cell.github.io/kp/kp-constructor.html' +
+      (dealId ? '?deal_id=' + encodeURIComponent(dealId) : '');
+    var content = '<iframe src="' + url + '" style="width:100%;height:calc(100vh - 70px);min-height:600px;border:0" allowfullscreen></iframe>';
+    var w = window.EnvyCrmWidget;
+    try {
+      if (w && typeof w.openPage === 'function') { w.openPage({ content: content }); return; }
+      if (w && typeof w.openModal === 'function') { w.openModal({ title: 'Конструктор КП', content: content, width: 1150 }); return; }
+    } catch (e) {}
+    window.open(url, '_blank');
+  }
+
+  register();
+})();
+</script>
+
 </body>
 </html>
